@@ -68,6 +68,8 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 
 `public/assets/ui-racing/` 使用内置图片生成能力制作，主菜单背景和摩托选车图为原创生成的写实竞速画面，车辆无品牌，城市建筑不作为实景复原。图片使用 WebP 编码压缩，提示词、原始生成文件及转换方式记录在 `hero-generation.json`。
 
+首页字标 `freedom-title-v1.webp` 于 2026 年 10 月 31 日使用内置 `image_gen` 原创生成，为「追逐最后的自由」透明笔刷艺术字，以暖白和荧光黄分层；作为图片使用，不引入第三方字体文件。生成提示词与无损 WebP 转换记录见 `freedom-title-generation.json`。
+
 五座城市的关卡地图由真实地图参考进行风格化生成，记录在 `maps/map-generation.json`；精确地理范围、来源链接和署名保存在 `references/metadata.json`。北京参考仓库已有 OpenStreetMap 四环道路数据与 SVG，继续标明 © OpenStreetMap 贡献者和 ODbL 1.0。上海、重庆、东京和洛杉矶以 Esri World Street Map 的单张静态地图作为事实地理参考，数据与渲染版权仍归 Esri 及其数据提供者，不宣称 CC0 或其他开放许可。
 
 仅生成的地图美术、提示词和参考元数据随静态产物发布；有版权的原始地图参考图片在本机归档，不作为上线图片分发。生成时保留主要道路、水系与海岸的方位关系，重新绘制材质、灯光和色彩，不复用源图标注、标志或图例。生成图是艺术化关卡封面，不作为测绘成果、精确导航地图或实际可玩城市的承诺。

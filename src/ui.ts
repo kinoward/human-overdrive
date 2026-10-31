@@ -8,6 +8,7 @@ import { raceHud, RaceHudController } from './ui-race';
 import { raceCinematic, RaceCinematicController } from './ui-cinematic';
 import './style.css';
 import './ui-motion.css';
+import './ui-home.css';
 
 interface UICallbacks {
   onStart: (vehicleId: VehicleId, nickname: string) => Promise<void>;
@@ -402,7 +403,7 @@ export class GameUI {
   }
 
   private home() {
-    return `<main class="menu-stage home-main"><section class="title-menu"><h1 aria-label="追逐最后的自由">追逐<span>最后的自由</span></h1><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
+    return `<main class="menu-stage home-main"><section class="home-heading"><p class="home-kicker"><i aria-hidden="true"></i>城市追逐<span>雨夜突围</span></p><h1 class="home-title" aria-label="追逐最后的自由"><img src="${assetUrl('assets/ui-racing/freedom-title-v1.webp')}" alt="" aria-hidden="true" fetchpriority="high"/></h1><p class="home-tagline">把追捕甩在身后。</p><div class="home-actions"><button class="menu-button home-start" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary home-options" data-action="options">${uiIcon('options')}<span>选项</span></button></div></section><div class="home-footer"><span class="home-challenge"><i aria-hidden="true"></i>20 公里 · 冲出追捕</span><span class="home-controls">WASD / 方向键驾驶</span></div><button class="corner-sound home-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
   }
 
   private cityCardBody(city: CityConfig, active: boolean) {

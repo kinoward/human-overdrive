@@ -1,0 +1,13 @@
+{
+  "用途": "游戏首页中文艺术字标题",
+  "文字": "追逐最后的自由",
+  "日期": "2026-10-31",
+  "工具": "内置 image_gen",
+  "输出": "freedom-title-v1.webp",
+  "处理": "原始透明 PNG 使用 Pillow 无损转为 WebP，保留透明通道；RGBA 逐像素一致，未重绘或修改内容",
+  "尺寸": [
+    1586,
+    992
+  ],
+  "提示词": "Use case: logo-brand.\nAsset type: transparent Chinese wordmark for the homepage of a cinematic urban chase driving game. Generate only the lettering asset, not a webpage or a poster.\nText (verbatim): \"追逐最后的自由\". Exactly these seven Chinese characters: 追、逐、最、后、的、自、由. No other text.\nStyle: premium film-title hand lettering with expressive bold Chinese brush calligraphy; sharp, energetic, confident strokes, a slight forward-right motion, restrained authentic dry-brush gaps and a few purposeful tapering brush tails. Highly readable exact characters, not generic typed typography.\nComposition: two tiers as a single balanced compact logo, overall aspect about 1.6:1. Upper tier \"追逐最后的\" in smaller warm-white brush characters. Lower tier \"自由\" in very large acid yellow #dcf45b brush lettering; the two large characters occupy roughly 60% of logo height and have approximately the same total width as the five-character upper tier. Designed for the left side of a dark rainy-night SUV chase game home screen. Keep all strokes fully inside the image with 8% transparent safety margin around the logo.\nBackground: genuinely transparent alpha channel. All negative spaces and dry brush holes must also be transparent.\nConstraints: only the Chinese wordmark; no vehicle, scene, backdrop, background rectangle, shadow panel, checkerboard pattern, gray or white background, English, logo icon, extra characters, border, neon glow, bloom, watermark, captions, or additional slogan. The white upper row and yellow lower row should be crisp and bold when displayed on a black or dark blue game screen."
+}
