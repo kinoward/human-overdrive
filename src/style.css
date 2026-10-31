@@ -99,7 +99,7 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .selection-title { position: absolute; top: calc(45 * var(--u)); left: calc(103 * var(--u)); display: flex; align-items: baseline; gap: calc(24 * var(--u)); }
 .selection-title h1 { font-size: calc(27 * var(--u)); font-style: italic; font-weight: 750; margin: 0; letter-spacing: calc(2 * var(--u)); }
 .selection-title > span { color: #728b9b; font-size: calc(10 * var(--u)); }
-.city-deck { position: absolute; left: calc(80 * var(--u)); right: calc(45 * var(--u)); top: calc(130 * var(--u)); height: calc(505 * var(--u)); display: flex; align-items: center; gap: calc(28 * var(--u)); padding: calc(27 * var(--u)) calc(25 * var(--u)) calc(35 * var(--u)) calc(65 * var(--u)); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #56718466 transparent; }
+.city-deck { position: absolute; left: calc(80 * var(--u)); right: calc(45 * var(--u)); top: calc(130 * var(--u)); height: calc(505 * var(--u)); display: flex; align-items: center; gap: calc(28 * var(--u)); padding: calc(27 * var(--u)) calc(25 * var(--u)) calc(35 * var(--u)) calc(65 * var(--u)); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
 .city-card { position: relative; flex: 0 0 calc(242 * var(--u)); width: calc(242 * var(--u)); height: calc(435 * var(--u)); border: 1px solid #9cb3c532; background: #0e1922f2; transform: scale(.96); transform-origin: center center; box-shadow: 0 calc(15 * var(--u)) calc(35 * var(--u)) #0006; }
 .city-card.is-selected { z-index: 2; transform: scale(1.03); border-color: #dcf45bba; box-shadow: 0 calc(20 * var(--u)) calc(50 * var(--u)) #0009; }
 .city-card.city-locked { color: #91a0aa; background: #10171e; }

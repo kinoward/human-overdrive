@@ -353,8 +353,9 @@ export class GameUI {
     const focusId = focused?.id;
     const focusName = focused?.getAttribute('name');
     const menu = ['home', 'cities', 'globe', 'garage', 'options'].includes(this.panel);
+    const showHeader = !racing && !menu && this.panel !== 'result';
     this.root.className = `game-ui panel-${this.panel}${menu ? ' menu-screen' : ''}`;
-    this.root.innerHTML = `${racing || menu ? '' : this.header()}${this.error ? `<div class="error-banner" role="alert"><strong>暂时无法出发</strong><span>${escapeHTML(this.error)}</span><button data-action="reload">重新载入</button></div>` : ''}<div class="screen-content">${this.content()}</div>${racing || menu ? '' : '<footer class="site-footer"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap 贡献者</a></footer>'}`;
+    this.root.innerHTML = `${showHeader ? this.header() : ''}${this.error ? `<div class="error-banner" role="alert"><strong>暂时无法出发</strong><span>${escapeHTML(this.error)}</span><button data-action="reload">重新载入</button></div>` : ''}<div class="screen-content">${this.content()}</div>${racing || menu ? '' : '<footer class="site-footer"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap 贡献者</a></footer>'}`;
     this.root.querySelectorAll<HTMLElement>('main h1').forEach(heading => heading.tabIndex = -1);
     const hudRoot = this.root.querySelector<HTMLElement>('.race-hud');
     if (hudRoot) this.raceHud = new RaceHudController(hudRoot);
