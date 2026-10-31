@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { assetUrl } from '../asset-url';
 import type { RoadPath, WorldData } from '../types';
 import { sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
@@ -23,7 +24,7 @@ interface StoredWorld {
 
 export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: number, message: string) => Promise<void>): Promise<WorldData> {
   await onProgress?.(0, '读取北京道路');
-  const response = await fetch(`${import.meta.env.BASE_URL}data/beijing-roads.json`);
+  const response = await fetch(assetUrl('data/beijing-roads.json'));
   if (!response.ok) throw new Error('北京道路加载失败，请重新进入关卡。');
   const stored = await response.json() as StoredWorld;
   const roads: RoadPath[] = stored.roads.map(road => {
@@ -42,7 +43,7 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
     await onProgress?.(0.1 + loadedTextures / 7 * 0.35, `加载道路材质与天空（${loadedTextures}/7）`);
   };
   const load = async (path: string, color = false) => {
-    const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/art/${path}`);
+    const texture = await loader.loadAsync(assetUrl(`assets/art/${path}`));
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 8;
     if (color) texture.colorSpace = THREE.SRGBColorSpace;
@@ -52,10 +53,10 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   const [asphaltMap, asphaltNormal, asphaltRough, concreteMap, concreteNormal, concreteRough, environment] = await Promise.all([
     load('Textures/Asphalt02/asphalt_02_diff_2k.jpg', true), load('Textures/Asphalt02/asphalt_02_nor_gl_2k.png'), load('Textures/Asphalt02/asphalt_02_rough_2k.jpg'),
     load('Textures/ConcreteWall006/concrete_wall_006_diff_2k.jpg', true), load('Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.png'), load('Textures/ConcreteWall006/concrete_wall_006_rough_2k.jpg'),
-    new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/art/Environment/venice_sunset_2k.hdr`).then(async texture => { await textureLoaded(); return texture; })
+    new HDRLoader().loadAsync(assetUrl('assets/art/Environment/venice_sunset_2k.hdr')).then(async texture => { await textureLoaded(); return texture; })
   ]);
   await onProgress?.(0.45, '加载中文字体');
-  const font = new FontFace('Source Han Sans', `url(${import.meta.env.BASE_URL}assets/art/Fonts/SourceHanSansCN-Regular.otf)`);
+  const font = new FontFace('Source Han Sans', `url(${assetUrl('assets/art/Fonts/SourceHanSansCN-Regular.otf')})`);
   document.fonts.add(await font.load());
   await onProgress?.(0.5, '准备天空与地面');
   environment.mapping = THREE.EquirectangularReflectionMapping;

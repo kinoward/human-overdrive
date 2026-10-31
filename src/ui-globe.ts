@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './asset-url';
 import type { CityConfig } from './types';
 import { globeMaterials } from './ui-globe-material';
 
@@ -111,7 +112,7 @@ export class CityGlobe {
     let failed = false;
     const loader = new THREE.TextureLoader();
     const load = (name: string, color: boolean) => {
-      const texture = loader.load(`${import.meta.env.BASE_URL}assets/ui-racing/globe/earth-${name}.webp`, loaded => {
+      const texture = loader.load(assetUrl(`assets/ui-racing/globe/earth-${name}.webp`), loaded => {
         if (this.disposed) { loaded.dispose(); return; }
         remaining--;
         if (!remaining && !failed) this.status.hidden = true;

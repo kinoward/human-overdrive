@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { assetUrl } from '../asset-url';
 import { VEHICLES } from '../config';
 import { createVehicleModel } from './models';
 import type { TrafficVehicleSpec } from './traffic-vehicles';
@@ -61,7 +62,7 @@ export function animateTrafficWheels(model: ReturnType<typeof createTrafficVehic
 export async function loadTrafficModels() {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   await Promise.all(['delivery-van', 'box-truck', 'city-bus'].map(async name => {
-    const model = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/generated/traffic/${name}.glb`);
+    const model = await loader.loadAsync(assetUrl(`assets/generated/traffic/${name}.glb`));
     model.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true; object.receiveShadow = true;

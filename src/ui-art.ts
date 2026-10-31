@@ -1,5 +1,7 @@
+import { assetUrl } from './asset-url';
+
 export function cityMapArt(cityId: string): string {
-  return `<img class="city-map-art" src="${import.meta.env.BASE_URL}assets/ui-racing/maps/${cityId}-v1.webp" alt="" aria-hidden="true" loading="eager"/>`;
+  return `<img class="city-map-art" src="${assetUrl(`assets/ui-racing/maps/${cityId}-v1.webp`)}" alt="" aria-hidden="true" loading="eager"/>`;
 }
 
 const icons: Record<string, string> = {

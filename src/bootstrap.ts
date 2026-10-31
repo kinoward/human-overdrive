@@ -1,4 +1,4 @@
-export {};
+import { prepareResourceCache } from './resource-cache';
 
 const screen = document.querySelector<HTMLElement>('#loading-screen')!;
 const message = document.querySelector<HTMLElement>('#loading-message')!;
@@ -23,6 +23,7 @@ async function showProgress(fraction: number, label: string) {
 
 async function start() {
   try {
+    await prepareResourceCache();
     const { boot } = await import('./main');
     await boot(showProgress);
     await showProgress(1, '准备完成');

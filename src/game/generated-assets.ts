@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { assetUrl } from '../asset-url';
 
 export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree' | 'lush-shrub' | 'bus-shelter';
 interface AssetMesh { geometry: THREE.BufferGeometry; material: THREE.Material }
@@ -25,7 +26,7 @@ export async function loadGeneratedAssets(onProgress?: (loaded: number, total: n
   const names = ['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree', 'lush-shrub', 'bus-shelter'] as const;
   let loaded = 0;
   await Promise.all(names.map(async name => {
-    const asset = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/generated/${name}.glb`);
+    const asset = await loader.loadAsync(assetUrl(`assets/generated/${name}.glb`));
     asset.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true; object.receiveShadow = true;
