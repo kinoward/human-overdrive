@@ -8,6 +8,7 @@ import { createHelicopter, createVehicleModel } from './models';
 import { RoadNavigation } from './navigation';
 import { buildResult, calculateScore, getWarning } from './rules';
 import { GameAudio } from './audio';
+import { ArcadeCameraMotion } from './camera-motion';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -39,6 +40,7 @@ export class GameEngine {
   private helicopters: ReturnType<typeof createHelicopter>[] = [];
   private keys = new Set<string>();
   private audio = new GameAudio();
+  private cameraMotion = new ArcadeCameraMotion();
   private accumulator = 0;
   private simulationTime = 0;
   private status: GameSnapshot['status'] = 'ready';
@@ -156,6 +158,7 @@ export class GameEngine {
     this.eventUntil = 5;
     this.spawnTraffic();
     this.cameraPosition.set(0, 0, 0);
+    this.cameraMotion.reset();
     this.updateCamera(1);
     this.mapCanvas.style.display = '';
     this.audio.start();
@@ -545,7 +548,11 @@ export class GameEngine {
       let ticks = 0;
       while (this.accumulator >= 1 / 60 && ticks++ < 5 && this.status === 'running') { this.step(1 / 60); this.accumulator -= 1 / 60 }
     } else if (this.status === 'ready') this.simulationTime += dt;
-    if (this.ready) this.updateCamera(dt);
+    if (this.ready) {
+      this.updateCamera(dt);
+      const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
+      this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
+    }
     this.audio.update(this.player?.speed ?? 0, getWarning(this.heat), this.status === 'running');
     if (this.timer.getElapsed() - this.hudAt > 0.08) {
       this.hudAt = this.timer.getElapsed();
