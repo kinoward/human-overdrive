@@ -236,7 +236,7 @@ export class TrafficNetwork {
     return undefined;
   }
 
-  spawnCandidates(focus: TrafficFocus, seed: number, profile: TrafficVehicleSpec, replenishing: boolean) {
+  spawnCandidates(focus: TrafficFocus, seed: number, profile: TrafficVehicleSpec, replenishing: boolean, rearPriority = false) {
     const candidates: { leg: TrafficLeg; along: number; primary: boolean; observedDistance: number; priority: number }[] = [];
     const anchor = this.anchor(focus);
     if (anchor && this.allows(anchor.leg, profile)) {
@@ -247,6 +247,13 @@ export class TrafficNetwork {
       for (let distance = start; distance <= end; distance += 17) {
         const candidate = this.walk(anchor.leg, anchor.along, distance * anchor.observedSign, lane, seed, profile);
         if (candidate) candidates.push({ ...candidate, primary: true, observedDistance: distance, priority: (seed % 10 === 9 ? 3 : 0) + Math.abs(distance - target) / 100 });
+      }
+      if (replenishing && rearPriority && anchor.observedSign > 0) {
+        const rearTarget = 180 + seed % 7 * 22;
+        for (let distance = 180; distance <= 340; distance += 20) {
+          const candidate = this.walk(anchor.leg, anchor.along, -distance, lane, seed, profile);
+          if (candidate) candidates.push({ ...candidate, primary: true, observedDistance: -distance, priority: -2 + Math.abs(distance - rearTarget) / 100 });
+        }
       }
       if (!replenishing) for (let distance = 65; distance <= 160; distance += 25) {
         const candidate = this.walk(anchor.leg, anchor.along, -distance * anchor.observedSign, lane, seed, profile);

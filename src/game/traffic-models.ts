@@ -7,6 +7,7 @@ import type { TrafficVehicleSpec } from './traffic-vehicles';
 
 const vehicles = new Map<string, THREE.Group>();
 const lightGeometry = new THREE.BoxGeometry(1, 1, 1);
+const wheelRotation = new THREE.Quaternion();
 
 interface VehicleModel {
   group: THREE.Group;
@@ -19,6 +20,13 @@ interface VehicleModel {
 }
 
 function withAppearance(model: VehicleModel) {
+  const wheelSpecs = model.wheels.map(object => ({
+    object,
+    radius: object.userData.wheelRadius ?? model.wheelRadius,
+    axis: new THREE.Vector3().fromArray(object.userData.wheelAxis ?? [1, 0, 0]),
+    direction: object.userData.wheelDirection ?? 1,
+    baseRotation: object.quaternion.clone(),
+  }));
   const materials = new Map<THREE.Material, THREE.Material>();
   const opacity = new Map<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
   model.group.traverse(object => {
@@ -33,7 +41,7 @@ function withAppearance(model: VehicleModel) {
     };
     object.material = Array.isArray(object.material) ? object.material.map(clone) : clone(object.material);
   });
-  return { ...model, setOpacity: (alpha: number) => {
+  return { ...model, wheelSpecs, setOpacity: (alpha: number) => {
     for (const [material, original] of opacity) {
       const transparent = original.transparent || alpha < 1;
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true }
@@ -41,6 +49,13 @@ function withAppearance(model: VehicleModel) {
       material.depthWrite = alpha >= 0.95 && original.depthWrite;
     }
   }, dispose: () => { model.dispose(); materials.forEach(material => material.dispose()) } };
+}
+
+export function animateTrafficWheels(model: ReturnType<typeof createTrafficVehicleModel>, distance: number) {
+  for (const wheel of model.wheelSpecs) {
+    wheelRotation.setFromAxisAngle(wheel.axis, distance / wheel.radius * wheel.direction);
+    wheel.object.quaternion.copy(wheel.baseRotation).multiply(wheelRotation);
+  }
 }
 
 export async function loadTrafficModels() {

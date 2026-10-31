@@ -363,7 +363,7 @@ export class TrafficSimulation {
     const replenishing = !!exclude;
     const anchor = this.network.anchor(focus);
     const main = anchor?.leg.road.kind === 'main';
-    let nearbyFront = 0, distantFront = 0, background = 0;
+    let nearbyFront = 0, nearbyRear = 0, incomingRear = 0, distantFront = 0, background = 0;
     for (const other of this.cars) {
       if (other === exclude) continue;
       const dx = other.position.x - focus.position.x, dz = other.position.z - focus.position.z;
@@ -373,13 +373,19 @@ export class TrafficSimulation {
       const aligned = !!anchor && Math.abs(other.position.y + 0.79 - focus.position.y) < 2.5 && side < anchor.leg.road.width * 1.6 && Math.abs(angleDifference(other.heading, this.network.sample(anchor.leg, anchor.along, 0).heading)) < 0.6;
       if (aligned && forward > 30 && forward < (main ? 270 : 180)) nearbyFront++;
       else if (aligned && forward >= (main ? 270 : 180) && forward < 460) distantFront++;
-      else if (Math.hypot(dx, dz) < 500) background++;
+      else if (aligned && forward <= 30 && forward > -360) {
+        incomingRear++;
+        if (forward > -180) nearbyRear++;
+      } else if (Math.hypot(dx, dz) < 500) background++;
     }
-    for (const candidate of this.network.spawnCandidates(focus, id, profile, replenishing)) {
+    const rearPriority = replenishing && !!anchor && anchor.observedSign > 0 && roadSpeed(anchor.leg.road, id, profile) * 0.85 > focus.speed + 2.5 && nearbyFront + nearbyRear < (main ? 12 : 7) && incomingRear < (main ? 10 : 6);
+    for (const candidate of this.network.spawnCandidates(focus, id, profile, replenishing, rearPriority)) {
       if (!this.rightOfWay.allowsSpawn(candidate.leg, this.cars.filter(agent => !agent.dynamic))) continue;
       if (candidate.primary && candidate.observedDistance > 0) {
         if (candidate.observedDistance < (main ? 270 : 180) && nearbyFront >= (main ? 14 : 9)) continue;
         if (candidate.observedDistance >= (main ? 270 : 180) && distantFront >= (main ? 16 : 10)) continue;
+      } else if (candidate.primary && candidate.observedDistance < 0 && replenishing) {
+        if (!rearPriority || incomingRear >= (main ? 10 : 6)) continue;
       } else if (background >= 12) continue;
       const count = laneCount(candidate.leg);
       const lanes = profile.heavy ? [0, Math.min(1, count - 1)] : Array.from({ length: count }, (_, attempt) => (id + attempt) % count);

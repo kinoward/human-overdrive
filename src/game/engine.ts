@@ -18,7 +18,7 @@ import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './tr
 import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
 import { TrafficMotionLimiter } from './traffic-motion';
 import { TrafficCollisionResponse } from './traffic-physics';
-import { createTrafficVehicleModel, loadTrafficModels } from './traffic-models';
+import { animateTrafficWheels, createTrafficVehicleModel, loadTrafficModels } from './traffic-models';
 import { ArcadeCameraMotion } from './camera-motion';
 import type { Controls } from './arcade-driving';
 import { roadAt } from './road-network';
@@ -602,17 +602,21 @@ export class GameEngine {
     this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
+      const road = nearestRoad(this.track.roads, position.x, position.z, position.y - 0.85);
+      this.renderer.domElement.dataset.road = JSON.stringify(road ? { id: road.road.id, along: road.distance, offset: road.offset, heading: Math.atan2(road.direction.x, road.direction.z), width: road.road.width } : null);
       const types: Record<string, number> = {};
+      const wheels: Record<string, { count: number; radii: number[]; roll: number }> = {};
       let nearby = 0, ahead = 0;
       for (const actor of this.traffic) {
         const driver = actor.driver, dx = driver.position.x - position.x, dz = driver.position.z - position.z;
         types[driver.profile.id] = (types[driver.profile.id] ?? 0) + 1;
+        if (!wheels[driver.profile.id]) wheels[driver.profile.id] = { count: actor.model.wheelSpecs.length, radii: actor.model.wheelSpecs.map(wheel => Math.round(wheel.radius * 1000) / 1000), roll: Math.round((actor.model.wheelSpecs[0]?.object.rotation.x ?? 0) * 1000) / 1000 };
         if (Math.hypot(dx, dz) < 260 && Math.abs(driver.position.y + 0.79 - position.y) < 2.2) {
           nearby++;
           if (dx * Math.sin(heading) + dz * Math.cos(heading) > 15 && Math.cos(driver.heading - heading) > 0.6) ahead++;
         }
       }
-      this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types });
+      this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types, wheels });
     }
     this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
@@ -690,7 +694,7 @@ export class GameEngine {
     for (const helicopter of this.helicopters) helicopter.render(alpha);
     for (const actor of this.traffic) {
       actor.pose.render(alpha);
-      for (const wheel of actor.model.wheels) wheel.rotation.x = (actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed) / actor.model.wheelRadius;
+      animateTrafficWheels(actor.model, actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed);
     }
     if (this.ready) {
       this.updateCamera(dt);
