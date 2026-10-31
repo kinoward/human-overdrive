@@ -2,7 +2,7 @@ html { height: 100%; background: #000; }
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 body { margin: 0; height: 100dvh; overflow: hidden; display: grid; place-items: center; }
-#game-viewport { position: relative; width: min(100vw, calc(100dvh * 21 / 9)); aspect-ratio: 21 / 9; overflow: hidden; isolation: isolate; container: game-viewport / size; background: #0a1016; }
+#game-viewport { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; container: game-viewport / size; background: #0a1016; }
 .loading-screen { box-sizing: border-box; position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; overflow: auto; padding: 32px 24px; color: #edf3f5; background: radial-gradient(ellipse at 80% 10%, #19343d70, transparent 65%), #0a1016; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .loading-content { width: min(100%, 440px); }
 .loading-screen { align-items: safe center; }
