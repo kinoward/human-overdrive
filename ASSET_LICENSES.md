@@ -63,3 +63,9 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 五座城市的关卡地图由真实地图参考进行风格化生成，记录在 `maps/map-generation.json`；精确地理范围、来源链接和署名保存在 `references/metadata.json`。北京参考仓库已有 OpenStreetMap 四环道路数据与 SVG，继续标明 © OpenStreetMap 贡献者和 ODbL 1.0。上海、重庆、东京和洛杉矶以 Esri World Street Map 的单张静态地图作为事实地理参考，数据与渲染版权仍归 Esri 及其数据提供者，不宣称 CC0 或其他开放许可。
 
 仅生成的地图美术、提示词和参考元数据随静态产物发布；有版权的原始地图参考图片在本机归档，不作为上线图片分发。生成时保留主要道路、水系与海岸的方位关系，重新绘制材质、灯光和色彩，不复用源图标注、标志或图例。生成图是艺术化关卡封面，不作为测绘成果、精确导航地图或实际可玩城市的承诺。
+
+## 街景补充模型与自然衔接
+
+2026 年 10 月 31 日继续使用主办方 Tripo Studio H3.1，并行生成低层砖色住宅、现代办公楼与细长行道树，再分别生成 2K 底色纹理。成品为 `public/assets/generated/brick-apartment.glb`、`office-block.glb` 和 `slender-tree.glb`；三个文件共约 0.92 MB，来源链接、最终米制包围盒、面数及处理方式记录于同目录 `STREETSCAPE_SOURCES.json`。使用沿用 Tripo 条款，不宣称 CC0、实景复原或完整 PBR 贴图包。
+
+脚本 `scripts/prepare-streetscape-models.mjs` 仅处理本批三项，保持等比缩放，修正正立面朝向，删除办公楼远离主体的 691 面离散碎片；树木近景 6459 面、远景 924 面，共享材质和底色图。运行时按亮度与色相将过亮叶片校正为低饱和绿色，保留较暗树干，不改动其他共享模型。新街区、步道、庭院、绿篱、地被与渐淡土草色斑由本项目原创几何和材质生成；不使用欧卡2的受保护模型或贴图。

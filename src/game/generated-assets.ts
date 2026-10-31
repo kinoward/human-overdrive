@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree';
+export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree';
 interface AssetMesh { geometry: THREE.BufferGeometry; material: THREE.Material }
 const models = new Map<GeneratedAsset, THREE.Group>();
 const meshCache = new Map<string, AssetMesh[]>();
@@ -22,7 +22,7 @@ function floatGeometry(source: THREE.BufferGeometry) {
 
 export async function loadGeneratedAssets() {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  await Promise.all((['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree'] as const).map(async name => {
+  await Promise.all((['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree'] as const).map(async name => {
     const asset = await loader.loadAsync(`/assets/generated/${name}.glb`);
     asset.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -35,6 +35,12 @@ export async function loadGeneratedAssets() {
       }
       for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
         for (const value of Object.values(material)) if (value instanceof THREE.Texture) value.anisotropy = 4;
+        if (name === 'slender-tree' && material instanceof THREE.MeshStandardMaterial) {
+          material.onBeforeCompile = shader => {
+            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\nfloat leafLight = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));\nfloat leafMask = step(0.18, leafLight) * step(diffuseColor.b * 2.0, diffuseColor.g) * step(diffuseColor.r * 0.68, diffuseColor.g);\ndiffuseColor.rgb = mix(diffuseColor.rgb, leafLight * vec3(0.42, 0.64, 0.28), leafMask * 0.92);');
+          };
+          material.customProgramCacheKey = () => '自然行道树叶色';
+        }
       }
     });
     models.set(name, asset.scene);

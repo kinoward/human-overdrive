@@ -1,0 +1,117 @@
+{
+  "platform": "Tripo Studio",
+  "date": "2026-10-31",
+  "model": "H3.1",
+  "sourceUrls": {
+    "brick-apartment": "https://studio.tripo3d.ai/zh/workspace/generate/79a93984-f6ca-4a6b-be3c-0812b7519df3",
+    "office-block": "https://studio.tripo3d.ai/zh/workspace/generate/5aab6e2d-1a3f-4a1b-aa81-5782b22d25c2",
+    "slender-tree": "https://studio.tripo3d.ai/zh/workspace/generate/7e709162-74cf-408e-8a22-a81705e66af1"
+  },
+  "terms": "https://www.tripo3d.ai/terms",
+  "attribution": "本批通过主办方提供的 Tripo 资源生成；保留平台来源，不宣称 CC0 或真实街区的精确复原。",
+  "preparation": [
+    "三项 H3.1 文字生成几何，关闭平台分件；几何完成后另行并行生成 2K 纹理。",
+    "最终模型仅保留底色贴图，粗糙度与金属度使用常量，不包含法线或金属粗糙度贴图。",
+    "按世界包围盒整理 Y 向上、中心 XZ 与底部 Y 为零；建筑以宽度、树木以高度等比缩放，保留生成比例。",
+    "办公楼按同位置焊接后的连通分量清理远离主体且尺寸较小的碎片，保留主体与邻近组件。",
+    "焊接重复顶点，按误差限制减面，合并兼容材质与网格；树木共享材质并提供 lod_near 与 lod_far。",
+    "贴图转 WebP 并限制为 2K，几何使用 Meshopt 压缩；不重新处理旧车辆、住宅和树木。"
+  ],
+  "tools": {
+    "gltfTransform": "4.5.1"
+  },
+  "assets": [
+    {
+      "file": "brick-apartment.glb",
+      "bytes": 323976,
+      "triangles": 7999,
+      "materials": 1,
+      "textures": 1,
+      "originalTriangles": 15792,
+      "originalDimensions": [
+        0.887939453125,
+        0.8927001655101776,
+        0.979156494140625
+      ],
+      "dimensions": [
+        26,
+        23.704284700307774,
+        23.577871279414055
+      ],
+      "rotationY": 270,
+      "uniformScale": 26.553467352345333
+    },
+    {
+      "file": "office-block.glb",
+      "bytes": 253524,
+      "triangles": 7998,
+      "materials": 1,
+      "textures": 1,
+      "originalTriangles": 16365,
+      "cleanedTriangles": 15674,
+      "fragmentCleanup": {
+        "criteria": {
+          "positionTolerance": 1e-06,
+          "minDistance": 0.18,
+          "maxSize": 0.35
+        },
+        "components": 2,
+        "removedTriangles": 691,
+        "removed": [
+          {
+            "triangles": 691,
+            "min": [
+              -0.2256012111902237,
+              0.008178681135177612,
+              -0.4906158447265625
+            ],
+            "max": [
+              -0.010894806124269962,
+              0.31772229075431824,
+              -0.3220672607421875
+            ]
+          }
+        ]
+      },
+      "originalDimensions": [
+        0.5531005859375,
+        0.742645263671875,
+        0.5872649922966957
+      ],
+      "dimensions": [
+        22,
+        29.539284926064887,
+        23.35891546494807
+      ],
+      "rotationY": 0,
+      "uniformScale": 39.775766938865594
+    },
+    {
+      "file": "slender-tree.glb",
+      "bytes": 340964,
+      "triangles": 7383,
+      "levels": {
+        "near": 6459,
+        "far": 924
+      },
+      "materials": 1,
+      "textures": 1,
+      "originalTriangles": 17071,
+      "originalDimensions": [
+        0.4956817626953125,
+        0.964447021484375,
+        0.4285125732421875
+      ],
+      "dimensions": [
+        5.653498085624783,
+        11,
+        4.887399930386357
+      ],
+      "rotationY": 0,
+      "uniformScale": 11.405499477897669
+    }
+  ],
+  "rendering": {
+    "slender-tree": "运行时按底色亮度与色相校正过亮的黄色叶片为低饱和绿叶，保留较暗的树干；不修改其他共享资产材质。"
+  }
+}
