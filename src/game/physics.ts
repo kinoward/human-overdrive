@@ -44,11 +44,12 @@ export class PhysicsVehicle {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y + 0.85, position.z).setRotation(q).setLinearDamping(0.08).setAngularDamping(1.8).setCcdEnabled(true));
     const motorcycle = config.kind === 'motorcycle';
-    const shape = RAPIER.ColliderDesc.cuboid(motorcycle ? 0.24 : config.width * 0.45, motorcycle ? 0.45 : 0.32, config.length * 0.43)
+    const borderRadius = motorcycle ? 0.06 : 0.1;
+    const shape = RAPIER.ColliderDesc.roundCuboid((motorcycle ? 0.24 : config.width * 0.45) - borderRadius, (motorcycle ? 0.45 : 0.32) - borderRadius, config.length * 0.43 - borderRadius, borderRadius)
       .setTranslation(0, motorcycle ? 0.12 : 0.05, 0).setMass(config.mass * 0.4).setFriction(0.35).setRestitution(0.08)
       .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4);
     this.collider = world.createCollider(shape, this.body);
-    if (!motorcycle) world.createCollider(RAPIER.ColliderDesc.cuboid(config.width * 0.35, 0.3, config.length * 0.23)
+    if (!motorcycle) world.createCollider(RAPIER.ColliderDesc.roundCuboid(config.width * 0.35 - 0.08, 0.22, config.length * 0.23 - 0.08, 0.08)
       .setTranslation(0, 0.55, -config.length * 0.04).setDensity(0).setFriction(0.35).setRestitution(0.04)
       .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
     world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25)

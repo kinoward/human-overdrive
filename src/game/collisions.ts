@@ -70,6 +70,7 @@ export class CollisionSystem {
   private actors = new Map<number, CollisionActor>();
   private snapshots = new Map<number, BodySnapshot>();
   private processes = new Map<string, ContactProcess>();
+  private vehicleContacts = new Map<string, { lastSeen: number; launched: boolean }>();
   private forceByKey = new Map<string, number>();
   private step = 0;
 
@@ -112,20 +113,21 @@ export class CollisionSystem {
       if (secondActor?.kind === 'police') this.recordForce(secondActor, second, first, event.totalForceMagnitude());
     });
     if (!player) return { impacts, policeImpacts, contactBodies };
-    for (const sample of this.collectContacts(player, contactBodies)) {
-      const impact = this.impact(sample, player, dt);
-      if (impact) impacts.push({ ...impact, otherKind: sample.otherActor?.kind === 'player' ? undefined : sample.otherActor?.kind });
-    }
     for (const actor of this.actors.values()) {
-      if (actor.kind !== 'police') continue;
-      for (const sample of this.collectContacts(actor)) {
+      if (actor.kind === 'traffic' && !actor.body.isDynamic()) continue;
+      for (const sample of this.collectContacts(actor, actor.kind === 'player' ? contactBodies : undefined)) {
+        this.launchVehicles(actor, sample);
+        if (actor.kind === 'traffic') continue;
         const impact = this.impact(sample, actor, dt);
-        if (impact) policeImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
+        if (!impact) continue;
+        if (actor.kind === 'player') impacts.push({ ...impact, otherKind: sample.otherActor?.kind === 'player' ? undefined : sample.otherActor?.kind });
+        else policeImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
       }
     }
     this.contactCount = contactBodies.size;
     this.peakContacts = Math.max(this.peakContacts, this.contactCount);
     for (const [key, process] of this.processes) if (this.step - process.lastSeen > 0.25) this.processes.delete(key);
+    for (const [key, contact] of this.vehicleContacts) if (this.step - contact.lastSeen > 0.25) this.vehicleContacts.delete(key);
     return { impacts, policeImpacts, contactBodies };
   }
 
@@ -136,6 +138,7 @@ export class CollisionSystem {
     this.actors.clear();
     this.snapshots.clear();
     this.processes.clear();
+    this.vehicleContacts.clear();
     this.forceByKey.clear();
     this.step = 0;
   }
@@ -198,6 +201,29 @@ export class CollisionSystem {
       newIncident,
       feedback
     };
+  }
+
+  private launchVehicles(subject: CollisionActor, sample: ContactSample) {
+    const other = sample.otherActor;
+    if (!other || !subject.body.isDynamic() || !other.body.isDynamic()) return;
+    const first = Math.min(subject.body.handle, other.body.handle);
+    const second = Math.max(subject.body.handle, other.body.handle);
+    const key = `${first}:${second}`;
+    let contact = this.vehicleContacts.get(key);
+    if (!contact) {
+      contact = { lastSeen: this.step, launched: false };
+      this.vehicleContacts.set(key, contact);
+    }
+    contact.lastSeen = this.step;
+    if (contact.launched || sample.approachSpeed < 7 || sample.impulse <= 0 || Math.abs(sample.direction.y) > 0.65) return;
+    contact.launched = true;
+    const firstMass = subject.body.mass(), secondMass = other.body.mass();
+    const reducedMass = firstMass * secondMass / (firstMass + secondMass);
+    const lift = Math.min(reducedMass * (sample.approachSpeed - 7) * 0.36, Math.min(firstMass, secondMass) * 5.5);
+    for (const body of [subject.body, other.body]) {
+      const impulse = Math.min(lift, body.mass() * Math.max(0, 5.5 - body.linvel().y));
+      if (impulse > 0) body.applyImpulseAtPoint({ x: 0, y: impulse, z: 0 }, sample.point, true);
+    }
   }
 
   private recordForce(subject: CollisionActor, first: RAPIER.Collider, second: RAPIER.Collider, force: number) {

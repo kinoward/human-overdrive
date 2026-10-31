@@ -32,6 +32,8 @@ export interface TrafficAgent {
   heading: number;
   pitch: number;
   relocated: boolean;
+  dynamic: boolean;
+  motionBlocked: boolean;
   braking: boolean;
   indicator: -1 | 0 | 1;
   wheelDistance: number;
@@ -52,6 +54,8 @@ export interface TrafficAgent {
   previous?: TrafficLeg;
   previousOffset: number;
 }
+
+export type TrafficMotionGuard = (agent: TrafficAgent, next: { position: Point3; heading: number; pitch: number }, dt: number) => boolean;
 
 interface TrafficPose {
   position: Point3;
@@ -99,30 +103,31 @@ export class TrafficSimulation {
       id, profile, length, width, road: leg.road, leg, along, lane, targetLane: lane, offset, distance: sample.distance,
       position: sample.point, heading: sample.heading, pitch: sample.pitch, speed: roadSpeed(leg.road, id, profile) * 0.58,
       desiredSpeed: roadSpeed(leg.road, id, profile), acceleration: 0, wheelDistance: 0, braking: false, indicator: 0,
-      relocated: true, changeFrom: offset, changeTime: 3, changePaused: false, changeReturning: false, cooldown: 2 + id % 4, decisionTime: id % 5 * 0.08,
+      relocated: true, dynamic: false, motionBlocked: false, changeFrom: offset, changeTime: 3, changePaused: false, changeReturning: false, cooldown: 2 + id % 4, decisionTime: id % 5 * 0.08,
       visits: 0, previousOffset: offset, next: this.network.next(leg, lane, id, profile)
     };
     this.cars.push(agent);
     return agent;
   }
 
-  update(dt: number, focus: TrafficFocus, obstacles: TrafficObstacle[]) {
+  update(dt: number, focus: TrafficFocus, obstacles: TrafficObstacle[], guard?: TrafficMotionGuard) {
     this.obstacles = obstacles;
     if (focus.lookBack !== this.previousLookBack) { this.previousLookBack = focus.lookBack; this.viewGuard = 1 }
     this.viewGuard = Math.max(0, this.viewGuard - dt);
-    this.rightOfWay.update(this.cars, obstacles, dt);
-    for (const agent of this.cars) agent.relocated = false;
+    this.rightOfWay.update(this.cars.filter(agent => !agent.dynamic), obstacles, dt);
+    for (const agent of this.cars) { agent.relocated = false; agent.motionBlocked = false }
     this.recycleTimer -= dt;
     if (this.recycleTimer <= 0) {
       this.recycleTimer = 0.18;
       const recyclable = this.cars.filter(agent => this.canRecycle(agent, focus)).sort((a, b) => Math.hypot(b.position.x - focus.position.x, b.position.z - focus.position.z) - Math.hypot(a.position.x - focus.position.x, a.position.z - focus.position.z));
       for (const agent of recyclable) {
-        this.relocate(agent, focus);
+        this.relocate(agent, focus, guard);
         if (agent.relocated) break;
       }
     }
-    if (this.cars.some(agent => agent.relocated)) this.rightOfWay.update(this.cars, obstacles, 0);
-    const snapshots = this.cars.map(agent => ({ ...agent, position: { ...agent.position } }));
+    if (this.cars.some(agent => agent.relocated)) this.rightOfWay.update(this.cars.filter(agent => !agent.dynamic), obstacles, 0);
+    const previous = new Map(this.cars.map(agent => [agent.id, { ...agent, position: { ...agent.position } }]));
+    const snapshots = this.cars.filter(agent => !agent.dynamic).map(agent => ({ ...agent, position: { ...agent.position } }));
     const seen = this.observe(snapshots, obstacles);
     const plans = snapshots.map(agent => ({ ...agent, position: { ...agent.position } }));
     const proposals: { agent: TrafficAgent; lane: number; gain: number }[] = [];
@@ -199,8 +204,8 @@ export class TrafficSimulation {
       const changeAdvance = shiftSafe ? Math.min(dt * (agent.profile.heavy ? 2 / 3 : 1), agent.changeReturning ? Math.max(dt * 0.35, motion.advance / 4.5) : motion.advance / 4.5) : 0;
       return { agent, ...motion, acceleration, shiftSafe, changeAdvance };
     });
-    for (const motion of motions) {
-      const agent = motion.agent;
+    const committed = motions.map(motion => {
+      const agent = { ...motion.agent, position: { ...motion.agent.position } };
       agent.acceleration = motion.acceleration; agent.speed = motion.speed;
       agent.braking = motion.acceleration < -0.6 || motion.advance < 0.001;
       agent.changePaused = !motion.shiftSafe;
@@ -220,9 +225,14 @@ export class TrafficSimulation {
         agent.heading += angleDifference(heading, agent.heading) * Math.min(1, dt * 8);
         agent.pitch = -Math.atan2(ahead.position.y - sample.point.y - 0.79, Math.hypot(dx, dz));
       }
-    }
-    const byId = new Map(plans.map(agent => [agent.id, agent]));
-    for (const agent of this.cars) Object.assign(agent, byId.get(agent.id)!);
+      if (guard && !guard(motion.agent, { position: agent.position, heading: agent.heading, pitch: agent.pitch }, dt)) {
+        const old = previous.get(agent.id)!;
+        return { ...old, position: { ...old.position }, cooldown: motion.agent.cooldown, decisionTime: motion.agent.decisionTime, speed: 0, braking: true, acceleration: -agent.profile.emergencyBrake, changePaused: old.changeTime < 3, relocated: old.relocated, motionBlocked: true };
+      }
+      return agent;
+    });
+    const byId = new Map(committed.map(agent => [agent.id, agent]));
+    for (const agent of this.cars) if (!agent.dynamic) Object.assign(agent, byId.get(agent.id)!);
   }
 
   private integrate(speed: number, acceleration: number, duration: number) {
@@ -319,7 +329,7 @@ export class TrafficSimulation {
   }
 
   private canRecycle(agent: TrafficAgent, focus: TrafficFocus) {
-    if (this.viewGuard > 0 || agent.changeTime < 3) return false;
+    if (this.viewGuard > 0 || !agent.dynamic && agent.changeTime < 3) return false;
     const dx = agent.position.x - focus.position.x, dz = agent.position.z - focus.position.z;
     const distance = Math.hypot(dx, dz);
     if (distance < Math.max(120, focus.speed * 2)) return false;
@@ -349,7 +359,7 @@ export class TrafficSimulation {
     });
   }
 
-  private findSpawn(id: number, profile: TrafficVehicleSpec, focus: TrafficFocus, exclude?: TrafficAgent) {
+  private findSpawn(id: number, profile: TrafficVehicleSpec, focus: TrafficFocus, exclude?: TrafficAgent, guard?: TrafficMotionGuard) {
     const replenishing = !!exclude;
     const anchor = this.network.anchor(focus);
     const main = anchor?.leg.road.kind === 'main';
@@ -366,7 +376,7 @@ export class TrafficSimulation {
       else if (Math.hypot(dx, dz) < 500) background++;
     }
     for (const candidate of this.network.spawnCandidates(focus, id, profile, replenishing)) {
-      if (!this.rightOfWay.allowsSpawn(candidate.leg, this.cars)) continue;
+      if (!this.rightOfWay.allowsSpawn(candidate.leg, this.cars.filter(agent => !agent.dynamic))) continue;
       if (candidate.primary && candidate.observedDistance > 0) {
         if (candidate.observedDistance < (main ? 270 : 180) && nearbyFront >= (main ? 14 : 9)) continue;
         if (candidate.observedDistance >= (main ? 270 : 180) && distantFront >= (main ? 16 : 10)) continue;
@@ -398,14 +408,21 @@ export class TrafficSimulation {
         });
         const pose = { position: { ...sample.point, y: sample.point.y + 0.79 }, heading: sample.heading };
         const blocked = this.obstacles.some(other => this.overlap(pose, profile.length, profile.width, { position: other.position, heading: other.heading }, other.length, other.width, 2));
-        if (!occupied && !blocked) return { ...candidate, lane };
+        if (!occupied && !blocked) {
+          if (exclude && guard) {
+            const offset = laneOffset(candidate.leg, lane);
+            const probe: TrafficAgent = { ...exclude, road: candidate.leg.road, leg: candidate.leg, along: candidate.along, distance: sample.distance, lane, targetLane: lane, offset, changeFrom: offset, changeTime: 3, changePaused: false, changeReturning: false, position: sample.point, heading: sample.heading, pitch: sample.pitch, relocated: true, dynamic: false, previous: undefined, previousOffset: offset, next: this.network.next(candidate.leg, lane, exclude.id + exclude.visits + 1, profile) };
+            if (!guard(probe, { position: sample.point, heading: sample.heading, pitch: sample.pitch }, 0)) continue;
+          }
+          return { ...candidate, lane };
+        }
       }
     }
     return undefined;
   }
 
-  private relocate(agent: TrafficAgent, focus: TrafficFocus) {
-    const candidate = this.findSpawn(agent.id + agent.visits * 13, agent.profile, focus, agent);
+  private relocate(agent: TrafficAgent, focus: TrafficFocus, guard?: TrafficMotionGuard) {
+    const candidate = this.findSpawn(agent.id + agent.visits * 13, agent.profile, focus, agent, guard);
     if (!candidate) return;
     agent.leg = candidate.leg; agent.road = candidate.leg.road; agent.along = candidate.along;
     agent.lane = candidate.lane; agent.targetLane = candidate.lane;
@@ -417,6 +434,7 @@ export class TrafficSimulation {
     const sample = this.network.sample(agent.leg, agent.along, agent.offset);
     agent.position = sample.point; agent.distance = sample.distance; agent.heading = sample.heading; agent.pitch = sample.pitch;
     agent.relocated = true;
+    agent.dynamic = false;
   }
 
   private targetSpeed(agent: TrafficAgent) {

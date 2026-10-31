@@ -16,6 +16,8 @@ import { DrivingScore } from './driving-score';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
 import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
+import { TrafficMotionLimiter } from './traffic-motion';
+import { TrafficCollisionResponse } from './traffic-physics';
 import { createTrafficVehicleModel, loadTrafficModels } from './traffic-models';
 import { ArcadeCameraMotion } from './camera-motion';
 import type { Controls } from './arcade-driving';
@@ -94,6 +96,8 @@ export class GameEngine {
   private activeBarriers = new Map<string, RAPIER.Collider[]>();
   private barrierCell = '';
   private trafficSimulation?: TrafficSimulation;
+  private trafficMotion?: TrafficMotionLimiter;
+  private trafficResponse = new TrafficCollisionResponse();
   private sun = new THREE.DirectionalLight('#fff0d8', 2.5);
   private viewMatrix = new THREE.Matrix4();
   private viewFrustum = new THREE.Frustum();
@@ -260,6 +264,7 @@ export class GameEngine {
     this.collisionSystem?.reset();
     this.traffic = [];
     this.trafficSimulation = undefined;
+    this.trafficMotion = undefined;
     this.helicopters = [];
     this.helicopterSight.clear();
   }
@@ -281,9 +286,9 @@ export class GameEngine {
     for (const key of needed) {
       if (this.activeBarriers.has(key)) continue;
       const colliders = (this.barrierCells.get(key) ?? []).map(obstacle => this.physics.createCollider(
-        RAPIER.ColliderDesc.cuboid(obstacle.halfExtents.x, obstacle.halfExtents.y, obstacle.halfExtents.z)
+        RAPIER.ColliderDesc.roundCuboid(obstacle.halfExtents.x - 0.12, obstacle.halfExtents.y - 0.12, obstacle.halfExtents.z - 0.12, 0.12)
           .setTranslation(obstacle.center.x, obstacle.center.y, obstacle.center.z)
-          .setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(obstacle.pitch ?? 0, obstacle.rotation, 0, 'YXZ'))).setFriction(0.2).setCollisionGroups(BARRIER_GROUPS)
+          .setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(obstacle.pitch ?? 0, obstacle.rotation, 0, 'YXZ'))).setFriction(0.02).setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min).setCollisionGroups(BARRIER_GROUPS)
       ));
       this.activeBarriers.set(key, colliders);
     }
@@ -299,6 +304,7 @@ export class GameEngine {
   private spawnTraffic() {
     const palette = ['#d6d8ce', '#7f9a98', '#374550', '#c6aa84', '#8a929a', '#c1b5a7'];
     this.trafficSimulation = new TrafficSimulation(this.track.roads);
+    this.trafficMotion = new TrafficMotionLimiter(this.physics);
     const focus = { position: this.player!.body.translation(), heading: this.player!.heading, speed: 0, lookBack: false };
     for (let i = 0; i < TRAFFIC_COUNT; i++) {
       const profile = trafficVehicleForSlot(i);
@@ -307,8 +313,9 @@ export class GameEngine {
       const model = createTrafficVehicleModel(profile, palette[i % palette.length]);
       const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(driver.pitch, driver.heading, 0, 'YXZ'));
       const position = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
-      const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z).setRotation(rotation));
-      const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(profile.width * 0.5, Math.max(0.25, (profile.height - 0.32) * 0.5), profile.length * 0.5).setTranslation(0, profile.height * 0.5 - 0.79, 0).setFriction(0.3).setRestitution(0.08).setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(profile.mass * 0.4), body);
+      const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z).setRotation(rotation).setLinearDamping(0.12).setAngularDamping(0.65).setCcdEnabled(true));
+      const collider = this.physics.createCollider(RAPIER.ColliderDesc.roundCuboid(profile.width * 0.5 - 0.1, Math.max(0.25, (profile.height - 0.32) * 0.5) - 0.1, profile.length * 0.5 - 0.1, 0.1).setTranslation(0, profile.height * 0.5 - 0.79, 0).setMass(profile.mass).setFriction(0.3).setRestitution(0.08).setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(profile.mass * 0.4), body);
+      this.trafficMotion.register(driver.id, body, collider);
       this.scene.add(model.group);
       model.group.position.copy(position); model.group.quaternion.copy(rotation);
       this.traffic.push({ body, collider, model, driver, appearance: 1, pose: new RenderPose(model.group) });
@@ -359,6 +366,7 @@ export class GameEngine {
     const pursuitAt = performance.now();
     this.updatePolice(dt);
     this.sectionCost.police += performance.now() - pursuitAt;
+    this.trafficResponse.release(this.traffic, [this.player.body, ...this.police.map(actor => actor.vehicle.body)], dt);
     this.collisionSystem.beforeStep({ body: this.player.body, collider: this.player.collider, kind: 'player' }, [
       ...this.police.map(actor => ({ body: actor.vehicle.body, collider: actor.vehicle.collider, kind: 'police' as const })),
       ...this.traffic.map(actor => ({ body: actor.body, collider: actor.collider, kind: 'traffic' as const }))
@@ -370,7 +378,18 @@ export class GameEngine {
     this.player.sync(this.simulationTime);
     this.pursuit?.sync(this.simulationTime);
     for (const helicopter of this.helicopters) helicopter.afterStep();
-    for (const actor of this.traffic) { actor.pose.capture(actor.body.translation(), actor.body.rotation()); actor.damage?.update(dt) }
+    for (const actor of this.traffic) {
+      actor.pose.capture(actor.body.translation(), actor.body.rotation());
+      actor.damage?.update(dt);
+      if (actor.driver.dynamic) {
+        const position = actor.body.translation(), velocity = actor.body.linvel();
+        const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(actor.body.rotation());
+        actor.driver.position = { x: position.x, y: position.y - 0.79, z: position.z };
+        actor.driver.heading = Math.atan2(forward.x, forward.z);
+        actor.driver.speed = Math.hypot(velocity.x, velocity.z);
+        actor.driver.wheelDistance += (velocity.x * forward.x + velocity.z * forward.z) * dt;
+      }
+    }
     const contactBodies = this.processCollisions(dt);
     this.sectionCost.contacts += performance.now() - contactsAt;
     const next = this.player.body.translation();
@@ -429,7 +448,9 @@ export class GameEngine {
       position: vehicle.body.translation(), velocity: vehicle.body.linvel(), heading: vehicle.heading,
       length: vehicle.config.length, width: vehicle.config.width,
     }));
-    this.trafficSimulation.update(dt, { position: this.player.body.translation(), heading: this.player.heading, speed: this.player.speed, lookBack: this.lookBack, velocity: this.player.body.linvel() }, obstacles);
+    obstacles.push(...this.traffic.filter(actor => actor.driver.dynamic).map(actor => ({ position: actor.body.translation(), velocity: actor.body.linvel(), heading: actor.driver.heading, length: actor.driver.length, width: actor.driver.width })));
+    this.trafficMotion!.prepare([this.player.collider, ...this.police.map(actor => actor.vehicle.collider)]);
+    this.trafficSimulation.update(dt, { position: this.player.body.translation(), heading: this.player.heading, speed: this.player.speed, lookBack: this.lookBack, velocity: this.player.body.linvel() }, obstacles, this.trafficMotion!.allows);
     for (const actor of this.traffic) {
       const driver = actor.driver;
       const translation = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
@@ -438,6 +459,9 @@ export class GameEngine {
         actor.appearance = 0;
         actor.damage?.dispose();
         actor.damage = undefined;
+        actor.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+        actor.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        actor.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
         actor.body.setTranslation(translation, true);
         actor.body.setRotation(rotation, true);
         actor.pose.snap(translation, rotation);
@@ -445,8 +469,10 @@ export class GameEngine {
       }
       actor.appearance = Math.min(1, actor.appearance + dt / 1.5);
       actor.model.setOpacity(actor.appearance);
-      actor.body.setNextKinematicTranslation(translation);
-      actor.body.setNextKinematicRotation(rotation);
+      if (!driver.dynamic) {
+        actor.body.setNextKinematicTranslation(translation);
+        actor.body.setNextKinematicRotation(rotation);
+      }
       for (const light of actor.model.brakeLights) (light.material as THREE.MeshStandardMaterial).emissiveIntensity = driver.braking ? 3 : 0.7;
       const blink = Math.floor(this.simulationTime * 2.5) % 2 === 0;
       for (const light of actor.model.turnSignals) {
