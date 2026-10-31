@@ -1,23 +1,21 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CITIES, HELICOPTER_COUNTS, POLICE_COUNTS, VEHICLES } from '../config';
-import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleConfig, VehicleId, WorldData, RoadPath } from '../types';
+import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleConfig, VehicleId, WorldData } from '../types';
 import { buildWorld, nearestRoad, sampleRoad } from './world';
 import { PhysicsVehicle } from './physics';
 import { createHelicopter, createVehicleModel } from './models';
 import { RoadNavigation } from './navigation';
 import { buildResult, calculateScore, getWarning } from './rules';
 import { GameAudio } from './audio';
+import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
 import { ArcadeCameraMotion } from './camera-motion';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
   model: ReturnType<typeof createVehicleModel>;
-  road: RoadPath;
-  distance: number;
-  offset: number;
-  speed: number;
+  driver: TrafficAgent;
   encounter: number;
   collided: boolean;
 }
@@ -69,7 +67,7 @@ export class GameEngine {
   private barrierCells = new Map<string, NonNullable<WorldData['obstacles']>>();
   private activeBarriers = new Map<string, RAPIER.Collider[]>();
   private barrierCell = '';
-  private nearbyTrafficRoads: RoadPath[] = [];
+  private trafficSimulation?: TrafficSimulation;
   private sun = new THREE.DirectionalLight('#fff0d8', 2.5);
 
   constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void) {
@@ -204,6 +202,7 @@ export class GameEngine {
     for (const actor of this.police) actor.vehicle.dispose();
     for (const helicopter of this.helicopters) { helicopter.group.removeFromParent(); helicopter.spotlight.target.removeFromParent(); helicopter.dispose() }
     this.traffic = [];
+    this.trafficSimulation = undefined;
     this.police = [];
     this.helicopters = [];
   }
@@ -230,24 +229,20 @@ export class GameEngine {
 
   private spawnTraffic() {
     const palette = ['#d6d8ce', '#7f9a98', '#374550', '#c6aa84', '#8a929a', '#c1b5a7'];
-    const spawn = this.track.spawn.position;
-    this.nearbyTrafficRoads = this.track.roads.filter(road => road.kind !== 'ramp');
-    const local = this.nearbyTrafficRoads.filter(road => road.points.some(point => Math.hypot(point.x - spawn.x, point.z - spawn.z) < 900));
+    this.trafficSimulation = new TrafficSimulation(this.track.roads);
     for (let i = 0; i < 34; i++) {
-      const road = i < 12 ? this.track.roads.find(item => item.id === this.track.spawn.roadId)! : local[i % local.length];
-      const near = nearestRoad([road], spawn.x, spawn.z)!;
-      const distance = Math.min(road.length - 8, near.distance + 80 + i * 18);
-      const offset = (i % 2 ? 0.23 : -0.16) * road.width;
-      const sample = sampleRoad(road, distance, offset);
       const config: VehicleConfig = { ...VEHICLES[0], color: palette[i % palette.length], name: '城市交通', mass: 1550, length: i % 7 === 0 ? 5.5 : 4.5 };
+      const driver = this.trafficSimulation.addCar(i, config.length, config.width, this.player!.body.translation());
+      if (!driver) continue;
       const model = createVehicleModel(config);
       for (const wheel of model.wheels) wheel.position.y = -0.43;
-      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.atan(sample.direction.y), sample.heading, 0, 'YXZ'));
-      const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(sample.point.x, sample.point.y + 0.79, sample.point.z).setRotation(q));
-      const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(0.9, 0.42, config.length * 0.45).setFriction(0.3).setRestitution(0.08), body);
+      const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(driver.pitch, driver.heading, 0, 'YXZ'));
+      const position = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
+      const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z).setRotation(rotation));
+      const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(config.width * 0.5, 0.42, config.length * 0.5).setFriction(0.3).setRestitution(0.08), body);
       this.scene.add(model.group);
-      model.group.position.set(sample.point.x, sample.point.y + 0.79, sample.point.z); model.group.quaternion.copy(q);
-      this.traffic.push({ body, collider, model, road, distance, offset, speed: road.kind === 'main' ? 17 + i % 5 * 1.5 : 10, encounter: Infinity, collided: false });
+      model.group.position.copy(position); model.group.quaternion.copy(rotation);
+      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false });
     }
   }
 
@@ -357,36 +352,31 @@ export class GameEngine {
   }
 
   private updateTraffic(dt: number) {
-    if (!this.player) return;
-    const player = this.player.body.translation();
+    if (!this.player || !this.trafficSimulation) return;
+    const obstacles: TrafficObstacle[] = [this.player, ...this.police.map(actor => actor.vehicle)].map(vehicle => ({
+      position: vehicle.body.translation(), velocity: vehicle.body.linvel(), heading: vehicle.heading,
+      length: vehicle.config.length, width: vehicle.config.width,
+    }));
+    this.trafficSimulation.update(dt, this.player.body.translation(), obstacles);
     for (const actor of this.traffic) {
-      let speed = actor.speed;
-      for (const other of this.traffic) if (other !== actor && actor.road.id === other.road.id && Math.abs(actor.offset - other.offset) < 2 && other.distance > actor.distance && other.distance - actor.distance < 12) speed *= 0.4;
-      actor.distance += speed * dt;
-      let relocate = false;
-      if (actor.distance >= actor.road.length) {
-        const end = actor.road.points.at(-1)!;
-        const next = this.track.roads.find(road => road !== actor.road && road.kind === actor.road.kind && Math.hypot(road.points[0].x - end.x, road.points[0].z - end.z, road.points[0].y - end.y) < 0.15);
-        if (next) { actor.distance -= actor.road.length; actor.road = next; actor.offset = Math.min(actor.road.width * 0.3, Math.max(-actor.road.width * 0.3, actor.offset)) }
-        else if (actor.road.closed) actor.distance %= actor.road.length;
-        else { actor.distance = actor.road.length - 2; speed = 0 }
+      const driver = actor.driver;
+      const translation = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
+      const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(driver.pitch, driver.heading, 0, 'YXZ'));
+      if (driver.relocated) {
+        actor.body.setTranslation(translation, true);
+        actor.body.setRotation(rotation, true);
+        actor.encounter = Infinity; actor.collided = false;
       }
-      let sample = sampleRoad(actor.road, actor.distance, actor.offset);
-      if (Math.hypot(sample.point.x - player.x, sample.point.z - player.z) > 650) {
-        const near = nearestRoad(this.nearbyTrafficRoads, player.x, player.z, player.y - 0.85)!;
-        actor.road = near.road;
-        actor.offset = ((this.traffic.indexOf(actor) % 3) - 1) * actor.road.width * 0.23;
-        actor.distance = Math.min(actor.road.length - 10, near.distance + 160 + this.traffic.indexOf(actor) * 12);
-        sample = sampleRoad(actor.road, actor.distance, actor.offset);
-        actor.encounter = Infinity; actor.collided = false; relocate = true;
-      }
-      const translation = { x: sample.point.x, y: sample.point.y + 0.79, z: sample.point.z };
-      const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.atan(sample.direction.y), sample.heading, 0, 'YXZ'));
-      if (relocate) actor.body.setTranslation(translation, true);
       actor.body.setNextKinematicTranslation(translation);
       actor.body.setNextKinematicRotation(rotation);
+      for (const light of actor.model.brakeLights) (light.material as THREE.MeshStandardMaterial).emissiveIntensity = driver.braking ? 3 : 0.7;
+      const blink = Math.floor(this.simulationTime * 2.5) % 2 === 0;
+      for (const light of actor.model.turnSignals) {
+        const active = blink && driver.indicator === Math.sign(light.position.x);
+        (light.material as THREE.MeshStandardMaterial).emissiveIntensity = active ? 3 : 0;
+      }
       actor.model.group.position.copy(translation); actor.model.group.quaternion.copy(rotation);
-      for (const wheel of actor.model.wheels) wheel.rotation.x += speed * dt / 0.36;
+      for (const wheel of actor.model.wheels) wheel.rotation.x = driver.wheelDistance / 0.36;
     }
   }
 
@@ -452,7 +442,8 @@ export class GameEngine {
     for (const actor of this.traffic) {
       const p = actor.body.translation();
       const distance = Math.hypot(position.x - p.x, position.z - p.z);
-      if (distance < 9 && this.player.speed > actor.speed + 4) actor.encounter = Math.min(actor.encounter, distance);
+      if (Math.abs(position.y - p.y) > 2) { actor.encounter = Infinity; continue }
+      if (distance < 9 && this.player.speed > actor.driver.speed + 4) actor.encounter = Math.min(actor.encounter, distance);
       if (distance > 10 && actor.encounter < Infinity) {
         if (!actor.collided && actor.encounter > this.player.config.width * 0.5 + 0.8 && actor.encounter < this.player.config.width * 0.5 + 2.3) {
           this.metrics.nearMisses++;

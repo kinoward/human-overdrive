@@ -202,6 +202,10 @@ function addCar(group: THREE.Group, config: VehicleConfig, police: boolean) {
   }
   const brakeMaterial = new THREE.MeshStandardMaterial({ color: '#9c2420', emissive: '#ff2415', emissiveIntensity: 0.7 });
   const brakeLights = [-1, 1].map((side) => box(group, brakeMaterial, [w * 0.27, 0.075, 0.045], [side * w * 0.28, 0.18, -l * 0.493]));
+  const turnSignals = [-1, 1].flatMap(side => {
+    const material = new THREE.MeshStandardMaterial({ color: '#b47722', emissive: '#ff9e19', emissiveIntensity: 0 });
+    return [-1, 1].map(end => box(group, material, [w * 0.09, 0.07, 0.05], [side * w * 0.43, 0.18, end * l * 0.493]));
+  });
   const policeLights: THREE.Mesh[] = [];
   if (police) {
     box(group, dark, [w * 1.005, 0.14, l * 0.51], [0, 0.12, -l * 0.02]);
@@ -227,7 +231,7 @@ function addCar(group: THREE.Group, config: VehicleConfig, police: boolean) {
     group.add(item);
     return item;
   });
-  return { wheels, brakeLights, policeLights };
+  return { wheels, brakeLights, policeLights, turnSignals };
 }
 
 function addMotorcycle(group: THREE.Group, config: VehicleConfig) {
@@ -270,13 +274,13 @@ function addMotorcycle(group: THREE.Group, config: VehicleConfig) {
     group.add(item);
     return item;
   });
-  return { wheels, brakeLights, policeLights: [] as THREE.Mesh[] };
+  return { wheels, brakeLights, policeLights: [] as THREE.Mesh[], turnSignals: [] as THREE.Mesh[] };
 }
 
 export function createVehicleModel(config: VehicleConfig, police = false) {
   const group = new THREE.Group();
   const details = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
-  mergeStatic(group, [...details.brakeLights, ...details.policeLights]);
+  mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);
   return { group, ...details, dispose: createDisposer(group) };
 }
 
