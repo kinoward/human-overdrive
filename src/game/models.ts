@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { VehicleConfig } from '../types';
 import { cloneGeneratedVehicle } from './generated-assets';
 import { addVehicleLamps } from './vehicle-lamps';
+import { addPoliceLampGlow } from './police-lighting';
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
 const unitCylinder = new THREE.CylinderGeometry(1, 1, 1, 14);
@@ -203,8 +204,10 @@ function addCar(group: THREE.Group, config: VehicleConfig, police: boolean, deta
     box(owned, dark, [1.25, 0.08, 0.28], [0, 0.94, -0.05]);
     for (const side of [-1, 1]) {
       const color = side < 0 ? '#ef3e37' : '#3988ff';
-      const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 });
-      policeLights.push(box(owned, material, [0.52, 0.12, 0.24], [side * 0.32, 1.04, -0.05]));
+      const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 8 });
+      const lamp = box(owned, material, [0.52, 0.12, 0.24], [side * 0.32, 1.04, -0.05]);
+      addPoliceLampGlow(lamp, policeLights.length);
+      policeLights.push(lamp);
       const label = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.32), policeTextMaterial());
       label.position.set(side * 1.005, 0.08, -0.15); label.rotation.y = side * Math.PI / 2; owned.add(label);
     }
@@ -223,6 +226,7 @@ function addMotorcycle(group: THREE.Group, detailed: boolean) {
 
 export function createVehicleModel(config: VehicleConfig, police = false, detailed = false) {
   const group = new THREE.Group();
+  group.userData.policeLighting = police;
   group.userData.damageModel = config.kind === 'motorcycle' && !police ? 'motorcycle' : 'car';
   const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, detailed) : addCar(group, config, police, detailed);
   mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);

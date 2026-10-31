@@ -1,5 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
+import { updatePoliceLamps } from './police-lighting';
 import type { Point3, VehicleConfig } from '../types';
 import { createVehicleModel } from './models';
 import { ArcadeDriving, type Controls } from './arcade-driving';
@@ -175,7 +176,7 @@ export class PhysicsVehicle {
       const material = lamp.material as THREE.MeshStandardMaterial;
       material.emissiveIntensity = this.braking ? 3 : 0.5;
     }
-    for (let i = 0; i < this.model.policeLights.length; i++) this.model.policeLights[i].visible = Math.floor(time * 8 + i) % 2 === 0;
+    updatePoliceLamps(this.model.policeLights, time);
   }
 
   render(alpha: number) {

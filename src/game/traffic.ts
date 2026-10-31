@@ -2,6 +2,7 @@ import type { Point3, RoadPath } from '../types';
 import { TrafficNetwork, angleDifference, clamp, laneCount, laneOffset, travelHeading, type TrafficLeg } from './traffic-network';
 import { TrafficRightOfWay } from './traffic-right-of-way';
 import type { TrafficVehicleSpec } from './traffic-vehicles';
+import { nearestYieldLane, policeYieldOffset } from './traffic-yield';
 
 export interface TrafficFocus {
   position: Point3;
@@ -12,6 +13,7 @@ export interface TrafficFocus {
 }
 
 export interface TrafficObstacle {
+  emergency?: boolean;
   position: Point3;
   velocity: Point3;
   heading: number;
@@ -53,6 +55,9 @@ export interface TrafficAgent {
   next?: TrafficLeg;
   previous?: TrafficLeg;
   previousOffset: number;
+  yieldOffset?: number;
+  yieldHold: number;
+  yieldReturning: boolean;
 }
 
 export type TrafficMotionGuard = (agent: TrafficAgent, next: { position: Point3; heading: number; pitch: number }, dt: number) => boolean;
@@ -77,6 +82,7 @@ interface LaneView {
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const roadSpeed = (road: RoadPath, id: number, profile: TrafficVehicleSpec) => profile.speeds[road.kind] * (0.92 + id % 5 * 0.025);
 const bodyPosition = (agent: TrafficAgent) => ({ x: agent.position.x, y: agent.position.y + 0.79, z: agent.position.z });
+const destinationOffset = (agent: TrafficAgent) => agent.yieldOffset ?? laneOffset(agent.leg, agent.targetLane);
 
 export class TrafficSimulation {
   readonly cars: TrafficAgent[] = [];
@@ -104,7 +110,7 @@ export class TrafficSimulation {
       position: sample.point, heading: sample.heading, pitch: sample.pitch, speed: roadSpeed(leg.road, id, profile) * 0.58,
       desiredSpeed: roadSpeed(leg.road, id, profile), acceleration: 0, wheelDistance: 0, braking: false, indicator: 0,
       relocated: true, dynamic: false, motionBlocked: false, changeFrom: offset, changeTime: 3, changePaused: false, changeReturning: false, cooldown: 2 + id % 4, decisionTime: id % 5 * 0.08,
-      visits: 0, previousOffset: offset, next: this.network.next(leg, lane, id, profile)
+      visits: 0, previousOffset: offset, yieldHold: 0, yieldReturning: false, next: this.network.next(leg, lane, id, profile)
     };
     this.cars.push(agent);
     return agent;
@@ -134,7 +140,9 @@ export class TrafficSimulation {
     for (const agent of plans) {
       agent.cooldown = Math.max(0, agent.cooldown - dt);
       agent.decisionTime -= dt;
+      this.planPoliceYield(agent, obstacles, dt);
       agent.desiredSpeed = this.targetSpeed(agent);
+      if (agent.yieldOffset !== undefined) continue;
       if (agent.decisionTime > 0) continue;
       agent.decisionTime = 0.25 + agent.id % 3 * 0.04;
       if (agent.cooldown > 0 || agent.changeTime < 3 || laneCount(agent.leg) < 2 || agent.speed < 2) continue;
@@ -166,7 +174,10 @@ export class TrafficSimulation {
     for (const agent of ongoing) {
       if (agent.changeReturning) continue;
       agent.changePaused = false;
-      if (agent.speed < 0.01 || continuing.some(other => this.reservationConflict({ ...agent, changePaused: false }, { ...other, changePaused: false }))) this.returnToLane(agent);
+      if ((agent.speed < 0.01 && agent.yieldOffset === undefined) || continuing.some(other => this.reservationConflict({ ...agent, changePaused: false }, { ...other, changePaused: false }))) {
+        if (agent.yieldOffset !== undefined) agent.changePaused = true;
+        else this.returnToLane(agent);
+      }
       else continuing.push(agent);
     }
     const waitingForReturn = new Set<number>();
@@ -180,7 +191,7 @@ export class TrafficSimulation {
     const motionSeen = this.observe(plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-agent.profile.comfortableBrake, agent.acceleration) } : agent), obstacles);
     const motions = plans.map(agent => {
       const destinationLane = agent.changeReturning ? agent.lane : agent.targetLane;
-      const targetView = this.sense(agent, laneOffset(agent.leg, destinationLane), motionSeen);
+      const targetView = this.sense(agent, agent.yieldOffset ?? laneOffset(agent.leg, destinationLane), motionSeen);
       let view = targetView;
       if (agent.changeTime < 3) {
         const currentView = this.sense(agent, agent.offset, motionSeen);
@@ -194,14 +205,19 @@ export class TrafficSimulation {
       let acceleration = clamp(this.followAcceleration(agent, view), -agent.profile.emergencyBrake, agent.profile.acceleration);
       const closing = agent.speed - view.leaderSpeed;
       if (closing > 0 && view.gap / closing < 1.2) acceleration = -agent.profile.emergencyBrake;
+      if (agent.yieldOffset !== undefined && !agent.yieldReturning) {
+        const remainingShift = Math.abs(agent.offset - agent.yieldOffset);
+        const yieldSpeed = remainingShift > 0.35 ? Math.min(6, 1.5 + remainingShift * 1.5) : 0;
+        acceleration = Math.min(acceleration, clamp((yieldSpeed - agent.speed) * 1.8, -agent.profile.comfortableBrake, agent.profile.acceleration));
+      }
       const shifting = agent.changeTime < 3;
-      const corridorSafe = !shifting || (!waitingForReturn.has(agent.id) && targetView.safe && this.sweepClear(agent, motionSeen));
+      const corridorSafe = !shifting || (!agent.changePaused && !waitingForReturn.has(agent.id) && targetView.safe && this.sweepClear(agent, motionSeen));
       if (!corridorSafe) acceleration = Math.min(acceleration, -agent.profile.comfortableBrake);
       let motion = this.integrate(agent.speed, acceleration, dt);
       const available = Math.max(0, view.gap - 0.2 + Math.max(0, view.leaderSpeed) * dt);
       if (motion.advance > available) motion = { advance: available, speed: Math.min(motion.speed, available / dt) };
-      const shiftSafe = !shifting || (corridorSafe && (agent.changeReturning || motion.advance > 0.000001));
-      const changeAdvance = shiftSafe ? Math.min(dt * (agent.profile.heavy ? 2 / 3 : 1), agent.changeReturning ? Math.max(dt * 0.35, motion.advance / 4.5) : motion.advance / 4.5) : 0;
+      const shiftSafe = !shifting || (corridorSafe && (agent.yieldOffset !== undefined || agent.changeReturning || motion.advance > 0.000001));
+      const changeAdvance = shiftSafe ? this.lateralAdvance(agent, dt, motion.advance) : 0;
       return { agent, ...motion, acceleration, shiftSafe, changeAdvance };
     });
     const committed = motions.map(motion => {
@@ -210,9 +226,12 @@ export class TrafficSimulation {
       agent.braking = motion.acceleration < -0.6 || motion.advance < 0.001;
       agent.changePaused = !motion.shiftSafe;
       if (motion.shiftSafe) agent.changeTime = clamp(agent.changeTime + (agent.changeReturning ? -motion.changeAdvance : motion.changeAdvance), 0, 3);
-      agent.offset = agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(agent.changeTime / 3);
+      agent.offset = agent.changeFrom + (destinationOffset(agent) - agent.changeFrom) * smooth(agent.changeTime / 3);
       if (agent.changeReturning && agent.changeTime <= 0) this.cancelChange(agent);
-      else if (agent.changeTime >= 3) { agent.lane = agent.targetLane; agent.indicator = 0; agent.changePaused = false; agent.changeReturning = false }
+      else if (agent.changeTime >= 3) {
+        agent.lane = agent.targetLane; agent.indicator = 0; agent.changePaused = false; agent.changeReturning = false;
+        if (agent.yieldReturning) { agent.yieldOffset = undefined; agent.yieldReturning = false }
+      }
       this.advance(agent, motion.advance);
       agent.wheelDistance += motion.advance;
       const sample = this.sample(agent, 0, agent.offset);
@@ -240,6 +259,30 @@ export class TrafficSimulation {
     return { advance: Math.max(0, speed * duration + acceleration * duration * duration / 2), speed: Math.max(0, speed + acceleration * duration) };
   }
 
+  private planPoliceYield(agent: TrafficAgent, obstacles: TrafficObstacle[], dt: number) {
+    const heading = this.network.sample(agent.leg, agent.along, agent.offset).heading;
+    const offset = policeYieldOffset(agent, obstacles, heading);
+    if (offset !== undefined) agent.yieldHold = 2.5;
+    else agent.yieldHold = Math.max(0, agent.yieldHold - dt);
+    const start = (target: number, returning: boolean) => {
+      agent.yieldOffset = target;
+      agent.yieldReturning = returning;
+      agent.targetLane = nearestYieldLane(agent, target);
+      agent.next = this.network.next(agent.leg, agent.targetLane, agent.id + agent.visits, agent.profile);
+      agent.changeFrom = agent.offset; agent.changeTime = 0;
+      agent.changePaused = false; agent.changeReturning = false;
+      agent.indicator = (destinationOffset(agent) - agent.offset) * agent.leg.sign > 0 ? 1 : -1;
+      agent.cooldown = 3;
+    };
+    if (offset !== undefined && (agent.yieldOffset === undefined || agent.yieldReturning || Math.abs(offset - agent.yieldOffset) > 0.3)) start(offset, false);
+    else if (agent.yieldOffset !== undefined && agent.yieldHold === 0 && !agent.yieldReturning) start(laneOffset(agent.leg, nearestYieldLane(agent, agent.offset)), true);
+  }
+
+  private lateralAdvance(agent: TrafficAgent, duration: number, advance: number) {
+    if (agent.yieldOffset !== undefined) return duration * 3 / Math.max(1.5, Math.abs(destinationOffset(agent) - agent.changeFrom) / (agent.profile.heavy ? 1 : 1.6));
+    return Math.min(duration * (agent.profile.heavy ? 2 / 3 : 1), agent.changeReturning ? Math.max(duration * 0.35, advance / 4.5) : advance / 4.5);
+  }
+
   private returnToLane(agent: TrafficAgent) {
     if (agent.changeTime <= 0) { this.cancelChange(agent); return }
     agent.changeReturning = true; agent.changePaused = false;
@@ -256,7 +299,7 @@ export class TrafficSimulation {
   private changeProgress(agent: TrafficAgent, duration: number) {
     if (agent.changePaused) return agent.changeTime;
     const travel = Math.min(this.integrate(agent.speed, agent.acceleration, duration).advance, Math.max(0, this.rightOfWay.stopDistance(agent)));
-    const amount = Math.min(duration * (agent.profile.heavy ? 2 / 3 : 1), agent.changeReturning ? Math.max(duration * 0.35, travel / 4.5) : travel / 4.5);
+    const amount = this.lateralAdvance(agent, duration, travel);
     return clamp(agent.changeTime + (agent.changeReturning ? -amount : amount), 0, 3);
   }
 
@@ -265,11 +308,11 @@ export class TrafficSimulation {
     const motion = this.integrate(agent.speed, agent.acceleration, time);
     const stop = Math.max(0, this.rightOfWay.stopDistance(agent));
     const changeTime = this.changeProgress(agent, time);
-    const offset = fixedOffset ?? agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(changeTime / 3);
+    const offset = fixedOffset ?? agent.changeFrom + (destinationOffset(agent) - agent.changeFrom) * smooth(changeTime / 3);
     const sample = this.sample(agent, Math.min(motion.advance, stop), offset);
     const laterTime = time + 0.08;
     const laterChange = this.changeProgress(agent, laterTime);
-    const laterOffset = fixedOffset ?? agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(laterChange / 3);
+    const laterOffset = fixedOffset ?? agent.changeFrom + (destinationOffset(agent) - agent.changeFrom) * smooth(laterChange / 3);
     const ahead = this.sample(agent, Math.min(this.integrate(agent.speed, agent.acceleration, laterTime).advance, stop), laterOffset);
     const dx = ahead.point.x - sample.point.x, dz = ahead.point.z - sample.point.z;
     return { position: { x: sample.point.x, y: sample.point.y + 0.79, z: sample.point.z }, heading: motion.speed > 1 && Math.hypot(dx, dz) > 0.02 ? Math.atan2(dx, dz) : sample.heading };
@@ -441,6 +484,7 @@ export class TrafficSimulation {
     agent.position = sample.point; agent.distance = sample.distance; agent.heading = sample.heading; agent.pitch = sample.pitch;
     agent.relocated = true;
     agent.dynamic = false;
+    agent.yieldOffset = undefined; agent.yieldHold = 0; agent.yieldReturning = false;
   }
 
   private targetSpeed(agent: TrafficAgent) {
@@ -599,6 +643,7 @@ export class TrafficSimulation {
       agent.previous = agent.leg; agent.previousOffset = agent.offset;
       const next = agent.next;
       if (next.road !== agent.road) {
+        agent.yieldOffset = undefined; agent.yieldHold = 0; agent.yieldReturning = false;
         agent.lane = this.network.mappedLane(agent.leg, next, agent.offset);
         agent.targetLane = agent.lane; agent.offset = laneOffset(next, agent.lane); agent.changeFrom = agent.offset;
         agent.changeTime = 3; agent.changePaused = false; agent.changeReturning = false; agent.indicator = 0;

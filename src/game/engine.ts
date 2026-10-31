@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { updatePoliceLamps } from './police-lighting';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CITIES, getHelicopterTarget, getPoliceTarget, INITIAL_POLICE_COUNT, MAX_POLICE_COUNT, VEHICLES } from '../config';
 import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleId, WorldData } from '../types';
@@ -539,6 +540,7 @@ export class GameEngine {
     const obstacles: TrafficObstacle[] = [this.player, ...this.police.map(actor => actor.vehicle)].map(vehicle => ({
       position: vehicle.body.translation(), velocity: vehicle.body.linvel(), heading: vehicle.heading,
       length: vehicle.config.length, width: vehicle.config.width,
+      emergency: this.police.some(actor => actor.vehicle === vehicle && actor.operational),
     }));
     obstacles.push(...this.traffic.filter(actor => actor.driver.dynamic).map(actor => ({ position: actor.body.translation(), velocity: actor.body.linvel(), heading: actor.driver.heading, length: actor.driver.length, width: actor.driver.width })));
     this.trafficMotion!.prepare([this.player.collider, ...this.police.map(actor => actor.vehicle.collider)]);
@@ -861,7 +863,7 @@ export class GameEngine {
     } else if (this.status === 'intro') {
       this.presentationTime += dt;
       for (const actor of this.police) {
-        for (let index = 0; index < actor.vehicle.model.policeLights.length; index++) actor.vehicle.model.policeLights[index].visible = Math.floor(this.presentationTime * 8 + index) % 2 === 0;
+        if (actor.operational) updatePoliceLamps(actor.vehicle.model.policeLights, this.presentationTime);
       }
     } else if (this.status === 'outro') {
       this.presentationTime += dt;

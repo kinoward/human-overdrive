@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { vehicleLampSources, type VehicleLampSource } from './vehicle-lamps';
+import { createPoliceLighting } from './police-lighting';
 
 function lowBeamTexture() {
   const canvas = document.createElement('canvas');
@@ -20,6 +21,7 @@ function lowBeamTexture() {
 }
 
 export function createVehicleLighting(scene: THREE.Scene) {
+  const policeLighting = createPoliceLighting(scene);
   const group = new THREE.Group();
   group.name = '车辆道路照明';
   scene.add(group);
@@ -50,6 +52,7 @@ export function createVehicleLighting(scene: THREE.Scene) {
       previousTime = time;
       const blend = 1 - Math.exp(-delta * 12);
       camera.updateMatrixWorld();
+      policeLighting.update(camera);
       cameraPosition.setFromMatrixPosition(camera.matrixWorld);
       viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustum.setFromProjectionMatrix(viewProjection);
@@ -97,6 +100,7 @@ export function createVehicleLighting(scene: THREE.Scene) {
       }
     },
     dispose: () => {
+      policeLighting.dispose();
       group.removeFromParent();
       for (const { light } of slots) light.dispose();
       beamTexture.dispose();
