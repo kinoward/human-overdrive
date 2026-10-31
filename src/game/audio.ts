@@ -21,10 +21,10 @@ export class GameAudio {
     void this.context.resume();
   }
 
-  update(speed: number, warning: number, running: boolean) {
+  update(speed: number, pursued: boolean, running: boolean) {
     if (!this.context || !this.oscillator || !this.gain) return;
     const now = this.context.currentTime;
-    this.oscillator.frequency.setTargetAtTime(35 + speed * 1.6 + (warning > 0 ? Math.sin(now * 4) * 8 : 0), now, 0.12);
+    this.oscillator.frequency.setTargetAtTime(35 + speed * 1.6 + (pursued ? Math.sin(now * 4) * 8 : 0), now, 0.12);
     this.gain.gain.setTargetAtTime(!this.muted && running ? 0.018 + speed * 0.00013 : 0, now, 0.1);
   }
 

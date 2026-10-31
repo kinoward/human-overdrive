@@ -1,3 +1,4 @@
+import { HELICOPTER_ARRIVAL_TIMES } from '../config';
 import type { GameSnapshot, Outcome } from '../types';
 import { MUSIC_CUES } from './music-cues';
 
@@ -44,7 +45,7 @@ export class MusicController {
     if (snapshot.status === 'finished') return;
     if (snapshot.status === 'ready') { this.showMenu(); return }
     this.paused = snapshot.status === 'paused';
-    if (!this.paused) this.select(snapshot.warning >= 3 ? 'pursuit' : 'drive');
+    if (!this.paused) this.select(snapshot.elapsed >= HELICOPTER_ARRIVAL_TIMES[0] ? 'pursuit' : 'drive');
     this.syncPlayback();
   }
 

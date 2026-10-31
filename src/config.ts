@@ -1,8 +1,13 @@
 import type { CityConfig, VehicleConfig } from './types';
 
-export const TARGET_DISTANCE = 5000;
-export const POLICE_COUNTS = [0, 1, 2, 4, 7, 10] as const;
-export const HELICOPTER_COUNTS = [0, 0, 0, 1, 2, 3] as const;
+export const TARGET_DISTANCE = 20000;
+export const INITIAL_POLICE_COUNT = 3;
+export const MAX_POLICE_COUNT = 10;
+export const POLICE_REINFORCEMENT_INTERVAL = 75;
+export const HELICOPTER_ARRIVAL_TIMES = [180, 330, 450] as const;
+
+export const getPoliceTarget = (elapsed: number) => Math.min(MAX_POLICE_COUNT, INITIAL_POLICE_COUNT + Math.floor(elapsed / POLICE_REINFORCEMENT_INTERVAL));
+export const getHelicopterTarget = (elapsed: number) => HELICOPTER_ARRIVAL_TIMES.filter(time => elapsed >= time).length;
 
 export const VEHICLES: VehicleConfig[] = [
   {

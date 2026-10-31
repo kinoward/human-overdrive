@@ -1,6 +1,6 @@
 import type { RaceResult, VehicleId } from '../types';
 
-const STORAGE_KEY = 'human-overdrive.results.v1';
+const STORAGE_KEY = 'human-overdrive.results.v2';
 let storageMessage = '';
 let memoryResults: RaceResult[] = [];
 
@@ -13,7 +13,7 @@ function isRaceResult(value: unknown): value is RaceResult {
     && typeof result.cityId === 'string'
     && (result.vehicleId === 'model-y' || result.vehicleId === 'f850gs')
     && (result.outcome === 'escaped' || result.outcome === 'flipped' || result.outcome === 'caught')
-    && ['score', 'stars', 'duration', 'distance', 'targetDistance', 'maxWarning', 'nearMisses', 'collisions', 'topSpeed', 'speedScore', 'controlScore', 'riskScore']
+    && ['score', 'stars', 'duration', 'distance', 'targetDistance', 'maxPoliceCount', 'nearMisses', 'collisions', 'topSpeed', 'speedScore', 'controlScore', 'pressureScore']
       .every((key) => typeof result[key] === 'number' && Number.isFinite(result[key]));
 }
 

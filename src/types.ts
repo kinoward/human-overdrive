@@ -34,9 +34,8 @@ export interface GameSnapshot {
   distance: number;
   targetDistance: number;
   elapsed: number;
-  heat: number;
-  warning: number;
   policeCount: number;
+  policeTarget: number;
   helicopterCount: number;
   score: number;
   stars: number;
@@ -62,13 +61,13 @@ export interface RaceResult {
   duration: number;
   distance: number;
   targetDistance: number;
-  maxWarning: number;
+  maxPoliceCount: number;
   nearMisses: number;
   collisions: number;
   topSpeed: number;
   speedScore: number;
   controlScore: number;
-  riskScore: number;
+  pressureScore: number;
 }
 
 export interface RaceMetrics {
@@ -78,7 +77,7 @@ export interface RaceMetrics {
   targetDistance: number;
   nearMisses: number;
   collisions: number;
-  maxWarning: number;
+  maxPoliceCount: number;
   maxPressureTime: number;
   maxPressureDistance: number;
   topSpeed: number;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { CITIES, HELICOPTER_COUNTS, POLICE_COUNTS, VEHICLES } from '../config';
+import { CITIES, getHelicopterTarget, getPoliceTarget, INITIAL_POLICE_COUNT, MAX_POLICE_COUNT, VEHICLES } from '../config';
 import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleId, WorldData } from '../types';
 import { buildWorld, nearestRoad } from './world';
 import { PhysicsVehicle } from './physics';
@@ -11,7 +11,7 @@ import { PursuitHelicopter } from './helicopter';
 import { CollisionSystem } from './collisions';
 import { isCaptured } from './capture';
 import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
-import { buildResult, calculateScore, getWarning } from './rules';
+import { buildResult, calculateScore } from './rules';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
 import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
@@ -58,7 +58,6 @@ export class GameEngine {
   private simulationTime = 0;
   private status: GameSnapshot['status'] = 'ready';
   private metrics!: RaceMetrics;
-  private heat = 0;
   private nickname = '公路旅人';
   private wrongWay = false;
   private capture = 0;
@@ -66,9 +65,8 @@ export class GameEngine {
   private escapeTime = 0;
   private flippedTime = 0;
   private combo = 0;
-  private lastViolation = 0;
   private lastPosition = new THREE.Vector3();
-  private event = '沿四环自由驾驶，累计 5 公里即可逃脱';
+  private event = '沿四环自由驾驶，累计 20 公里即可逃脱';
   private eventTone: GameSnapshot['eventTone'] = 'neutral';
   private eventUntil = 0;
   private cameraPosition = new THREE.Vector3();
@@ -173,15 +171,13 @@ export class GameEngine {
     this.player = new PhysicsVehicle(this.physics, config, this.track.spawn.position, this.track.spawn.heading);
     this.scene.add(this.player.model.group);
     if (this.preview) this.preview.group.visible = false;
-    this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxWarning: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0 };
+    this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxPoliceCount: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0 };
     this.status = 'running';
     this.resetFrameStats();
     this.needsRender = true;
-    this.heat = 0;
     this.capture = 0;
     this.flippedTime = 0;
     this.combo = 0;
-    this.lastViolation = 0;
     this.collisionSystem.reset();
     this.nextSight = 0;
     this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible });
@@ -189,13 +185,16 @@ export class GameEngine {
     this.simulationTime = 0;
     this.keys.clear();
     this.lastPosition.copy(this.player.body.translation());
-    this.event = '自由选择路线 · 往返同样计入里程';
+    this.event = '20 公里逃脱 · 警方已出动，随时间增援';
     this.eventTone = 'neutral';
     this.eventUntil = 5;
     this.spawnTraffic();
     this.cameraPosition.set(0, 0, 0);
     this.cameraMotion.reset();
     this.updateCamera(1);
+    this.pursuit.initialize(INITIAL_POLICE_COUNT, this.player, this.trafficObstacles());
+    this.metrics.maxPoliceCount = this.pursuit.activeCars.length;
+    this.updateRoadColliders(this.player.body.translation());
     this.mapCanvas.style.display = '';
     this.audio.start();
     this.renderer.domElement.focus();
@@ -207,7 +206,7 @@ export class GameEngine {
     this.status = 'paused';
     this.needsRender = true;
     this.keys.clear();
-    this.audio.update(0, 0, false);
+    this.audio.update(0, false, false);
     this.emit();
   }
 
@@ -231,7 +230,7 @@ export class GameEngine {
     this.keys.clear();
     this.mapCanvas.style.display = 'none';
     if (this.preview) this.preview.group.visible = true;
-    this.audio.update(0, 0, false);
+    this.audio.update(0, false, false);
   }
 
   setMuted(muted: boolean) { this.audio.setMuted(muted) }
@@ -304,10 +303,9 @@ export class GameEngine {
 
   private spawnPolice() {
     if (!this.player || !this.pursuit) return;
-    const warning = getWarning(this.heat);
-    this.pursuit.spawn(POLICE_COUNTS[warning], this.player, this.trafficObstacles());
+    this.pursuit.spawn(getPoliceTarget(this.metrics.elapsed), this.player, this.trafficObstacles());
     const player = this.player.body.translation();
-    while (this.helicopters.length < HELICOPTER_COUNTS[warning]) {
+    while (this.helicopters.length < getHelicopterTarget(this.metrics.elapsed)) {
       const i = this.helicopters.length;
       const initial = { x: player.x + (i - 1) * 35, y: player.y + 42 + i * 12, z: player.z - 45 };
       this.airspace.update([player, initial, ...this.helicopters.map(actor => actor.body.translation())]);
@@ -376,16 +374,17 @@ export class GameEngine {
     this.lastPosition.set(next.x, next.y, next.z);
     const velocity = this.player.body.linvel();
     this.wrongWay = !!nextRoad && nextRoad.road.oneWay && this.player.speed > 3 && (velocity.x * nextRoad.direction.x + velocity.z * nextRoad.direction.z) < -this.player.speed * 0.35;
-    this.advanceWarning(dt);
     this.checkNearMisses();
-    const warning = getWarning(this.heat);
-    this.metrics.maxWarning = Math.max(this.metrics.maxWarning, warning);
+    const previousTarget = getPoliceTarget(Math.max(0, this.metrics.elapsed - dt));
+    const target = getPoliceTarget(this.metrics.elapsed);
+    if (target > previousTarget) this.message(`警方增援 · 目标警力 ${target} 辆`, 'danger', 3);
     this.spawnPolice();
+    this.metrics.maxPoliceCount = Math.max(this.metrics.maxPoliceCount, this.pursuit?.activeCars.length ?? 0);
     const nearbyPolice = this.pursuit?.effective(this.player).filter(actor => {
       const p = actor.vehicle.body.translation();
       return Math.hypot(p.x - next.x, p.z - next.z) < 180;
     }) ?? [];
-    if (warning === 5 && (this.pursuit?.activeCars.length ?? 0) >= 10 && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
+    if ((this.pursuit?.activeCars.length ?? 0) >= MAX_POLICE_COUNT && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
       this.metrics.maxPressureTime += dt;
       this.metrics.maxPressureDistance += distance;
     } else if (this.metrics.maxPressureTime < 20 || this.metrics.maxPressureDistance < 500) {
@@ -408,21 +407,6 @@ export class GameEngine {
     if (this.capture >= 1) { this.finish('caught'); return }
     if (this.metrics.distance >= this.metrics.targetDistance) { this.finish('escaped'); return }
     if (!roadValid && this.simulationTime > this.eventUntil) this.message('驶回公路 · 路外不累计里程', 'danger', 1);
-  }
-
-  private advanceWarning(dt: number) {
-    if (!this.player) return;
-    if (this.heat > 0) this.heat = Math.min(100, this.heat + dt * 0.48);
-    if (this.simulationTime - this.lastViolation >= 2) {
-      const speeding = this.player.speed * 3.6 > 100;
-      if (speeding || this.wrongWay) {
-        const previous = getWarning(this.heat);
-        this.heat = Math.min(100, Math.max(1, this.heat) + (this.wrongWay ? 7 : 3));
-        this.lastViolation = this.simulationTime;
-        if (previous === 0) this.message('违规记录 · 警方已开始追捕', 'danger', 4);
-        else if (this.wrongWay) this.message('逆行中 · 里程有效，追捕压力上升', 'danger', 2);
-      }
-    }
   }
 
   private updateTraffic(dt: number) {
@@ -505,7 +489,6 @@ export class GameEngine {
       if (impact.newIncident) {
         this.metrics.collisions++;
         this.combo = 0;
-        this.heat = Math.min(100, Math.max(1, this.heat) + 12);
       }
       if (impact.feedback) {
         this.renderer.domElement.dataset.impact = JSON.stringify({ severity: impact.severity, deltaV: impact.deltaV, approachSpeed: impact.approachSpeed, strength: impact.strength });
@@ -562,7 +545,7 @@ export class GameEngine {
     this.status = 'finished';
     this.needsRender = true;
     this.keys.clear();
-    this.audio.update(0, 0, false);
+    this.audio.update(0, false, false);
     const result = buildResult(this.metrics, outcome, this.nickname);
     this.mapCanvas.style.display = 'none';
     this.emit();
@@ -594,7 +577,7 @@ export class GameEngine {
       }
       this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types });
     }
-    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, heat: this.heat, warning: getWarning(this.heat), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
+    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
   private updateCamera(dt: number) {
@@ -691,7 +674,7 @@ export class GameEngine {
       const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
       this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
     }
-    this.audio.update(this.player?.speed ?? 0, getWarning(this.heat), this.status === 'running');
+    this.audio.update(this.player?.speed ?? 0, (this.pursuit?.activeCars.length ?? 0) > 0, this.status === 'running');
     if (this.timer.getElapsed() - this.hudAt > 0.08) {
       this.hudAt = this.timer.getElapsed();
       if (this.status !== 'ready') { this.emit(); this.drawMap() }

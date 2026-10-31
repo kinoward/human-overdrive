@@ -18,7 +18,7 @@
 .board-value{font-size:24px;font-weight:600;letter-spacing:-.7px;font-variant-numeric:tabular-nums}
 .board-rating{font-size:19px;color:var(--ink)}
 .board-rating small{font-size:11px;color:var(--muted)}
-.board-warning,.board-date{font-size:12px;color:var(--muted)}
+.board-police,.board-date{font-size:12px;color:var(--muted)}
 .board-empty{position:relative;display:flex;min-height:340px;padding:45px 25px;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center}
 .board-empty>.road-map{position:absolute;left:50%;top:50%;width:560px;max-width:90%;transform:translate(-50%,-50%) rotate(-8deg);opacity:.055;pointer-events:none}
 .board-empty>*:not(.road-map){position:relative}
@@ -44,18 +44,16 @@
 .score-weights b{font-size:20px;color:var(--accent);font-weight:650;margin-right:4px}
 .race-hud{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:24px 28px 24px;pointer-events:none;color:var(--ink)}
 .race-top{display:flex;justify-content:space-between;gap:22px;align-items:flex-start}
-.race-title,.race-warning,.speedometer,.live-score,.race-progress{border:1px solid #99b3c536;background:#09121bdd;box-shadow:0 6px 22px #0003;backdrop-filter:blur(10px)}
+.race-title,.race-pursuit,.speedometer,.live-score,.race-progress{border:1px solid #99b3c536;background:#09121bdd;box-shadow:0 6px 22px #0003;backdrop-filter:blur(10px)}
 .race-title{display:flex;align-items:center;gap:13px;padding:17px 20px;border-radius:2px}
 .race-title>svg{width:27px;flex-shrink:0;color:var(--accent)}
 .race-title>div{display:flex;flex-direction:column;gap:7px}
 .race-title strong{font-size:14px;font-weight:700;letter-spacing:.3px}
 .race-title>div>span{font-size:10px;color:var(--muted)}
-.race-warning{min-width:240px;padding:12px 18px 13px;border-radius:2px}
-.warning-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;font-size:11px}
-.warning-heading b{padding:0 5px;font-size:25px;font-weight:650;color:var(--accent);font-variant-numeric:tabular-nums}
-.warning-bars{display:flex;gap:5px}
-.warning-bars i{display:block;width:14px;height:20px;border-radius:2px;background:#687b8c42}
-.warning-bars i.active{background:var(--accent)}
+.race-pursuit{min-width:240px;padding:12px 18px 13px;border-radius:2px}
+.pursuit-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;font-size:11px}
+.pursuit-heading small{font-size:12px;color:var(--muted)}
+.pursuit-heading b{padding:0 5px;font-size:25px;font-weight:650;color:var(--accent);font-variant-numeric:tabular-nums}
 .pursuer-counts{display:flex;justify-content:space-between;gap:22px;margin-top:9px;color:var(--muted);font-size:10px}
 .pursuer-counts b{font-size:12px;font-weight:650;color:var(--ink);margin-left:7px}
 .race-actions{display:flex;gap:9px;pointer-events:auto}
@@ -180,7 +178,7 @@
 @media(max-width:900px){
   .race-title{padding:15px}
   .race-title>svg{display:none}
-  .race-warning{min-width:220px;padding:11px 15px}
+  .race-pursuit{min-width:220px;padding:11px 15px}
   .race-top{gap:15px}
   .race-bottom{grid-template-columns:minmax(200px,1fr) 150px;padding-left:230px}
   .live-score{position:absolute;right:28px;top:99px;min-width:145px;min-height:108px}
@@ -234,11 +232,9 @@
   .race-title{padding:13px 15px;min-height:62px;max-width:285px;border-radius:2px}
   .race-title strong{font-size:12px}
   .race-title>div>span{font-size:9px}
-  .race-warning{grid-column:1;grid-row:2;min-width:0;width:210px;padding:10px 14px;border-radius:2px}
-  .warning-heading{font-size:10px;gap:10px}
-  .warning-heading b{font-size:22px}
-  .warning-bars{gap:4px}
-  .warning-bars i{width:12px;height:18px;border-radius:2px}
+  .race-pursuit{grid-column:1;grid-row:2;min-width:0;width:210px;padding:10px 14px;border-radius:2px}
+  .pursuit-heading{font-size:10px;gap:10px}
+  .pursuit-heading b{font-size:22px}
   .pursuer-counts{margin-top:7px;font-size:9px}
   .race-actions{grid-column:2;grid-row:1;gap:7px}
   .hud-button{min-width:40px;min-height:40px;padding:10px}
@@ -300,7 +296,7 @@
   .race-title>div>span{font-size:8px}
   .race-actions{gap:5px}
   .hud-button{min-width:35px;min-height:35px;padding:9px}
-  .race-warning{width:198px}
+  .race-pursuit{width:198px}
   .live-score{top:163px;min-width:132px}
   .result-score>span{font-size:9px}
   .result-score>strong{font-size:33px}
