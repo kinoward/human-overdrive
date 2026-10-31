@@ -647,7 +647,7 @@ export class GameEngine {
       const desiredHeading = heading + (this.lookBack ? Math.PI : 0);
       if (this.cameraPosition.lengthSq() === 0) { this.cameraHeading = desiredHeading; this.cameraAnchor.copy(target) }
       const turn = Math.atan2(Math.sin(desiredHeading - this.cameraHeading), Math.cos(desiredHeading - this.cameraHeading));
-      this.cameraHeading += turn * (1 - Math.exp(-dt * 7));
+      this.cameraHeading += turn * (1 - Math.exp(-dt * (this.player?.config.kind === 'motorcycle' ? 16 : 12)));
       this.cameraAnchor.set(target.x, THREE.MathUtils.damp(this.cameraAnchor.y, target.y, 6, dt), target.z);
       const speed = this.player?.speed ?? 0;
       const distance = 8.5 + speed * 0.035;

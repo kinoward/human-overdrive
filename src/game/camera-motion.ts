@@ -52,7 +52,7 @@ export class ArcadeCameraMotion {
     this.fov = THREE.MathUtils.damp(this.fov, fovTarget, response, dt);
     this.pullback = THREE.MathUtils.damp(this.pullback, pullbackTarget, response, dt);
     this.drop = THREE.MathUtils.damp(this.drop, dropTarget, response, dt);
-    this.roll = THREE.MathUtils.damp(this.roll, rollTarget, lookBack ? 12 : response, dt);
+    this.roll = THREE.MathUtils.damp(this.roll, rollTarget, lookBack ? 24 : motorcycle ? 20 : 16, dt);
 
     this.offset.set(0, 0, this.pullback * (lookBack ? 0.8 : 1)).applyQuaternion(camera.quaternion);
     camera.position.add(this.offset);
