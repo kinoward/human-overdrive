@@ -92,9 +92,9 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 
 ## 城市选择地球影像
 
-`public/assets/ui-racing/globe/earth-blue-marble.jpg` 为 NASA Goddard Space Flight Center 的 Blue Marble 2002 全球合成影像，原文件 `land_ocean_ice_2048.jpg`，2048×1024，266599 字节。直接从 [NASA 官方影像地址](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg)保存，未修改像素；来源、下载地址和使用说明见同目录 `SOURCES.json`。
+`public/assets/ui-racing/globe/` 中的四张 WebP 来自用户指定的 Samtempe 项目已制备纹理，均为 4096×2048，合计 3207544 字节。日间地表为 NASA Blue Marble Next Generation 2004 年 9 月合成影像，沿用参考项目的海陆调色；夜光源自 NASA Earth Observatory／NOAA 的 Suomi NPP VIIRS 2012 年历史合成；云层源自 Reto Stöckli／NASA GSFC 的 Blue Marble Clouds 2002 年历史合成；水面／冰雪分类来自调色前地表，并以 Natural Earth 公开领域陆地边界修正高纬海岸。源地址、原处理参数、参考项目版本及输入输出哈希均保留在同目录 `SOURCES.json`。日间与夜光以质量 90 编码，云层以质量 75 编码，分类图无损。
 
-使用遵循 [NASA 图片与媒体规范](https://www.nasa.gov/nasa-brand-center/images-and-media/)，界面署名 NASA Goddard Space Flight Center / Blue Marble，不使用 NASA 标识或暗示其对游戏背书。地球影像为历史全球合成，不代表实时卫星画面；城市标记采用真实城市中心经纬度，不等同于比赛起跑点。运行时从本地离线加载，与其余关卡封面生成素材分别记录来源。
+使用遵循 [NASA 图片与媒体规范](https://www.nasa.gov/nasa-brand-center/images-and-media/)和 [Natural Earth 公开领域使用条款](https://www.naturalearthdata.com/about/terms-of-use/)，界面标注 NASA／NOAA，完整署名在来源清单中；不使用 NASA 或 Samtempe 标识，不暗示来源机构对游戏背书。所有影像均为历史合成与艺术调色，不代表实时卫星画面、云情或灯光。城市标记采用真实城市中心经纬度，不等同于比赛起跑点；光照为固定美术方向。运行时从本地离线加载，与其余关卡封面生成素材分别记录来源。
 
 ## 路侧自然绿化与候车设施
 

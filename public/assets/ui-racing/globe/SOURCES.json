@@ -1,21 +1,262 @@
 {
-  "资源": "earth-blue-marble.jpg",
-  "用途": "城市选择地球的等距经纬真实地表纹理",
-  "来源": "NASA Goddard Space Flight Center，Blue Marble 2002",
-  "图片编号": "G57730",
-  "原始文件": "land_ocean_ice_2048.jpg",
-  "下载地址": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg",
-  "官方资料": "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
-  "媒体使用规范": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
-  "官方使用说明": "https://science.nasa.gov/earth/faq/",
+  "用途": "参考 Samtempe 地球样式的游戏选城材质，使用等距经纬地表、夜光、云层和外观分类纹理。",
   "取得日期": "2026-10-31",
-  "尺寸": [
-    2048,
-    1024
+  "参考项目": {
+    "名称": "Samtempe 客户端",
+    "提交": "5f59f98480f463c087f5077742f378d8715bcbcd",
+    "资源清单sha256": "57422620838fe96b35fb6801cc1f5ee77328e894f8181f6da0bebde794d856e2",
+    "采用范围": "复用用户指定项目已制备的地球纹理及调色，不使用项目品牌素材。"
+  },
+  "新材质总字节": 3207544,
+  "署名": [
+    "NASA Goddard Space Flight Center / Blue Marble Next Generation",
+    "NASA Earth Observatory / NOAA NGDC / Suomi NPP VIIRS / Earth at Night 2012",
+    "Reto Stöckli / NASA Goddard Space Flight Center / Blue Marble Clouds",
+    "Natural Earth / 1:10m land boundaries"
   ],
-  "文件字节": 266599,
-  "处理": "原始 JPEG 按原字节下载，未改图。材质渲染采用冷色光照，不改变地理投影。",
-  "署名": "NASA Goddard Space Flight Center / Blue Marble",
-  "使用边界": "使用 NASA 原始地球影像，遵循官方媒体规范并注明来源；不使用 NASA 标识，不表示 NASA 对游戏背书。图像是历史卫星观测的全球合成，不代表实时地表影像。",
-  "经纬度": "按标准等距经纬纹理投影映射；城市使用各自真实城市中心坐标，不是游戏内起跑点。"
+  "使用说明": {
+    "NASA媒体使用规范": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+    "NaturalEarth使用条款": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "边界": "署名不表示来源机构为游戏背书，不使用 NASA 或 Samtempe 品牌标识。所有地表、夜光与云层均为历史合成与艺术调色，不是实时地球影像、天气或城市灯光。水面与冰雪分类只服务材质外观，不是水文、海冰或高程数据。",
+    "地理": "保留参考图原始标准等距经纬投影；城市中心经纬度与游戏比赛起点独立。"
+  },
+  "资源": [
+    {
+      "文件": "earth-day.webp",
+      "尺寸": [
+        4096,
+        2048
+      ],
+      "格式": "WebP VP8 有损",
+      "文件字节": 919914,
+      "sha256": "fd8e32ae45a787c90c5df4529baf6b362e7ab02c43770e8179a0092825cfb195",
+      "参考资源路径": "Resources/Scene/earth-day.png",
+      "参考资源sha256": "f9d0402295dba50a42328ce6ee31dd26746873fb066348a6ac55693e41d2757e",
+      "参考来源与上游处理": {
+        "name": "earth-day",
+        "file": "earth-day.png",
+        "size": [
+          4096,
+          2048
+        ],
+        "mode": "RGB",
+        "sha256": "f9d0402295dba50a42328ce6ee31dd26746873fb066348a6ac55693e41d2757e",
+        "sources": [
+          {
+            "name": "base",
+            "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/september/world.200409.3x5400x2700.jpg",
+            "sha256": "ed72e87674861f72e2a6e5df52f0cc6bf3df1edd9b862664cf18ac423e2e9e0e"
+          },
+          {
+            "name": "relief",
+            "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/september/world.topo.bathy.200409.3x5400x2700.jpg",
+            "sha256": "4c6723e79dc7c1bdb8c193cdf8f946b10b9407bc9fd1164cdf5e75d0aa79ad3b"
+          },
+          {
+            "name": "polar land boundaries",
+            "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
+            "sha256": "1ac90796408bc6ad6911d69448485d3c4dbf2190370080368a09976e1c9f7416"
+          }
+        ],
+        "sRGB": true,
+        "processing": {
+          "landSaturation": 0.66,
+          "landGamma": 0.7,
+          "landExposure": 1.12,
+          "vegetationBlueLift": 0.035,
+          "aridWarmShift": [
+            0.1,
+            0.016,
+            -0.035
+          ],
+          "oceanDark": [
+            0.135,
+            0.22,
+            0.455
+          ],
+          "oceanLight": [
+            0.255,
+            0.385,
+            0.605
+          ],
+          "oceanLumaRange": [
+            0.02,
+            0.25
+          ],
+          "snowExposure": 0.86,
+          "polarCoastLatitude": [
+            58,
+            65
+          ]
+        },
+        "note": "Artistically graded September 2004 shaded relief; not current imagery."
+      },
+      "本轮处理": {
+        "工具": "cwebp 1.6.0",
+        "编码参数": "-q 90 -m 6",
+        "重采样": false,
+        "调色": false,
+        "说明": "仅转换压缩格式，未改绘、未生成。"
+      },
+      "加载色彩空间": "SRGBColorSpace",
+      "通道使用": "RGB颜色"
+    },
+    {
+      "文件": "earth-surface.webp",
+      "尺寸": [
+        4096,
+        2048
+      ],
+      "格式": "WebP VP8L 无损",
+      "文件字节": 453134,
+      "sha256": "142fa598200a23fd415aa6424538d785871e1d78ea6fbf6011cee7924b017cbe",
+      "参考资源路径": "Resources/Scene/earth-surface.png",
+      "参考资源sha256": "1165054f814b95c638980921c1943e2e1c1119aaa491a7e36bd1105ed0d6148f",
+      "参考来源与上游处理": {
+        "name": "earth-surface",
+        "file": "earth-surface.png",
+        "size": [
+          4096,
+          2048
+        ],
+        "mode": "RGB",
+        "sha256": "1165054f814b95c638980921c1943e2e1c1119aaa491a7e36bd1105ed0d6148f",
+        "sources": [
+          {
+            "name": "base",
+            "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/september/world.200409.3x5400x2700.jpg",
+            "sha256": "ed72e87674861f72e2a6e5df52f0cc6bf3df1edd9b862664cf18ac423e2e9e0e"
+          },
+          {
+            "name": "polar land boundaries",
+            "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
+            "sha256": "1ac90796408bc6ad6911d69448485d3c4dbf2190370080368a09976e1c9f7416"
+          }
+        ],
+        "sRGB": false,
+        "channels": {
+          "R": "visual water coverage from ungraded base",
+          "G": "grounded snow/ice coverage from ungraded imagery",
+          "B": "reserved, neutral 128"
+        },
+        "inputs": {
+          "earth-day.png": "f9d0402295dba50a42328ce6ee31dd26746873fb066348a6ac55693e41d2757e"
+        },
+        "note": "Appearance classifier, not hydrography or DEM; no color-derived normals."
+      },
+      "本轮处理": {
+        "工具": "cwebp 1.6.0",
+        "编码参数": "-lossless -m 6",
+        "重采样": false,
+        "调色": false,
+        "说明": "逐像素保留水面 R、陆地冰雪 G、保留 B 的分类数据。"
+      },
+      "加载色彩空间": "NoColorSpace",
+      "通道使用": "R=水面覆盖率，G=陆地冰雪覆盖率，B=保留值128"
+    },
+    {
+      "文件": "earth-night.webp",
+      "尺寸": [
+        4096,
+        2048
+      ],
+      "格式": "WebP VP8 有损",
+      "文件字节": 549570,
+      "sha256": "a4f698f75763ccf8a97f09e32fe1cd5dd719e0ee8a9a1a9b763e7ccf94b8df0d",
+      "参考资源路径": "Resources/Scene/earth-night.png",
+      "参考资源sha256": "e41675aa72056383fa6cadd7c262735f59d84a07bc73ae3605feba3db2c0443b",
+      "参考来源与上游处理": {
+        "name": "earth-night",
+        "file": "earth-night.png",
+        "size": [
+          4096,
+          2048
+        ],
+        "mode": "RGB",
+        "sha256": "e41675aa72056383fa6cadd7c262735f59d84a07bc73ae3605feba3db2c0443b",
+        "sources": [
+          {
+            "name": "night",
+            "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.3600x1800.jpg",
+            "sha256": "373e5a08c9f378a2ce6320214a613148e4b1e3946b3f39a516c9093b76cb7124"
+          }
+        ],
+        "sRGB": true
+      },
+      "本轮处理": {
+        "工具": "cwebp 1.6.0",
+        "编码参数": "-q 90 -m 6",
+        "重采样": false,
+        "调色": false,
+        "说明": "仅转换压缩格式，未改绘、未生成。"
+      },
+      "加载色彩空间": "SRGBColorSpace",
+      "通道使用": "RGB颜色",
+      "署名": "NASA Earth Observatory image by Robert Simmon；Suomi NPP VIIRS data courtesy of Chris Elvidge / NOAA National Geophysical Data Center",
+      "署名依据": {
+        "参考项目": "Resources/ATTRIBUTION.txt：NASA Earth at Night 2012; NASA Earth Observatory / NOAA NGDC.",
+        "NASA官方补充": "https://svs.gsfc.nasa.gov/30082/",
+        "观测": "2012年4月和10月的Suomi NPP VIIRS昼夜波段合成，不代表实时灯光。"
+      }
+    },
+    {
+      "文件": "earth-clouds.webp",
+      "尺寸": [
+        4096,
+        2048
+      ],
+      "格式": "WebP VP8 有损",
+      "文件字节": 1284926,
+      "sha256": "29cf4a69ed31cb72072550f836aa72a7021fe2dc8c33d367c02d15598e4e2f25",
+      "参考资源路径": "Resources/Scene/earth-clouds.png",
+      "参考资源sha256": "0913e30250754c9330ffdefd9af5986091fcf65f553b35e965dbc08eb0d1949a",
+      "参考来源与上游处理": {
+        "name": "earth-clouds",
+        "file": "earth-clouds.png",
+        "size": [
+          4096,
+          2048
+        ],
+        "mode": "L",
+        "sha256": "0913e30250754c9330ffdefd9af5986091fcf65f553b35e965dbc08eb0d1949a",
+        "sources": [
+          {
+            "name": "clouds",
+            "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_8192.tif",
+            "sha256": "d137775d8966ab8d443fd5126dc6e7ad72072bc1ed50555c5818d221735daf0f",
+            "credit": "Reto Stöckli / NASA Goddard Space Flight Center"
+          }
+        ],
+        "sourceSize": [
+          8192,
+          4096
+        ],
+        "releaseYear": 2002,
+        "realtime": false,
+        "sRGB": false,
+        "runtimePixelFormat": "r8Unorm",
+        "mipLevels": 13,
+        "processing": {
+          "grayscale": "Pillow RGB to L, 8-bit",
+          "gamma": 1,
+          "seamSourcePixelsPerSide": 16,
+          "seamBlend": "smoothstep to common edge mean",
+          "poleSourceRows": 4,
+          "poleBlend": "smoothstep to row longitude mean",
+          "resize": "Lanczos from corrected 8192x4096",
+          "outputBoundaryCorrection": true
+        },
+        "note": "NASA Blue Marble Clouds historical composite, released in 2002; fixed artistic display intensity, not real-time weather or a measured cloud material."
+      },
+      "本轮处理": {
+        "工具": "cwebp 1.6.0",
+        "编码参数": "-q 75 -m 6",
+        "重采样": false,
+        "调色": false,
+        "说明": "仅转换压缩格式，未改绘、未生成。云层质量75以保留4K形态并限制随包体积。"
+      },
+      "加载色彩空间": "NoColorSpace",
+      "通道使用": "R=云层外观灰度，RGB三通道近似相同"
+    }
+  ]
 }

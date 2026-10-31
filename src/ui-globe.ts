@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import type { CityConfig } from './types';
+import { globeMaterials } from './ui-globe-material';
+
+const minimumDistance = 3.45;
 
 const locations: Record<string, readonly [number, number]> = {
   beijing: [39.9042, 116.4074],
@@ -10,11 +13,11 @@ const locations: Record<string, readonly [number, number]> = {
 };
 
 const labelOffsets: Record<string, readonly [number, number]> = {
-  beijing: [14, -32],
-  shanghai: [17, 9],
-  chongqing: [-77, 10],
-  tokyo: [17, -15],
-  'los-angeles': [17, -16],
+  beijing: [15, -28],
+  shanghai: [18, 8],
+  chongqing: [-72, 9],
+  tokyo: [18, -14],
+  'los-angeles': [18, -14],
 };
 
 interface CityMarker {
@@ -57,7 +60,7 @@ export class CityGlobe {
   private observer: ResizeObserver;
   private motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private reduced = this.motion.matches;
-  private texture: THREE.Texture;
+  private textures: THREE.Texture[];
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
   private worldPoint = new THREE.Vector3();
@@ -89,7 +92,7 @@ export class CityGlobe {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = 1.25;
     const canvas = this.renderer.domElement;
     Object.assign(canvas.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', touchAction: 'none', cursor: 'grab' });
     canvas.tabIndex = 0;
@@ -103,36 +106,34 @@ export class CityGlobe {
     this.status.textContent = '正在加载地球影像…';
     this.status.setAttribute('role', 'status');
     this.container.append(canvas, this.labels, this.status);
-    this.scene.add(this.planet, new THREE.HemisphereLight(0xb6d5e7, 0x0a1724, 2.1));
-    const sunlight = new THREE.DirectionalLight(0xc7e4ff, 3.2);
-    sunlight.position.set(-3, 4, 5);
-    this.scene.add(sunlight);
-    const earthMaterial = new THREE.MeshStandardMaterial({ color: 0xb7c8d3, roughness: 0.94, metalness: 0.04, emissive: 0x071321, emissiveIntensity: 0.2 });
-    const earth = new THREE.Mesh(new THREE.SphereGeometry(1.05, 64, 48), earthMaterial);
-    this.planet.add(earth);
-    this.texture = new THREE.TextureLoader().load('/assets/ui-racing/globe/earth-blue-marble.jpg', texture => {
-      if (this.disposed) { texture.dispose(); return; }
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = Math.min(this.renderer.capabilities.getMaxAnisotropy(), 4);
-      earthMaterial.map = texture;
-      earthMaterial.needsUpdate = true;
-      this.status.hidden = true;
-      this.requestFrame();
-    }, undefined, () => {
-      if (this.disposed) return;
-      this.status.textContent = '地球影像暂时无法载入，请返回后重试。';
-    });
-    const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(1.095, 48, 32), new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
-      uniforms: { tint: { value: new THREE.Color(0x75b9df) } },
-      vertexShader: 'varying vec3 vNormal; varying vec3 vView; void main(){vec4 p=modelViewMatrix*vec4(position,1.0);vNormal=normalize(normalMatrix*normal);vView=-p.xyz;gl_Position=projectionMatrix*p;}',
-      fragmentShader: 'uniform vec3 tint;varying vec3 vNormal;varying vec3 vView;void main(){float rim=pow(1.0-abs(dot(normalize(vNormal),normalize(vView))),2.8);gl_FragColor=vec4(tint,rim*0.28);}',
-    }));
-    this.planet.add(atmosphere);
-    this.addGrid();
+    this.scene.add(this.planet);
+    let remaining = 4;
+    let failed = false;
+    const loader = new THREE.TextureLoader();
+    const load = (name: string, color: boolean) => {
+      const texture = loader.load(`/assets/ui-racing/globe/earth-${name}.webp`, loaded => {
+        if (this.disposed) { loaded.dispose(); return; }
+        remaining--;
+        if (!remaining && !failed) this.status.hidden = true;
+        this.requestFrame();
+      }, undefined, () => {
+        if (this.disposed) return;
+        failed = true;
+        this.status.textContent = '地球影像暂时无法载入，请返回后重试。';
+      });
+      texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.anisotropy = Math.min(this.renderer.capabilities.getMaxAnisotropy(), 8);
+      return texture;
+    };
+    const maps = { day: load('day', true), night: load('night', true), clouds: load('clouds', false), surface: load('surface', false) };
+    this.textures = Object.values(maps);
+    const materials = globeMaterials(maps);
+    this.planet.add(
+      new THREE.Mesh(new THREE.SphereGeometry(1.05, 96, 64), materials.earth),
+      new THREE.Mesh(new THREE.SphereGeometry(1.052, 96, 64), materials.clouds),
+      new THREE.Mesh(new THREE.SphereGeometry(1.1, 96, 64), materials.atmosphere),
+    );
     this.addStars();
     for (const city of cities) this.addCity(city);
     this.selectCity(selectedId);
@@ -192,7 +193,7 @@ export class CityGlobe {
     });
     for (const geometry of geometries) geometry.dispose();
     for (const material of materials) material.dispose();
-    this.texture.dispose();
+    for (const texture of this.textures) texture.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     canvas.remove();
@@ -202,38 +203,36 @@ export class CityGlobe {
     this.labelOrder.length = 0;
   }
 
-  private addGrid() {
-    const vertices: number[] = [];
-    for (let latitude = -60; latitude <= 60; latitude += 30) {
-      for (let longitude = -180; longitude < 180; longitude += 3) vertices.push(...cityPoint(latitude, longitude, 1.052).toArray(), ...cityPoint(latitude, longitude + 3, 1.052).toArray());
-    }
-    for (let longitude = -180; longitude < 180; longitude += 30) {
-      for (let latitude = -87; latitude < 87; latitude += 3) vertices.push(...cityPoint(latitude, longitude, 1.052).toArray(), ...cityPoint(latitude + 3, longitude, 1.052).toArray());
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    this.planet.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xa2ccdd, transparent: true, opacity: 0.095, depthWrite: false })));
-  }
-
   private addStars() {
     const positions: number[] = [];
+    const sizes: number[] = [];
     let seed = 20261031;
     const random = () => { seed = Math.imul(seed, 1664525) + 1013904223 | 0; return (seed >>> 0) / 4294967296; };
-    for (let i = 0; i < 140; i++) positions.push((random() - 0.5) * 13, (random() - 0.5) * 9, -3 - random() * 4);
+    for (let i = 0; i < 200; i++) {
+      positions.push((random() - 0.5) * 13, (random() - 0.5) * 9, -3 - random() * 4);
+      sizes.push(0.6 + Math.pow(random(), 4) * 1.7);
+    }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    this.scene.add(new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xb7d0dd, size: 0.012, transparent: true, opacity: 0.6, depthWrite: false })));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    this.scene.add(new THREE.Points(geometry, new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() } },
+      vertexShader: 'attribute float size;uniform float pixelRatio;varying float brightness;void main(){brightness=size*.22;gl_PointSize=size*pixelRatio;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader: 'varying float brightness;void main(){float a=1.0-smoothstep(.1,.5,length(gl_PointCoord-.5));gl_FragColor=vec4(.72,.8,.9,a*brightness);}',
+    })));
   }
 
   private addCity(city: CityConfig) {
     const [latitude, longitude] = locations[city.id];
-    const point = cityPoint(latitude, longitude, 1.069);
+    const point = cityPoint(latitude, longitude, 1.061);
     const group = new THREE.Group();
     group.position.copy(point);
     group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), point.clone().normalize());
-    const color = city.available ? 0xdcf45b : 0x8395a1;
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 8), new THREE.MeshBasicMaterial({ color }));
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.026, 0.032, 36), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false }));
+    const color = city.available ? 0xdcf45b : 0xa5b3be;
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.009, 12, 8), new THREE.MeshBasicMaterial({ color }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.018, 0.021, 36), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false }));
     const hit = new THREE.Mesh(new THREE.SphereGeometry(0.039, 12, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
     hit.userData.cityId = city.id;
     group.add(dot, ring, hit);
@@ -327,8 +326,8 @@ export class CityGlobe {
       const selected = marker.city.id === this.selectedId;
       const hovered = marker.city.id === this.hoveredId;
       marker.dot.scale.setScalar(hovered ? 1.65 : selected ? 1.25 : 1);
-      marker.ring.scale.setScalar(hovered ? 1.25 : selected && !this.reduced ? 1.08 + Math.sin(now * 0.003) * 0.08 : 1);
-      marker.ring.material.opacity = selected || hovered ? 0.9 : 0.5;
+      marker.ring.scale.setScalar(hovered ? 1.3 : selected ? 1.15 : 1);
+      marker.ring.material.opacity = selected || hovered ? 0.9 : 0.32;
     }
     this.renderer.render(this.scene, this.camera);
     if (!this.reduced || this.drag) this.requestFrame();
@@ -403,7 +402,7 @@ export class CityGlobe {
 
   private wheel = (event: WheelEvent) => {
     event.preventDefault();
-    this.targetDistance = THREE.MathUtils.clamp(this.targetDistance + event.deltaY * (event.deltaMode === 1 ? 0.032 : 0.002), 3.1, 5.4);
+    this.targetDistance = THREE.MathUtils.clamp(this.targetDistance + event.deltaY * (event.deltaMode === 1 ? 0.032 : 0.002), minimumDistance, 5.4);
     this.lastInteraction = performance.now();
     this.requestFrame();
   };
@@ -416,7 +415,7 @@ export class CityGlobe {
     if (event.key === 'ArrowRight') this.targetYaw += 0.18;
     if (event.key === 'ArrowUp') this.targetPitch = Math.max(-1.35, this.targetPitch - 0.14);
     if (event.key === 'ArrowDown') this.targetPitch = Math.min(1.35, this.targetPitch + 0.14);
-    if (event.key === '+' || event.key === '=') this.targetDistance = Math.max(3.1, this.targetDistance - 0.3);
+    if (event.key === '+' || event.key === '=') this.targetDistance = Math.max(minimumDistance, this.targetDistance - 0.3);
     if (event.key === '-') this.targetDistance = Math.min(5.4, this.targetDistance + 0.3);
     if (event.key === 'Home') this.selectCity(this.selectedId);
     this.velocityYaw = 0;

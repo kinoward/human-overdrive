@@ -180,15 +180,17 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .city-list-arrows .icon-button { width: calc(34 * var(--u)); height: calc(30 * var(--u)); border: 1px solid #6881964d; background: #0c1721e8; }
 .city-list-arrows .icon-button svg { width: calc(18 * var(--u)); height: calc(18 * var(--u)); }
 .city-list-arrows button:disabled { opacity: .25; }
-.panel-globe.menu-screen::after { background: linear-gradient(90deg, #030a11f5, #07121af3); }
+.panel-globe.menu-screen { background: #03070c; }
+.panel-globe.menu-screen::before { opacity: 0; }
+.panel-globe.menu-screen::after { background: radial-gradient(ellipse at 34% 50%, #14233445, transparent 57%), linear-gradient(90deg, transparent 55%, #09121acc); }
 .globe-canvas-host { position: absolute; top: calc(114 * var(--u)); left: calc(40 * var(--u)); width: calc(900 * var(--u)); height: calc(600 * var(--u)); }
 .globe-canvas-host canvas { display: block; width: 100%; height: 100%; outline-offset: -4px; }
 .globe-labels { position: absolute; inset: 0; pointer-events: none; }
-.globe-city-label { position: absolute; display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(7 * var(--u)) calc(10 * var(--u)); border: 1px solid #728a9b80; background: #0b1724e8; color: #a8bfce; font-size: calc(11 * var(--u)); white-space: nowrap; pointer-events: auto; }
+.globe-city-label { position: absolute; display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(5 * var(--u)) calc(11 * var(--u)); border: 1px solid #a4b1bf4a; border-radius: calc(16 * var(--u)); background: #151c27b3; box-shadow: inset 0 1px #ffffff0a, 0 3px 12px #0002; backdrop-filter: blur(3px); color: #bac7d1; font-size: calc(11 * var(--u)); white-space: nowrap; pointer-events: auto; }
 .globe-city-label.is-selected, .globe-city-label.is-available { border-color: #dcf45b8c; color: var(--accent); }
-.globe-city-label.is-locked { color: #8b99a3; border-color: #6f7f8970; }
+.globe-city-label.is-locked { color: #a1acb8; border-color: #8a98a64a; }
 .globe-city-label.is-locked.is-selected { color: #d2dce2; border-color: #adbcc6; }
-.globe-city-label:hover { background: #1a3146; }
+.globe-city-label:hover { background: #243445e8; }
 .globe-status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #7e9cb3; font-size: calc(12 * var(--u)); pointer-events: none; }
 .globe-selection-panel { position: absolute; left: calc(1000 * var(--u)); top: calc(130 * var(--u)); width: calc(300 * var(--u)); }
 .globe-city-list { display: grid; grid-template-columns: 1fr 1fr; gap: calc(5 * var(--u)); margin-bottom: calc(16 * var(--u)); }
