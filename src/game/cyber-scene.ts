@@ -14,13 +14,13 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone()};
   const previousAutoReset=renderer.info.autoReset;
   renderer.info.autoReset=false;
-  sun.color.set('#9ebbd6');sun.intensity=1.05;
+  sun.color.set('#aec6dc');sun.intensity=.98;
   sun.shadow.mapSize.set(1024,1024);
   const originalFill:{light:THREE.HemisphereLight;color:THREE.Color;ground:THREE.Color;intensity:number}[]=[];
   scene.traverse(object=>{
     if(!(object instanceof THREE.HemisphereLight))return;
     originalFill.push({light:object,color:object.color.clone(),ground:object.groundColor.clone(),intensity:object.intensity});
-    object.color.set('#829eb6');object.groundColor.set('#17202a');object.intensity=.28;
+    object.color.set('#8a9faf');object.groundColor.set('#292831');object.intensity=.34;
   });
   const materials=styleCyberMaterials(scene);
   const distant:{object:THREE.Object3D;visible:boolean;sphere:THREE.Sphere}[]=[];
@@ -41,11 +41,38 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   const composer=new EffectComposer(renderer);
   const renderPass=new RenderPass(scene,new THREE.PerspectiveCamera());composer.addPass(renderPass);
   const size=renderer.getSize(new THREE.Vector2());
-  const bloom=new UnrealBloomPass(size,.31,.62,1.15);composer.addPass(bloom);composer.addPass(new OutputPass());
+  const bloom=new UnrealBloomPass(size,.25,.57,1.28);composer.addPass(bloom);composer.addPass(new OutputPass());
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const film=new ShaderPass({
-    uniforms:{tDiffuse:{value:null},time:{value:0}},
+    uniforms:{tDiffuse:{value:null},time:{value:0},speedAmount:{value:0},grainStrength:{value:.0035}},
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform sampler2D tDiffuse;uniform float time;varying vec2 vUv;float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,.96);c+=vec3(-.004,.003,.008)*(1.-l);vec2 p=vUv*2.-1.;c*=1.-dot(p*vec2(.65,.8),p*vec2(.65,.8))*.1;c+=(hash(gl_FragCoord.xy+fract(time)*713.)-.5)*.009;gl_FragColor=vec4(c,1.);}`
+    fragmentShader:`
+uniform sampler2D tDiffuse;
+uniform float time;
+uniform float speedAmount;
+uniform float grainStrength;
+varying vec2 vUv;
+float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+void main(){
+  vec2 p=vUv*2.-1.;
+  float edge=smoothstep(.42,.96,abs(p.x));
+  vec2 trail=(vUv-vec2(.5,.56))*speedAmount*edge*.014;
+  vec3 c=texture2D(tDiffuse,vUv).rgb;
+  if(speedAmount>.001&&edge>.001){
+    c*=.4;
+    for(int i=1;i<=4;i++)c+=texture2D(tDiffuse,clamp(vUv-trail*float(i)*.25,vec2(.001),vec2(.999))).rgb*.15;
+  }
+  float l=dot(c,vec3(.2126,.7152,.0722));
+  c=mix(vec3(l),c,.95);
+  float shadows=1.-smoothstep(.08,.5,l);
+  float highlights=smoothstep(.55,.95,l);
+  c*=mix(vec3(1.),vec3(.93,.995,1.055),shadows*.65);
+  c*=mix(vec3(1.),vec3(1.04,1.012,.965),highlights*.65);
+  c=(c-.4)*1.025+.4+vec3(.003,.004,.006)*shadows;
+  c*=1.-dot(p*vec2(.65,.8),p*vec2(.65,.8))*.085;
+  c+=(hash(gl_FragCoord.xy+fract(time)*713.)-.5)*grainStrength;
+  gl_FragColor=vec4(max(c,vec3(0.)),1.);
+}`
   });composer.addPass(film);
   const fxaa=new ShaderPass(FXAAShader);composer.addPass(fxaa);
   const resize=(width:number,height:number)=>{composer.setSize(width,height);const ratio=renderer.getPixelRatio();fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
@@ -63,13 +90,15 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   window.addEventListener('pagehide',pagehide);
   return {
     resize,dispose,
-    render:(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number)=>{
+    render:(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number,speed=0,lookBack=false)=>{
       focus.set(position.x,position.y,position.z);
       if(focus.distanceToSquared(cullingFocus)>32*32){
         cullingFocus.copy(focus);
         distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+580;});
       }
       city.update(focus);atmosphere.update(time,focus,heading);film.uniforms.time.value=time;
+      film.uniforms.speedAmount.value=reducedMotion.matches?0:THREE.MathUtils.smoothstep(Math.abs(speed),12,52)*(lookBack?.35:1);
+      film.uniforms.grainStrength.value=reducedMotion.matches?0:.0035;
       renderPass.camera=camera;renderer.info.reset();composer.render();
     }
   };

@@ -25,8 +25,8 @@ export function styleCyberMaterials(scene:THREE.Scene) {
     let material:THREE.MeshStandardMaterial;
     if(source.userData.roadSurface){
       material=new THREE.MeshPhysicalMaterial({
-        color:source.color.clone().multiply(new THREE.Color('#aabcc8')),map:source.map,normalMap:source.normalMap,normalScale:source.normalScale.clone().multiplyScalar(.7),
-        roughnessMap:source.roughnessMap,roughness:.43,metalness:.04,clearcoat:.85,clearcoatRoughness:.2,
+        color:source.color.clone().multiply(new THREE.Color('#b4c1ca')),map:source.map,normalMap:source.normalMap,normalScale:source.normalScale.clone().multiplyScalar(.7),
+        roughnessMap:source.roughnessMap,roughness:.48,metalness:.04,clearcoat:.68,clearcoatRoughness:.24,
         polygonOffset:source.polygonOffset,polygonOffsetFactor:source.polygonOffsetFactor,polygonOffsetUnits:source.polygonOffsetUnits
       });
       material.userData={...source.userData};

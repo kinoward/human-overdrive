@@ -7,7 +7,7 @@ export class ArcadeCameraMotion {
   private pullback = 0;
   private drop = 0;
   private roll = 0;
-  private fov = 58;
+  private fov = 38;
   private offset = new THREE.Vector3();
   private rollAxis = new THREE.Vector3(0, 0, 1);
   private rollRotation = new THREE.Quaternion();
@@ -30,7 +30,7 @@ export class ArcadeCameraMotion {
     if (!this.initialized) {
       this.initialized = true;
       this.previousSpeed = speed;
-      this.fov = camera.fov;
+      this.fov = motorcycle ? 40 : 38;
     }
 
     const rawAcceleration = THREE.MathUtils.clamp((speed - this.previousSpeed) / dt, 0, 12);
@@ -38,13 +38,12 @@ export class ArcadeCameraMotion {
     const accelerationTarget = rawAcceleration / 12;
     this.acceleration = THREE.MathUtils.damp(this.acceleration, accelerationTarget, motorcycle ? 10 : 8, dt);
 
-    const speedRatio = THREE.MathUtils.clamp(speed / 50, 0, 1);
-    const speedImpact = 1 - Math.exp(-speed / 19);
-    const maxFov = motorcycle ? 81 : 79;
-    const fovTarget = Math.min(82, 58 + (maxFov - 58) * speedImpact + this.acceleration * 3);
-    const pullbackTarget = speedRatio * 1.2 + this.acceleration * 0.6;
-    const dropTarget = speedRatio * 0.45;
-    const maxRoll = THREE.MathUtils.degToRad(motorcycle ? 2.5 : 1.5);
+    const speedRatio = THREE.MathUtils.smoothstep(speed, 0, 55);
+    const baseFov = motorcycle ? 40 : 38;
+    const fovTarget = baseFov + speedRatio * 5 + this.acceleration * (lookBack ? 0.4 : 1.2);
+    const pullbackTarget = speedRatio * 0.4 + this.acceleration * 0.55;
+    const dropTarget = speedRatio * 0.5 + this.acceleration * 0.08;
+    const maxRoll = THREE.MathUtils.degToRad(motorcycle ? 1.8 : 1.1);
     const rollTarget = lookBack ? 0 : -steering * maxRoll * (0.35 + speedRatio * 0.65);
     const response = motorcycle ? 9 : 7;
     this.collisionKick *= Math.exp(-dt * 8);
@@ -72,7 +71,7 @@ export class ArcadeCameraMotion {
     this.pullback = 0;
     this.drop = 0;
     this.roll = 0;
-    this.fov = 58;
+    this.fov = 38;
     this.collisionKick = 0;
     this.collisionSide = 0;
   }

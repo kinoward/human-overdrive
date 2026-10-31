@@ -194,3 +194,10 @@
   .pause-panel>.text-button{margin-top:17px}
   .pause-hint{margin-top:15px}
 }
+@container game-viewport (max-height:360px){
+  .modal-backdrop{padding:8px 16px}
+  .pause-panel{padding:16px 22px}
+  .pause-panel h1{font-size:24px;margin:0 0 6px}
+  .pause-panel>.button{min-height:36px;margin-top:8px;font-size:12px}
+  .pause-panel>.text-button{min-height:32px;margin-top:10px;font-size:11px}
+}

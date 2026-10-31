@@ -1,6 +1,6 @@
 html { height: 100%; background: #000; }
 body { margin: 0; height: 100dvh; overflow: hidden; display: grid; place-items: center; }
-#game-viewport { position: relative; width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; overflow: hidden; isolation: isolate; container: game-viewport / size; background: #0a1016; }
+#game-viewport { position: relative; width: min(100vw, calc(100dvh * 21 / 9)); aspect-ratio: 21 / 9; overflow: hidden; isolation: isolate; container: game-viewport / size; background: #0a1016; }
 .loading-screen { box-sizing: border-box; position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; overflow: auto; padding: 32px 24px; color: #edf3f5; background: radial-gradient(ellipse at 80% 10%, #19343d70, transparent 65%), #0a1016; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .loading-content { width: min(100%, 440px); }
 .loading-screen { align-items: safe center; }
@@ -20,6 +20,20 @@ body { margin: 0; height: 100dvh; overflow: hidden; display: grid; place-items: 
 .loading-screen.is-failed .loading-progress, .loading-screen.is-failed #loading-value, .loading-screen.is-failed .loading-hint { display: none; }
 @keyframes loading-travel { from { transform: translateX(-100%); } to { transform: translateX(420%); } }
 @keyframes loading-sheen { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@container game-viewport (max-height:440px) {
+  .loading-screen { padding: 20px 24px; }
+  .loading-logo { width: 40px; height: 30px; margin-bottom: 20px; }
+  .loading-content h1 { margin-bottom: 24px; }
+  .loading-hint { margin-top: 14px; }
+}
+@container game-viewport (max-height:300px) {
+  .loading-screen { padding: 14px 20px; }
+  .loading-logo, .loading-hint { display: none; }
+  .loading-eyebrow { margin-bottom: 8px; font-size: 10px; }
+  .loading-content h1 { margin-bottom: 20px; font-size: 26px; }
+  .loading-status { margin-bottom: 10px; font-size: 11px; }
+  #loading-retry { margin-top: 18px; min-height: 38px; font-size: 12px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .loading-progress > span, .loading-progress > span::after { animation: none !important; transition: none; }
 }

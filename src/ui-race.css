@@ -334,6 +334,9 @@
 @container game-viewport (max-width:520px){
   .race-hud-arcade,#scene .race-map{zoom:calc(100cqw / 760px)}
 }
+@container game-viewport (max-height:360px) and (min-width:521px){
+  .race-hud-arcade,#scene .race-map{zoom:calc(100cqh / 360px)}
+}
 @media(prefers-reduced-motion:reduce){
   .race-hud-arcade *,.race-hud-arcade *::before,.race-hud-arcade *::after{animation:none!important;transition:none!important}
   .r-speed-lines,.r-impact{display:none}

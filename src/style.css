@@ -212,6 +212,15 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .globe-selection-panel .city-departure > span { text-align: center; }
 .globe-hint { position: absolute; left: calc(150 * var(--u)); bottom: calc(47 * var(--u)); margin: 0; color: #607f95; font-size: calc(10 * var(--u)); }
 
+@container game-viewport (max-height:600px) {
+  .site-header { min-height: 66px; padding-top: 12px; padding-bottom: 12px; }
+  .site-footer { padding-top: 16px; padding-bottom: 16px; }
+  .page-main { padding-top: 18px; padding-bottom: 30px; min-height: calc(100cqh - 110px); }
+  .screen-content { min-height: calc(100cqh - 110px); }
+  .page-heading { margin-bottom: 22px; }
+  .page-heading h1 { margin-top: 0; font-size: 30px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

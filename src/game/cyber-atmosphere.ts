@@ -6,21 +6,21 @@ import { createCyberWetRoad } from './cyber-wet-road';
 export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.Scene,roads:RoadPath[]) {
   const previous={background:scene.background,fog:scene.fog,environment:scene.environment,environmentIntensity:scene.environmentIntensity,backgroundIntensity:scene.backgroundIntensity,backgroundBlurriness:scene.backgroundBlurriness};
   const group=new THREE.Group();group.name='赛博雨夜氛围';
-  const background=new THREE.Color('#122130'),fog=new THREE.FogExp2('#173044',.0029);
+  const background=new THREE.Color('#101b28'),fog=new THREE.FogExp2('#172b3b',.0029);
   scene.background=background;scene.fog=fog;scene.backgroundIntensity=1;scene.backgroundBlurriness=0;
-  const environment=new THREE.Scene();environment.background=new THREE.Color('#213b4d');
+  const environment=new THREE.Scene();environment.background=new THREE.Color('#263a48');
   const panel=(color:string,intensity:number,x:number,y:number,z:number,width:number,height:number)=>{
     const material=new THREE.MeshBasicMaterial({color:new THREE.Color(color).multiplyScalar(intensity),side:THREE.DoubleSide});
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),material);mesh.position.set(x,y,z);mesh.lookAt(0,0,0);environment.add(mesh);
   };
-  panel('#b6dced',3.1,-18,16,0,14,27);
-  panel('#efb48b',1.65,18,7,-8,10,17);
-  panel('#dce9ec',2.1,0,25,0,26,15);
-  panel('#5dc2d7',1.4,0,6,-24,16,14);
+  panel('#b6dced',2.7,-18,16,0,14,27);
+  panel('#efb48b',1.9,18,7,-8,10,17);
+  panel('#dce9ec',2.35,0,25,0,26,15);
+  panel('#5dc2d7',1.25,0,6,-24,16,14);
   const pmrem=new THREE.PMREMGenerator(renderer),environmentTarget=pmrem.fromScene(environment,.13,.1,100);
-  scene.environment=environmentTarget.texture;scene.environmentIntensity=.72;
+  scene.environment=environmentTarget.texture;scene.environmentIntensity=.76;
   environment.traverse(object=>{if(object instanceof THREE.Mesh){object.geometry.dispose();(object.material as THREE.Material).dispose();}});pmrem.dispose();
-  group.add(new THREE.HemisphereLight('#a6c7dd','#302b28',.5));
+  group.add(new THREE.HemisphereLight('#abc6d8','#39302b',.5));
   const wetRoad=createCyberWetRoad(roads);group.add(wetRoad.object);
   let seed=47293;
   const random=()=>((seed=Math.imul(seed,1664525)+1013904223|0)>>>0)/4294967296;
@@ -53,7 +53,7 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     fragmentShader:`varying vec2 vUv;varying float vAge;void main(){float d=length(vUv-.5);float ring=1.-smoothstep(.005,.02,abs(d-vAge*.46));gl_FragColor=vec4(.43,.63,.7,ring*pow(1.-vAge,2.)*.09);}`
   });
   const splashes=new THREE.InstancedMesh(splashGeometry,splashMaterial,splashCount);splashes.frustumCulled=false;group.add(splashes);
-  const lights=Array.from({length:4},(_,index)=>{const light=new THREE.PointLight(index===1?'#6abed4':'#ffd1a3',65,28,2);group.add(light);return light;});
+  const lights=Array.from({length:4},(_,index)=>{const light=new THREE.PointLight(index===1?'#79c0d0':'#ffd1a3',78,30,2);group.add(light);return light;});
   const transform=new THREE.Object3D();
   let lastX=Infinity,lastZ=Infinity,lastY=Infinity;
   const update=(time:number,focus:THREE.Vector3,heading:number)=>{

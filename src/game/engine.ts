@@ -42,7 +42,7 @@ interface TrafficCar {
 export class GameEngine {
   readonly scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
-  private camera = new THREE.PerspectiveCamera(58, 1, 0.5, 1400);
+  private camera = new THREE.PerspectiveCamera(38, 1, 0.5, 1400);
   private timer = new THREE.Timer();
   private physics!: RAPIER.World;
   private events!: RAPIER.EventQueue;
@@ -83,6 +83,7 @@ export class GameEngine {
   private lookBack = false;
   private ready = false;
   private cameraHeading = 0;
+  private cameraLookBack = false;
   private cameraAnchor = new THREE.Vector3();
   private frameCount = 0;
   private frameWindow = performance.now();
@@ -209,6 +210,7 @@ export class GameEngine {
     this.eventUntil = 5;
     this.spawnTraffic();
     this.cameraPosition.set(0, 0, 0);
+    this.lookBack = false;
     this.cameraMotion.reset();
     this.updateCamera(1);
     this.pursuit.initialize(INITIAL_POLICE_COUNT, this.player, this.trafficObstacles());
@@ -639,23 +641,29 @@ export class GameEngine {
     this.sun.target.position.copy(this.shadowCenter);
     if (this.status === 'ready') {
       const angle = this.simulationTime * 0.05 + heading + 0.6;
-      this.cameraPosition.set(target.x + Math.sin(angle) * 25, target.y + 14, target.z + Math.cos(angle) * 25);
+      this.cameraPosition.set(target.x + Math.sin(angle) * 30, target.y + 9, target.z + Math.cos(angle) * 30);
       this.camera.position.copy(this.cameraPosition);
       this.camera.lookAt(target.x, target.y + 1, target.z);
-      this.camera.fov = 52;
+      this.camera.fov = 40;
     } else {
       const desiredHeading = heading + (this.lookBack ? Math.PI : 0);
-      if (this.cameraPosition.lengthSq() === 0) { this.cameraHeading = desiredHeading; this.cameraAnchor.copy(target) }
+      if (this.cameraPosition.lengthSq() === 0 || this.cameraLookBack !== this.lookBack) {
+        this.cameraHeading = desiredHeading;
+        this.cameraAnchor.copy(target);
+        this.cameraLookBack = this.lookBack;
+      }
       const turn = Math.atan2(Math.sin(desiredHeading - this.cameraHeading), Math.cos(desiredHeading - this.cameraHeading));
       this.cameraHeading += turn * (1 - Math.exp(-dt * (this.player?.config.kind === 'motorcycle' ? 16 : 12)));
       this.cameraAnchor.set(target.x, THREE.MathUtils.damp(this.cameraAnchor.y, target.y, 6, dt), target.z);
-      const speed = this.player?.speed ?? 0;
-      const distance = 8.5 + speed * 0.035;
-      this.cameraPosition.set(this.cameraAnchor.x - Math.sin(this.cameraHeading) * distance, this.cameraAnchor.y + 3.4 + speed * 0.008, this.cameraAnchor.z - Math.cos(this.cameraHeading) * distance);
+      const motorcycle = this.player?.config.kind === 'motorcycle';
+      const speedRatio = THREE.MathUtils.smoothstep(this.player?.speed ?? 0, 0, 55);
+      const distance = motorcycle ? 11.2 : 13.2;
+      const height = motorcycle ? 2.35 : 2.65;
+      this.cameraPosition.set(this.cameraAnchor.x - Math.sin(this.cameraHeading) * distance, this.cameraAnchor.y + height, this.cameraAnchor.z - Math.cos(this.cameraHeading) * distance);
       this.camera.position.copy(this.cameraPosition);
-      this.cameraTarget.set(this.cameraAnchor.x + Math.sin(this.cameraHeading) * 12, this.cameraAnchor.y + 0.8, this.cameraAnchor.z + Math.cos(this.cameraHeading) * 12);
+      const lookAhead = 12 + speedRatio * 5;
+      this.cameraTarget.set(this.cameraAnchor.x + Math.sin(this.cameraHeading) * lookAhead, this.cameraAnchor.y + 0.55, this.cameraAnchor.z + Math.cos(this.cameraHeading) * lookAhead);
       this.camera.lookAt(this.cameraTarget);
-      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, 56 + Math.min(7, speed * 0.12), 3, dt);
     }
     this.camera.updateProjectionMatrix();
   }
@@ -699,7 +707,7 @@ export class GameEngine {
       actor.pose.render(alpha);
       animateTrafficWheels(actor.model, actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed);
     }
-    if (this.ready) {
+    if (this.ready && (this.status === 'running' || this.status === 'ready')) {
       this.updateCamera(dt);
       const { steer } = this.readControls();
       this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
@@ -711,7 +719,7 @@ export class GameEngine {
     }
     const renderStarted = performance.now();
     const focus = this.player?.model.group.position ?? this.track.spawn.position;
-    this.scenery!.render(this.camera, this.simulationTime, focus, this.player?.heading ?? this.track.spawn.heading);
+    this.scenery!.render(this.camera, this.simulationTime, focus, this.player?.heading ?? this.track.spawn.heading, this.status === 'running' ? this.player!.speed : 0, this.lookBack);
     this.renderCost += performance.now() - renderStarted;
     this.needsRender = false;
     const duration = (performance.now() - this.frameWindow) / 1000;
