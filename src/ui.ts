@@ -395,7 +395,7 @@ export class GameUI {
   }
 
   private home() {
-    return `<main class="menu-stage home-main"><section class="title-menu"><p class="menu-location">北京 · 四环</p><h1>人类<span>超频</span></h1><span class="game-wordmark">HUMAN OVERDRIVE</span><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
+    return `<main class="menu-stage home-main"><section class="title-menu"><p class="menu-location">北京 · 四环</p><h1 aria-label="人类超频 · 都市追逃">人类<span>超频</span><small class="game-subtitle">· 都市追逃</small></h1><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
   }
 
   private cityCardBody(city: CityConfig, active: boolean) {
