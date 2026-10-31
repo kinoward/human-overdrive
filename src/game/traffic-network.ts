@@ -28,7 +28,7 @@ export function laneCount(leg: TrafficLeg) {
 
 export function laneOffset(leg: TrafficLeg, lane: number) {
   const count = laneCount(leg);
-  return leg.road.oneWay ? ((lane + 0.5) / count - 0.5) * leg.road.width : leg.sign * (lane + 0.5) * leg.road.width / (2 * count);
+  return leg.road.oneWay ? ((lane + 0.5) / count - 0.5) * leg.road.width : -leg.sign * (leg.road.width / 2 - (lane + 0.5) * leg.road.width / (2 * count));
 }
 
 export class TrafficNetwork {
@@ -243,7 +243,7 @@ export class TrafficNetwork {
       const start = replenishing ? 220 : anchor.leg.road.kind === 'main' ? 55 : 42;
       const end = replenishing ? 420 : anchor.leg.road.kind === 'main' ? 460 : 210;
       const target = start + (seed % 8) * (end - start) / 8;
-      const lane = profile.heavy ? laneCount(anchor.leg) - 1 : seed % laneCount(anchor.leg);
+      const lane = profile.heavy ? 0 : seed % laneCount(anchor.leg);
       for (let distance = start; distance <= end; distance += 17) {
         const candidate = this.walk(anchor.leg, anchor.along, distance * anchor.observedSign, lane, seed, profile);
         if (candidate) candidates.push({ ...candidate, primary: true, observedDistance: distance, priority: (seed % 10 === 9 ? 3 : 0) + Math.abs(distance - target) / 100 });

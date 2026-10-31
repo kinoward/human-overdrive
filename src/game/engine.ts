@@ -533,9 +533,9 @@ export class GameEngine {
     for (const actor of this.traffic) {
       const p = actor.body.translation();
       const distance = Math.hypot(position.x - p.x, position.z - p.z);
-      if (Math.abs(position.y - p.y) > 2) { actor.encounter = Infinity; continue }
+      if (Math.abs(position.y - p.y) > 2) { actor.encounter = Infinity; if (distance > 10) actor.collided = false; continue }
       if (distance < 9 && this.player.speed > actor.driver.speed + 4) actor.encounter = Math.min(actor.encounter, distance);
-      if (distance > 10 && actor.encounter < Infinity) {
+      if (distance > 10) {
         if (!actor.collided && actor.encounter > (this.player.config.width + actor.driver.width) * 0.5 + 0.1 && actor.encounter < (this.player.config.width + actor.driver.width) * 0.5 + 1.6) {
           this.metrics.nearMisses++;
           this.combo++;

@@ -139,7 +139,7 @@ export class TrafficSimulation {
       for (const lane of [agent.lane - 1, agent.lane + 1]) {
         if (lane < 0 || lane >= laneCount(agent.leg) || !this.laneChangeRoom(agent, lane)) continue;
         const candidate = this.sense(agent, laneOffset(agent.leg, lane), seen);
-        const gain = this.followAcceleration(agent, candidate) - currentAcceleration - 0.3 * candidate.rearBrake + (agent.profile.heavy ? lane > agent.lane ? 0.4 : -0.6 : 0);
+        const gain = this.followAcceleration(agent, candidate) - currentAcceleration - 0.3 * candidate.rearBrake + (agent.profile.heavy ? lane < agent.lane ? 0.4 : -0.6 : 0);
         if (candidate.safe && gain > bestGain) { bestLane = lane; bestGain = gain }
       }
       if (bestLane !== agent.lane) proposals.push({ agent, lane: bestLane, gain: bestGain });
@@ -372,7 +372,7 @@ export class TrafficSimulation {
         if (candidate.observedDistance >= (main ? 270 : 180) && distantFront >= (main ? 16 : 10)) continue;
       } else if (background >= 12) continue;
       const count = laneCount(candidate.leg);
-      const lanes = profile.heavy ? [count - 1, Math.max(0, count - 2)] : Array.from({ length: count }, (_, attempt) => (id + attempt) % count);
+      const lanes = profile.heavy ? [0, Math.min(1, count - 1)] : Array.from({ length: count }, (_, attempt) => (id + attempt) % count);
       for (const lane of new Set(lanes)) {
         const sample = this.network.sample(candidate.leg, candidate.along, laneOffset(candidate.leg, lane));
         if (Math.hypot(sample.point.x - focus.position.x, sample.point.z - focus.position.z) < (replenishing ? 140 : 38)) continue;
