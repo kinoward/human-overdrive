@@ -5,3 +5,17 @@ dist/
 .env.*
 !.env.example
 artifacts/
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Ll]ogs/
+unity/[Bb]uild/
+unity/[Bb]uilds/
+unity/UserSettings/
+unity/MemoryCaptures/
+unity/.vs/
+unity/.idea/
+unity/*.csproj
+unity/*.sln
+unity/*.slnx
+unity/*.user
