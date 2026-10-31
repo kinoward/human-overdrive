@@ -25,7 +25,9 @@ export function isCaptured(
   const position = player.body.translation();
   const direction = road.direction;
   const valid = police.filter(actor => {
-    if (actor.body.handle === player.body.handle) return false;
+    if (actor.body.handle === player.body.handle || actor.activePursuit !== true) return false;
+    const rotation = actor.body.rotation();
+    if (1 - 2 * (rotation.x * rotation.x + rotation.z * rotation.z) <= 0.3) return false;
     const point = actor.body.translation();
     const dx = point.x - position.x;
     const dz = point.z - position.z;

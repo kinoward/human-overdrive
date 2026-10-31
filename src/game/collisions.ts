@@ -65,6 +65,7 @@ interface ContactProcess {
 
 export class CollisionSystem {
   contactCount = 0;
+  peakContacts = 0;
   private player?: CollisionActor;
   private actors = new Map<number, CollisionActor>();
   private snapshots = new Map<number, BodySnapshot>();
@@ -123,12 +124,14 @@ export class CollisionSystem {
       }
     }
     this.contactCount = contactBodies.size;
+    this.peakContacts = Math.max(this.peakContacts, this.contactCount);
     for (const [key, process] of this.processes) if (this.step - process.lastSeen > 0.25) this.processes.delete(key);
     return { impacts, policeImpacts, contactBodies };
   }
 
   reset() {
     this.contactCount = 0;
+    this.peakContacts = 0;
     this.player = undefined;
     this.actors.clear();
     this.snapshots.clear();

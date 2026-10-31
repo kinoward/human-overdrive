@@ -7,15 +7,24 @@ interface DebrisPiece {
   body: RAPIER.RigidBody;
   age: number;
   material?: THREE.Material;
+  lifetime: number;
 }
+
+const budgets = new WeakMap<RAPIER.World, { active: number }>();
 
 export class DamageDebris {
   private pieces: DebrisPiece[] = [];
   readonly limit = 8;
+  private budget: { active: number };
 
-  constructor(private group: THREE.Group, private owner: RAPIER.RigidBody, private world: RAPIER.World) {}
+  constructor(private group: THREE.Group, private owner: RAPIER.RigidBody, private world: RAPIER.World) {
+    this.budget = budgets.get(world) ?? { active: 0 };
+    budgets.set(world, this.budget);
+  }
 
-  get available() { return this.limit - this.pieces.length }
+  static activeCount(world: RAPIER.World) { return budgets.get(world)?.active ?? 0 }
+
+  get available() { return Math.min(this.limit - this.pieces.length, 48 - this.budget.active) }
 
   add(geometry: THREE.BufferGeometry, material: THREE.Material, direction: THREE.Vector3, strength: number, glass: boolean) {
     if (!this.available) { geometry.dispose(); return false }
@@ -53,11 +62,12 @@ export class DamageDebris {
     const mesh = new THREE.Mesh(geometry, ownedMaterial ?? material);
     mesh.position.copy(position);
     mesh.quaternion.copy(rotation);
-    mesh.castShadow = !glass;
+    mesh.castShadow = false;
     let root: THREE.Object3D = this.group;
     while (root.parent) root = root.parent;
     root.add(mesh);
-    this.pieces.push({ mesh, body, age: 0, material: ownedMaterial });
+    this.pieces.push({ mesh, body, age: 0, material: ownedMaterial, lifetime: glass ? 2.5 : 7 });
+    this.budget.active++;
     return true;
   }
 
@@ -65,10 +75,12 @@ export class DamageDebris {
     for (let index = this.pieces.length - 1; index >= 0; index--) {
       const piece = this.pieces[index];
       piece.age += dt;
-      if (piece.age >= 7) { this.remove(index); continue }
-      piece.mesh.position.copy(piece.body.translation());
-      piece.mesh.quaternion.copy(piece.body.rotation());
-      piece.mesh.scale.setScalar(Math.min(1, (7 - piece.age) / 0.7));
+      if (piece.age >= piece.lifetime) { this.remove(index); continue }
+      if (!piece.body.isSleeping()) {
+        piece.mesh.position.copy(piece.body.translation());
+        piece.mesh.quaternion.copy(piece.body.rotation());
+      }
+      piece.mesh.scale.setScalar(Math.min(1, (piece.lifetime - piece.age) / 0.7));
     }
   }
 
@@ -83,5 +95,6 @@ export class DamageDebris {
     piece.material?.dispose();
     this.world.removeRigidBody(piece.body);
     this.pieces.splice(index, 1);
+    this.budget.active--;
   }
 }

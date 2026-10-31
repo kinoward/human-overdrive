@@ -20,6 +20,7 @@ import { ArcadeCameraMotion } from './camera-motion';
 import { RenderPose } from './render-pose';
 import { loadGeneratedAssets } from './generated-assets';
 import { VehicleDamage } from './vehicle-damage';
+import { DamageDebris } from './damage-debris';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -84,6 +85,7 @@ export class GameEngine {
   private longestFrame = 0;
   private physicsCost = 0;
   private renderCost = 0;
+  private sectionCost = { traffic: 0, police: 0, world: 0, contacts: 0 };
   private needsRender = true;
   private shadowRight = new THREE.Vector3(45, 0, -55).normalize();
   private shadowUp = new THREE.Vector3().crossVectors(new THREE.Vector3(55, -90, 45).normalize(), this.shadowRight).normalize();
@@ -342,18 +344,26 @@ export class GameEngine {
     const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
     this.player.drive({ throttle, steer, brake: this.keys.has('Space') }, dt, onRoad);
     this.lookBack = this.keys.has('KeyC');
+    const trafficAt = performance.now();
     this.updateTraffic(dt);
+    this.sectionCost.traffic += performance.now() - trafficAt;
+    const pursuitAt = performance.now();
     this.updatePolice(dt);
+    this.sectionCost.police += performance.now() - pursuitAt;
     this.collisionSystem.beforeStep({ body: this.player.body, collider: this.player.collider, kind: 'player' }, [
       ...this.police.map(actor => ({ body: actor.vehicle.body, collider: actor.vehicle.collider, kind: 'police' as const })),
       ...this.traffic.map(actor => ({ body: actor.body, collider: actor.collider, kind: 'traffic' as const }))
     ], dt);
+    const worldAt = performance.now();
     this.physics.step(this.events);
+    this.sectionCost.world += performance.now() - worldAt;
+    const contactsAt = performance.now();
     this.player.sync(this.simulationTime);
     this.pursuit?.sync(this.simulationTime);
     for (const helicopter of this.helicopters) helicopter.afterStep();
     for (const actor of this.traffic) { actor.pose.capture(actor.body.translation(), actor.body.rotation()); actor.damage?.update(dt) }
     const contactBodies = this.processCollisions(dt);
+    this.sectionCost.contacts += performance.now() - contactsAt;
     const next = this.player.body.translation();
     const nextRoad = nearestRoad(this.track.roads, next.x, next.z, next.y - 0.85);
     const roadValid = !!nextRoad && Math.abs(nextRoad.offset) < nextRoad.road.width / 2 + 0.7;
@@ -568,8 +578,8 @@ export class GameEngine {
   private emit() {
     if (!this.metrics) return;
     const score = calculateScore(this.metrics);
-    if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
-    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, capture: this.capture, collisions: this.metrics.collisions });
+    if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
       const types: Record<string, number> = {};
@@ -650,6 +660,7 @@ export class GameEngine {
   }
 
   private resetFrameStats() {
+    this.sectionCost = { traffic: 0, police: 0, world: 0, contacts: 0 };
     this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
   }
 
@@ -691,8 +702,9 @@ export class GameEngine {
     this.needsRender = false;
     const duration = (performance.now() - this.frameWindow) / 1000;
     if (duration >= 1) {
-      this.renderer.domElement.dataset.performance = JSON.stringify({ fps: Math.round(this.frameCount / duration), physicsMs: Math.round(this.physicsCost / this.frameCount * 10) / 10, renderMs: Math.round(this.renderCost / this.frameCount * 10) / 10, longestFrameMs: Math.round(this.longestFrame * 1000), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles });
+      this.renderer.domElement.dataset.performance = JSON.stringify({ fps: Math.round(this.frameCount / duration), physicsMs: Math.round(this.physicsCost / this.frameCount * 10) / 10, renderMs: Math.round(this.renderCost / this.frameCount * 10) / 10, trafficMs: Math.round(this.sectionCost.traffic / this.frameCount * 10) / 10, pursuitMs: Math.round(this.sectionCost.police / this.frameCount * 10) / 10, worldMs: Math.round(this.sectionCost.world / this.frameCount * 10) / 10, contactMs: Math.round(this.sectionCost.contacts / this.frameCount * 10) / 10, longestFrameMs: Math.round(this.longestFrame * 1000), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, geometries: this.renderer.info.memory.geometries, textures: this.renderer.info.memory.textures, bodies: this.physics.bodies.len(), colliders: this.physics.colliders.len(), fragments: DamageDebris.activeCount(this.physics) });
       this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
+      this.sectionCost = { traffic: 0, police: 0, world: 0, contacts: 0 };
     }
   };
 
