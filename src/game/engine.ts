@@ -24,6 +24,7 @@ import { RenderPose } from './render-pose';
 import { loadGeneratedAssets } from './generated-assets';
 import { VehicleDamage } from './vehicle-damage';
 import { DamageDebris } from './damage-debris';
+import { RaceMinimap } from './minimap';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -74,7 +75,7 @@ export class GameEngine {
   private cameraTarget = new THREE.Vector3();
   private hudAt = 0;
   private mapCanvas = document.createElement('canvas');
-  private mapContext: CanvasRenderingContext2D;
+  private minimap?: RaceMinimap;
   private lookBack = false;
   private ready = false;
   private cameraHeading = 0;
@@ -122,11 +123,10 @@ export class GameEngine {
     this.renderer.domElement.setAttribute('aria-label', '北京四环驾驶场景');
     this.renderer.domElement.tabIndex = 0;
     document.querySelector('#scene')!.append(this.renderer.domElement);
-    this.mapCanvas.width = 420;
-    this.mapCanvas.height = 280;
     this.mapCanvas.className = 'race-map';
     this.mapCanvas.style.display = 'none';
-    this.mapContext = this.mapCanvas.getContext('2d')!;
+    this.mapCanvas.setAttribute('role', 'img');
+    this.mapCanvas.setAttribute('aria-label', '车头朝上的附近路网与追捕位置');
     document.querySelector('#scene')!.append(this.mapCanvas);
     window.addEventListener('resize', this.resize);
     window.addEventListener('keydown', this.keyDown);
@@ -150,6 +150,7 @@ export class GameEngine {
     this.events = new RAPIER.EventQueue(true);
     this.track = await buildWorld(this.scene, async (progress, message) => { await onProgress?.(0.45 + progress * 0.4, message); });
     await onProgress?.(0.87, '准备道路碰撞');
+    this.minimap = new RaceMinimap(this.mapCanvas, this.track.roads);
     this.collisionSystem = new CollisionSystem(this.physics, this.events);
     for (const surface of this.track.surfaces) this.physics.createCollider(RAPIER.ColliderDesc.trimesh(surface.vertices, surface.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.9).setCollisionGroups(ROAD_GROUPS));
     await onProgress?.(0.92, '准备空域与道路边界');
@@ -207,6 +208,8 @@ export class GameEngine {
     this.metrics.maxPoliceCount = this.pursuit.activeCars.length;
     this.updateRoadColliders(this.player.body.translation());
     this.mapCanvas.style.display = '';
+    this.minimap!.reset();
+    this.drawMap();
     this.audio.start();
     this.renderer.domElement.focus();
     this.emit();
@@ -625,29 +628,15 @@ export class GameEngine {
   }
 
   private drawMap() {
-    if (!this.player) return;
-    const ctx = this.mapContext, p = this.player.body.translation();
-    ctx.clearRect(0, 0, 420, 280);
-    const scale = 0.6;
-    ctx.save();
-    ctx.translate(210, 140);
-    ctx.lineCap = 'round';
-    for (const road of this.track.roads) {
-      ctx.beginPath();
-      road.points.forEach((point, i) => { const x = (point.x - p.x) * scale, y = (point.z - p.z) * scale; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) });
-      ctx.strokeStyle = road.kind === 'main' ? '#bcdae6' : '#527487';
-      ctx.lineWidth = road.kind === 'main' ? 5 : 2.5;
-      ctx.stroke();
-    }
-    for (const actor of this.police) {
-      const point = actor.vehicle.body.translation();
-      ctx.beginPath(); ctx.arc((point.x - p.x) * scale, (point.z - p.z) * scale, actor.operational ? 4 : 3, 0, Math.PI * 2); ctx.fillStyle = actor.operational ? '#ff6778' : '#718591'; ctx.fill();
-    }
-    ctx.rotate(-this.player.heading);
-    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-7, -7); ctx.lineTo(7, -7); ctx.closePath(); ctx.fillStyle = '#dcf45b'; ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = '#e4f3fa'; ctx.font = '18px system-ui'; ctx.fillText('四环全线 · 主辅路', 18, 28);
-    ctx.fillStyle = '#8ba7b8'; ctx.font = '15px system-ui'; ctx.fillText('© OpenStreetMap', 18, 264);
+    if (!this.player || !this.minimap) return;
+    this.minimap.draw({
+      position: this.player.body.translation(),
+      heading: this.player.heading,
+      speedKmh: this.player.speed * 3.6,
+      elapsed: this.metrics.elapsed,
+      police: this.police.map(actor => ({ position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, operational: actor.operational })),
+      helicopters: this.helicopters.map(actor => actor.body.translation()),
+    });
   }
 
   private resetFrameStats() {
@@ -704,6 +693,7 @@ export class GameEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
+    this.drawMap();
   };
 
   private readControls(): Controls {
