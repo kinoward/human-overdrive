@@ -152,7 +152,7 @@ export class PolicePursuit {
     if (!this.target) this.remember(player.body.translation(), player.body.linvel());
     const location = this.navigation.locate(groundPosition(player));
     if (!location) return;
-    const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: player.config.acceleration, accelerationTopSpeed: player.config.topSpeed, topSpeed: player.config.topSpeed * 1.1, color: '#e4e8e5' };
+    const config = { ...VEHICLES[0], name: '城市警车', mass: 1850, acceleration: player.config.acceleration, accelerationTopSpeed: player.config.topSpeed, topSpeed: player.config.topSpeed * 1.1, color: '#e4e8e5' };
     const velocity = player.body.linvel();
     const travelHeading = Math.hypot(velocity.x, velocity.z) > 2 ? Math.atan2(velocity.x, velocity.z) : this.targetRoad ? Math.atan2(this.targetRoad.direction.x * this.targetSign, this.targetRoad.direction.z * this.targetSign) : player.heading;
     const candidates = this.spawnCandidates(location, travelHeading, initial, player.speed).flatMap(candidate => {
