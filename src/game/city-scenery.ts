@@ -12,6 +12,7 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageO
   const path = new THREE.MeshStandardMaterial({ color: '#b4b2a3', roughness: 0.96 });
   const variants = (['residential-block', 'brick-apartment', 'office-block'] as const).map(name => {
     const meshes = generatedMeshes(name);
+    for (const mesh of meshes) mesh.material.userData.airObstacle = true;
     return { meshes, bounds: meshBounds(meshes), faceRotation: name === 'residential-block' ? Math.PI : 0 };
   });
   const palette = ['#ffffff', '#f2f2eb', '#f4efe8'].map(color => new THREE.Color(color));

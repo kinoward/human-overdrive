@@ -40,6 +40,9 @@ function signTexture(title: string, subtitle: string) {
 
 export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials: RoadMaterials, batch: SceneryBatch) {
   const index = new RoadIndex(roads);
+  const bridgeConcrete = materials.concrete.clone();
+  bridgeConcrete.onBeforeCompile = materials.concrete.onBeforeCompile;
+  bridgeConcrete.userData.airObstacle = true;
   const asphalts = new Map<RoadPath['kind'], THREE.MeshStandardMaterial>();
   for (const [kind, priority] of [['main', 2], ['service', 3], ['ramp', 4]] as const) {
     const material = materials.asphalt.clone();
@@ -78,7 +81,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
 
       if (Math.min(a.y, b.y) > 1) {
         const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
-        box(materials.concrete, middle, road.width, 0.65, length + 0.15, Math.atan2(b.x - a.x, b.z - a.z), -0.34, -Math.atan2(b.y - a.y, length));
+        box(bridgeConcrete, middle, road.width, 0.65, length + 0.15, Math.atan2(b.x - a.x, b.z - a.z), -0.34, -Math.atan2(b.y - a.y, length));
       }
       for (const side of [-1, 1]) batch.surface(white, roadRibbon(road, i, 0.16, side * (road.width / 2 - 0.35), 0.047, 1), a.x, a.z);
     }
@@ -153,7 +156,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
       const head = sampleRoad(road, distance, road.width / 2 - 1).point;
       box(black, head, 1.1, 0.12, 0.45, s.heading, 8.85);
       box(lamp, head, 0.85, 0.035, 0.32, s.heading, 8.77);
-      if (s.point.y > 3) box(materials.concrete, s.point, 0.9, s.point.y, 1.5, s.heading, -s.point.y / 2);
+      if (s.point.y > 3) box(bridgeConcrete, s.point, 0.9, s.point.y, 1.5, s.heading, -s.point.y / 2);
     }
     if (road.kind !== 'main') continue;
     for (let distance = 350; distance < road.length; distance += 1800) {

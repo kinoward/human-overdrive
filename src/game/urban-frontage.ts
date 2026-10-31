@@ -34,6 +34,7 @@ export function addUrbanFrontage(roads: RoadPath[], batch: SceneryBatch) {
   const cellSize = 6;
   const index = new RoadIndex(roads), occupied = new Set<string>(), lastTemplates = new Map<string, number>();
   const wall = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.94 });
+  wall.userData.airObstacle = true;
   const trim = new THREE.MeshStandardMaterial({ color: '#d4d3c8', roughness: 0.84 });
   const roof = new THREE.MeshStandardMaterial({ color: '#696f70', roughness: 0.9 });
   const glass = new THREE.MeshStandardMaterial({ color: '#344b55', roughness: 0.28, metalness: 0.24 });

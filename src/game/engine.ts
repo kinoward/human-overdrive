@@ -2,10 +2,15 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CITIES, HELICOPTER_COUNTS, POLICE_COUNTS, VEHICLES } from '../config';
 import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleConfig, VehicleId, WorldData } from '../types';
-import { buildWorld, nearestRoad, sampleRoad } from './world';
+import { buildWorld, nearestRoad } from './world';
 import { PhysicsVehicle } from './physics';
-import { createHelicopter, createVehicleModel } from './models';
-import { RoadNavigation } from './navigation';
+import { createVehicleModel } from './models';
+import { PolicePursuit } from './police';
+import { Airspace } from './airspace';
+import { PursuitHelicopter } from './helicopter';
+import { CollisionSystem } from './collisions';
+import { isCaptured } from './capture';
+import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
 import { buildResult, calculateScore, getWarning } from './rules';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
@@ -13,8 +18,6 @@ import { ArcadeCameraMotion } from './camera-motion';
 import { RenderPose } from './render-pose';
 import { loadGeneratedAssets } from './generated-assets';
 import { VehicleDamage } from './vehicle-damage';
-import { CollisionSystem } from './collisions';
-import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -27,8 +30,6 @@ interface TrafficCar {
   damage?: VehicleDamage;
 }
 
-interface PoliceCar { vehicle: PhysicsVehicle; route: Point3[]; routeAt: number; role: number }
-
 export class GameEngine {
   readonly scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
@@ -36,14 +37,16 @@ export class GameEngine {
   private timer = new THREE.Timer();
   private physics!: RAPIER.World;
   private events!: RAPIER.EventQueue;
-  private collisionSystem!: CollisionSystem;
   private track!: WorldData;
-  private navigation!: RoadNavigation;
+  private airspace!: Airspace;
+  private collisionSystem!: CollisionSystem;
+  private pursuit?: PolicePursuit;
   private player?: PhysicsVehicle;
   private preview?: ReturnType<typeof createVehicleModel>;
   private traffic: TrafficCar[] = [];
-  private police: PoliceCar[] = [];
-  private helicopters: ReturnType<typeof createHelicopter>[] = [];
+  private helicopters: PursuitHelicopter[] = [];
+  private helicopterSight = new Map<PursuitHelicopter, boolean>();
+  private nextSight = 0;
   private keys = new Set<string>();
   private audio = new GameAudio();
   private cameraMotion = new ArcadeCameraMotion();
@@ -87,6 +90,11 @@ export class GameEngine {
   private barrierCell = '';
   private trafficSimulation?: TrafficSimulation;
   private sun = new THREE.DirectionalLight('#fff0d8', 2.5);
+  private viewMatrix = new THREE.Matrix4();
+  private viewFrustum = new THREE.Frustum();
+  private visibilitySphere = new THREE.Sphere();
+
+  private get police() { return this.pursuit?.cars ?? [] }
 
   constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -130,9 +138,10 @@ export class GameEngine {
     this.physics.timestep = 1 / 60;
     this.events = new RAPIER.EventQueue(true);
     this.track = await buildWorld(this.scene);
-    this.navigation = new RoadNavigation(this.track.roads);
     this.collisionSystem = new CollisionSystem(this.physics, this.events);
     for (const surface of this.track.surfaces) this.physics.createCollider(RAPIER.ColliderDesc.trimesh(surface.vertices, surface.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.9).setCollisionGroups(ROAD_GROUPS));
+    this.airspace = new Airspace(this.physics);
+    this.airspace.addScene(this.scene);
     for (const obstacle of this.track.obstacles ?? []) {
       const key = `${Math.floor(obstacle.center.x / 500)},${Math.floor(obstacle.center.z / 500)}`;
       if (!this.barrierCells.has(key)) this.barrierCells.set(key, []);
@@ -169,6 +178,8 @@ export class GameEngine {
     this.combo = 0;
     this.lastViolation = 0;
     this.collisionSystem.reset();
+    this.nextSight = 0;
+    this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible });
     this.accumulator = 0;
     this.simulationTime = 0;
     this.keys.clear();
@@ -223,25 +234,33 @@ export class GameEngine {
   private clearRace() {
     this.player?.dispose();
     this.player = undefined;
-    this.collisionSystem?.reset();
     for (const actor of this.traffic) { actor.damage?.dispose(); actor.model.group.removeFromParent(); actor.model.dispose(); this.physics.removeRigidBody(actor.body) }
-    for (const actor of this.police) actor.vehicle.dispose();
-    for (const helicopter of this.helicopters) { helicopter.group.removeFromParent(); helicopter.spotlight.target.removeFromParent(); helicopter.dispose() }
+    this.pursuit?.dispose();
+    this.pursuit = undefined;
+    for (const helicopter of this.helicopters) helicopter.dispose();
+    this.airspace?.reset();
+    this.collisionSystem?.reset();
     this.traffic = [];
     this.trafficSimulation = undefined;
-    this.police = [];
     this.helicopters = [];
+    this.helicopterSight.clear();
   }
 
   private updateRoadColliders(position: Point3) {
-    const cx = Math.floor(position.x / 500), cz = Math.floor(position.z / 500);
-    const current = `${cx},${cz}`;
+    const anchors = [position, ...this.police.map(actor => actor.vehicle.body.translation())];
+    const cells = new Map<string, { x: number; z: number; span: number }>();
+    for (let i = 0; i < anchors.length; i++) {
+      const x = Math.floor(anchors[i].x / 500), z = Math.floor(anchors[i].z / 500);
+      const key = `${x},${z}`;
+      const span = i === 0 ? 2 : 1;
+      if ((cells.get(key)?.span ?? -1) < span) cells.set(key, { x, z, span });
+    }
+    const current = [...cells.entries()].map(([key, cell]) => `${key}:${cell.span}`).sort().join(';');
     if (this.barrierCell === current) return;
     this.barrierCell = current;
     const needed = new Set<string>();
-    for (let x = cx - 2; x <= cx + 2; x++) for (let z = cz - 2; z <= cz + 2; z++) {
-      const key = `${x},${z}`;
-      needed.add(key);
+    for (const cell of cells.values()) for (let x = cell.x - cell.span; x <= cell.x + cell.span; x++) for (let z = cell.z - cell.span; z <= cell.z + cell.span; z++) needed.add(`${x},${z}`);
+    for (const key of needed) {
       if (this.activeBarriers.has(key)) continue;
       const colliders = (this.barrierCells.get(key) ?? []).map(obstacle => this.physics.createCollider(
         RAPIER.ColliderDesc.cuboid(obstacle.halfExtents.x, obstacle.halfExtents.y, obstacle.halfExtents.z)
@@ -250,7 +269,13 @@ export class GameEngine {
       ));
       this.activeBarriers.set(key, colliders);
     }
-    for (const [key, colliders] of this.activeBarriers) if (!needed.has(key)) { colliders.forEach(collider => this.physics.removeCollider(collider, false)); this.activeBarriers.delete(key) }
+    for (const [key, colliders] of this.activeBarriers) if (!needed.has(key)) {
+      let touching = false;
+      for (const collider of colliders) this.physics.contactPairsWith(collider, () => { touching = true });
+      if (touching) continue;
+      colliders.forEach(collider => this.physics.removeCollider(collider, false));
+      this.activeBarriers.delete(key);
+    }
   }
 
   private spawnTraffic() {
@@ -273,29 +298,34 @@ export class GameEngine {
   }
 
   private spawnPolice() {
-    if (!this.player) return;
+    if (!this.player || !this.pursuit) return;
     const warning = getWarning(this.heat);
-    const near = nearestRoad(this.track.roads, this.player.body.translation().x, this.player.body.translation().z, this.player.body.translation().y - 0.85);
-    if (!near) return;
-    while (this.police.length < POLICE_COUNTS[warning]) {
-      const i = this.police.length;
-      const behind = i < 2 || i % 2 === 0;
-      let d = near.distance + (behind ? -70 - i * 15 : 110 + i * 8);
-      if (d < 15 || d > near.road.length - 15) d = THREE.MathUtils.clamp(near.distance + (behind ? 80 : -80), 20, near.road.length - 20);
-      const p = sampleRoad(near.road, d, ((i % 3) - 1) * near.road.width * 0.2);
-      const heading = p.heading + (behind ? 0 : Math.PI);
-      const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: 11, color: '#e4e8e5' };
-      const vehicle = new PhysicsVehicle(this.physics, config, p.point, heading, true);
-      vehicle.body.setLinvel({ x: Math.sin(heading) * 13, y: 0, z: Math.cos(heading) * 13 }, true);
-      this.scene.add(vehicle.model.group);
-      this.police.push({ vehicle, route: [], routeAt: -10, role: i });
-    }
+    this.pursuit.spawn(POLICE_COUNTS[warning], this.player, this.trafficObstacles());
+    const player = this.player.body.translation();
     while (this.helicopters.length < HELICOPTER_COUNTS[warning]) {
-      const helicopter = createHelicopter();
-      this.scene.add(helicopter.group, helicopter.spotlight.target);
+      const i = this.helicopters.length;
+      const initial = { x: player.x + (i - 1) * 35, y: player.y + 42 + i * 12, z: player.z - 45 };
+      this.airspace.update([player, initial, ...this.helicopters.map(actor => actor.body.translation())]);
+      const helicopter = new PursuitHelicopter(this.physics, this.airspace, i, initial);
+      this.scene.add(helicopter.model.group, helicopter.model.spotlight.target);
+      helicopter.update(0, player, true);
       this.helicopters.push(helicopter);
+      this.helicopterSight.set(helicopter, false);
     }
   }
+
+  private trafficObstacles(): TrafficObstacle[] {
+    return this.traffic.map(actor => ({ position: actor.body.translation(), velocity: actor.body.linvel(), heading: actor.driver.heading, length: actor.driver.length, width: actor.driver.width }));
+  }
+
+  private isVisible = (point: Point3, radius: number) => {
+    this.camera.updateMatrixWorld();
+    this.viewMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+    this.viewFrustum.setFromProjectionMatrix(this.viewMatrix);
+    this.visibilitySphere.center.set(point.x, point.y, point.z);
+    this.visibilitySphere.radius = radius;
+    return this.viewFrustum.intersectsSphere(this.visibilitySphere);
+  };
 
   private step(dt: number) {
     if (!this.player) return;
@@ -317,9 +347,10 @@ export class GameEngine {
     ], dt);
     this.physics.step(this.events);
     this.player.sync(this.simulationTime);
-    for (const actor of this.police) actor.vehicle.sync(this.simulationTime);
+    this.pursuit?.sync(this.simulationTime);
+    for (const helicopter of this.helicopters) helicopter.afterStep();
     for (const actor of this.traffic) { actor.pose.capture(actor.body.translation(), actor.body.rotation()); actor.damage?.update(dt) }
-    this.processCollisions(dt);
+    const contactBodies = this.processCollisions(dt);
     const next = this.player.body.translation();
     const nextRoad = nearestRoad(this.track.roads, next.x, next.z, next.y - 0.85);
     const roadValid = !!nextRoad && Math.abs(nextRoad.offset) < nextRoad.road.width / 2 + 0.7;
@@ -337,10 +368,10 @@ export class GameEngine {
     const warning = getWarning(this.heat);
     this.metrics.maxWarning = Math.max(this.metrics.maxWarning, warning);
     this.spawnPolice();
-    const nearbyPolice = this.police.filter(actor => {
+    const nearbyPolice = this.pursuit?.effective(this.player).filter(actor => {
       const p = actor.vehicle.body.translation();
-      return Math.hypot(p.x - next.x, p.z - next.z) < 180 && actor.vehicle.upY > 0.1;
-    });
+      return Math.hypot(p.x - next.x, p.z - next.z) < 180;
+    }) ?? [];
     if (warning === 5 && this.police.length >= 10 && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
       this.metrics.maxPressureTime += dt;
       this.metrics.maxPressureDistance += distance;
@@ -348,11 +379,9 @@ export class GameEngine {
       this.metrics.maxPressureTime = 0;
       this.metrics.maxPressureDistance = 0;
     }
-    const blockingPolice = nearbyPolice.filter(actor => {
-      const p = actor.vehicle.body.translation();
-      return Math.hypot(p.x - next.x, p.z - next.z) < 5.5;
-    });
-    const blockaded = this.player.speed < 1.8 && blockingPolice.length >= 2;
+    const blockaded = this.player.speed < 1.8 && isCaptured(this.physics, { body: this.player.body, collider: this.player.collider, width: this.player.config.width, length: this.player.config.length }, this.police.map(actor => ({
+      body: actor.vehicle.body, collider: actor.vehicle.collider, width: actor.vehicle.config.width, length: actor.vehicle.config.length, activePursuit: actor.activePursuit
+    })), nextRoad, contactBodies);
     if (blockaded) {
       if (this.capture === 0) this.captureOrigin.copy(next);
       this.capture += dt / 5;
@@ -414,37 +443,25 @@ export class GameEngine {
   }
 
   private updatePolice(dt: number) {
-    if (!this.player) return;
+    if (!this.player || !this.pursuit) return;
     const player = this.player.body.translation();
-    const velocity = this.player.body.linvel();
-    const destination = { x: player.x + velocity.x * 0.5, y: player.y - 0.85, z: player.z + velocity.z * 0.5 };
-    for (const actor of this.police) {
-      const position = actor.vehicle.body.translation();
-      const distance = Math.hypot(player.x - position.x, player.z - position.z);
-      if (this.simulationTime - actor.routeAt > 1 + actor.role * 0.04) {
-        actor.route = this.navigation.route(position, destination);
-        actor.routeAt = this.simulationTime;
+    this.airspace.update([player, ...this.police.map(actor => actor.vehicle.body.translation()), ...this.helicopters.map(actor => actor.body.translation())]);
+    if (this.simulationTime >= this.nextSight) {
+      this.nextSight = this.simulationTime + 0.12;
+      for (const helicopter of this.helicopters) {
+        const position = helicopter.body.translation();
+        const inRange = Math.hypot(position.x - player.x, position.y - player.y, position.z - player.z) < 450;
+        this.helicopterSight.set(helicopter, inRange && this.airspace.lineOfSight(position, player, helicopter.body, this.player.body).clear);
       }
-      let target = destination;
-      if (distance > 35 && actor.route.length) {
-        while (actor.route.length > 1 && Math.hypot(actor.route[0].x - position.x, actor.route[0].z - position.z) < 15 + actor.vehicle.speed * 0.2) actor.route.shift();
-        target = actor.route[0];
-      }
-      const desiredHeading = Math.atan2(target.x - position.x, target.z - position.z);
-      const angle = Math.atan2(Math.sin(desiredHeading - actor.vehicle.heading), Math.cos(desiredHeading - actor.vehicle.heading));
-      const steering = THREE.MathUtils.clamp(-angle * 2.5, -1, 1);
-      const targetSpeed = Math.max(12, Math.min(53, this.player.speed * 1.13 + 5)) * Math.max(0.3, 1 - Math.abs(angle) * 0.7);
-      actor.vehicle.drive({ throttle: actor.vehicle.speed < targetSpeed ? 1 : 0, steer: steering, brake: actor.vehicle.speed > targetSpeed + 3 }, dt);
-
     }
-    for (let i = 0; i < this.helicopters.length; i++) {
-      const actor = this.helicopters[i];
-      const angle = this.simulationTime * 0.17 + i * Math.PI * 2 / 3;
-      actor.group.position.set(player.x + Math.cos(angle) * (30 + i * 10), 32 + i * 12, player.z + Math.sin(angle) * 45);
-      actor.group.rotation.y = -angle;
-      actor.rotor.rotation.y += dt * 42;
-      actor.spotlight.target.position.set(player.x, 0, player.z);
+    let observation: Point3 | undefined;
+    const groundObservation = this.pursuit.observation;
+    for (const helicopter of this.helicopters) {
+      const visible = this.helicopterSight.get(helicopter) ?? false;
+      helicopter.update(dt, player, visible, groundObservation && groundObservation.age < 0.25 ? groundObservation.position : undefined);
+      if (visible) observation = helicopter.observation?.position;
     }
+    this.pursuit.update(dt, this.simulationTime, this.player, this.trafficObstacles(), observation);
   }
 
   private processCollisions(dt: number) {
@@ -525,6 +542,7 @@ export class GameEngine {
     if (!this.metrics) return;
     const score = calculateScore(this.metrics);
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), capture: this.capture, collisions: this.metrics.collisions });
     this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, heat: this.heat, warning: getWarning(this.heat), policeCount: this.police.length, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
@@ -610,7 +628,8 @@ export class GameEngine {
     this.physicsCost += performance.now() - physicsStarted;
     const alpha = Math.min(1, this.accumulator * 60);
     this.player?.render(alpha);
-    for (const actor of this.police) actor.vehicle.render(alpha);
+    this.pursuit?.render(alpha);
+    for (const helicopter of this.helicopters) helicopter.render(alpha);
     for (const actor of this.traffic) {
       actor.pose.render(alpha);
       for (const wheel of actor.model.wheels) wheel.rotation.x = (actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed) / actor.model.wheelRadius;
