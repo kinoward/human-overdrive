@@ -3,6 +3,7 @@ export function cityMapArt(cityId: string): string {
 }
 
 const icons: Record<string, string> = {
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18z"/>',
   'arrow-right': '<path d="M4 12h15m-6-6 6 6-6 6"/>',
   'arrow-left': '<path d="M20 12H5m6-6-6 6 6 6"/>',
   play: '<path d="m9 5 10 7-10 7z" fill="currentColor" stroke-linejoin="round"/>',

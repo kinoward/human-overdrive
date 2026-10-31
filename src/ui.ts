@@ -1,8 +1,10 @@
 import { CITIES, VEHICLES } from './config';
 import { getLeaderboard, getStorageStatus, loadResults } from './game/storage';
-import type { GameSnapshot, RaceResult, VehicleConfig, VehicleId } from './types';
+import type { CityConfig, GameSnapshot, RaceResult, VehicleConfig, VehicleId } from './types';
 import { cityMapArt, uiIcon } from './ui-art';
+import { CityGlobe } from './ui-globe';
 import './style.css';
+import './ui-motion.css';
 
 interface UICallbacks {
   onStart: (vehicleId: VehicleId, nickname: string) => void;
@@ -13,13 +15,16 @@ interface UICallbacks {
   onSound: (muted: boolean) => void;
 }
 
-type Panel = 'home' | 'cities' | 'garage' | 'options' | 'leaderboard' | 'rules' | 'race' | 'pause' | 'result';
+type Panel = 'home' | 'cities' | 'globe' | 'garage' | 'options' | 'leaderboard' | 'rules' | 'race' | 'pause' | 'result';
 
 const arrow = '<span class="button-arrow" aria-hidden="true">→</span>';
 const logo = '<svg viewBox="0 0 38 28" aria-hidden="true"><path d="M0 26 15 1h10L10 26zm19 0L34 1h4L23 26z" fill="currentColor"/></svg>';
 const escapeHTML = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 const number = (value: number) => Math.round(value).toLocaleString('zh-CN');
-const time = (value: number) => `${Math.floor(value / 60).toString().padStart(2, '0')}:${Math.floor(value % 60).toString().padStart(2, '0')}.${Math.floor((value % 1) * 10)}`;
+const time = (value: number) => {
+  const tenths = Math.floor(value * 10);
+  return `${Math.floor(tenths / 600).toString().padStart(2, '0')}:${Math.floor(tenths / 10 % 60).toString().padStart(2, '0')}.${tenths % 10}`;
+};
 const distance = (value: number) => `${(value / 1000).toFixed(2)}`;
 const stars = (value: number) => `<span class="stars" aria-label="${value}星">${Array.from({ length: 10 }, (_, index) => `<span class="${index < value ? 'lit' : ''}" aria-hidden="true">★</span>`).join('')}</span>`;
 
@@ -49,8 +54,16 @@ export class GameUI {
   private refs = new Map<string, HTMLElement>();
   private swipeStart: { x: number; y: number } | null = null;
   private swipeAt = -1000;
+  private globe: CityGlobe | null = null;
+  private readonly motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private screenAnimation: Animation | null = null;
+  private transitionId = 0;
+  private pendingPanel: Panel | null = null;
+  private countFrame = 0;
 
   constructor(private callbacks: UICallbacks) {
+    this.motionQuery.addEventListener('change', () => this.screenAnimation?.cancel());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.screenAnimation?.finish(); });
     this.root.addEventListener('click', event => this.handleClick(event));
     this.root.addEventListener('keydown', event => this.handleKey(event));
     this.root.addEventListener('pointerdown', event => {
@@ -78,33 +91,37 @@ export class GameUI {
         this.render();
       }
     });
+    this.root.addEventListener('wheel', event => {
+      const deck = (event.target as HTMLElement).closest<HTMLElement>('.city-deck');
+      if (!deck || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      deck.scrollBy({ left: event.deltaY, behavior: this.motionQuery.matches ? 'auto' : 'smooth' });
+    }, { passive: false });
     this.render();
   }
 
   setReady() {
     this.ready = true;
-    this.render();
+    const start = this.root.querySelector<HTMLButtonElement>('[data-action="start"]');
+    if (start && !this.error) { start.disabled = false; start.textContent = '开始驾驶'; }
   }
 
   update(snapshot: GameSnapshot) {
     this.snapshot = snapshot;
-    if (snapshot.status === 'paused' && this.panel === 'race') {
-      this.panel = 'pause';
-      this.render();
-    } else if (snapshot.status === 'running' && this.panel === 'pause') {
-      this.panel = 'race';
-      this.render();
-    } else if (snapshot.status === 'ready' && (this.panel === 'race' || this.panel === 'pause')) {
-      this.panel = 'home';
-      this.render();
+    if (snapshot.status === 'paused' && this.panel === 'race' && this.pendingPanel !== 'pause') {
+      void this.transitionTo('pause', undefined, true);
+    } else if (snapshot.status === 'running' && this.panel === 'pause' && this.pendingPanel !== 'race') {
+      void this.transitionTo('race');
+    } else if (snapshot.status === 'ready' && (this.panel === 'race' || this.panel === 'pause') && this.pendingPanel !== 'home') {
+      void this.transitionTo('home', undefined, true);
     }
     if (this.panel === 'race' || this.panel === 'pause') this.updateHud(snapshot);
   }
 
   showResult(result: RaceResult) {
     this.result = result;
-    this.panel = 'result';
-    this.render();
+    this.cityId = result.cityId;
+    void this.transitionTo('result', undefined, true);
   }
 
   showError(message: string) {
@@ -113,19 +130,120 @@ export class GameUI {
   }
 
   private navigate(panel: Panel) {
-    const leavingResult = this.panel === 'result' && ['home', 'cities', 'garage', 'options', 'leaderboard', 'rules'].includes(panel);
-    if (leavingResult) this.callbacks.onLeave();
+    if (this.pendingPanel || this.panel === panel) return;
+    const leavingResult = this.panel === 'result' && ['home', 'cities', 'globe', 'garage', 'options', 'leaderboard', 'rules'].includes(panel);
     this.previousPanel = leavingResult ? 'home' : this.panel;
-    this.panel = panel;
-    this.render();
-    window.scrollTo(0, 0);
-    this.root.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+    void this.transitionTo(panel, leavingResult ? () => this.callbacks.onLeave() : undefined);
+  }
+
+  private async animateScreen(element: HTMLElement | null, entering: boolean) {
+    if (!element || this.motionQuery.matches || document.hidden) return;
+    const frames = entering
+      ? [{ opacity: 0, translate: '18px 0' }, { opacity: 1, translate: '0 0' }]
+      : [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-12px 0' }];
+    const animation = element.animate(frames, { duration: entering ? 260 : 100, easing: 'cubic-bezier(.2,.75,.25,1)' });
+    this.screenAnimation = animation;
+    try {
+      await animation.finished;
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+    } finally {
+      if (this.screenAnimation === animation) this.screenAnimation = null;
+    }
+  }
+
+  private async transitionTo(panel: Panel, onEnter?: () => void, skipExit = false) {
+    if (this.pendingPanel === panel) return;
+    const id = ++this.transitionId;
+    this.pendingPanel = panel;
+    this.screenAnimation?.cancel();
+    this.root.inert = true;
+    try {
+      if (!skipExit) await this.animateScreen(this.root.querySelector<HTMLElement>(this.panel === 'pause' ? '.pause-panel' : '.screen-content'), false);
+      if (id !== this.transitionId) return;
+      this.panel = panel;
+      this.render();
+      window.scrollTo(0, 0);
+      onEnter?.();
+      if (id !== this.transitionId) return;
+      await this.animateScreen(this.root.querySelector<HTMLElement>(panel === 'pause' ? '.pause-panel' : '.screen-content'), true);
+    } finally {
+      if (id === this.transitionId) {
+        this.pendingPanel = null;
+        this.root.inert = false;
+        if (panel === 'pause') this.root.querySelector<HTMLButtonElement>('[data-action="resume"]')?.focus({ preventScroll: true });
+        else if (panel !== 'race') this.root.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+      }
+    }
   }
 
   private changeCity(direction: number) {
     const index = CITIES.findIndex(city => city.id === this.cityId);
-    this.cityId = CITIES[(index + direction + CITIES.length) % CITIES.length].id;
-    this.render();
+    const next = Math.max(0, Math.min(CITIES.length - 1, index + direction));
+    this.selectCity(CITIES[next].id);
+  }
+
+  private selectCity(cityId: string) {
+    if (this.cityId === cityId) { this.globe?.selectCity(cityId); return; }
+    const focused = document.activeElement instanceof HTMLElement && this.root.contains(document.activeElement) ? document.activeElement : null;
+    this.cityId = cityId;
+    const selected = CITIES.find(city => city.id === cityId)!;
+    const index = CITIES.indexOf(selected);
+    const tabs = this.root.querySelector<HTMLElement>('.city-tabs');
+    this.root.querySelectorAll<HTMLElement>('.city-card').forEach(card => {
+      const active = card.dataset.city === cityId;
+      card.classList.toggle('is-selected', active);
+      const button = card.querySelector<HTMLButtonElement>('.city-select')!;
+      button.setAttribute('aria-pressed', String(active));
+      button.tabIndex = active ? 0 : -1;
+      card.querySelector<HTMLElement>('.city-card-body')!.innerHTML = this.cityCardBody(CITIES.find(city => city.id === card.dataset.city)!, active);
+      if (active && tabs) card.append(tabs);
+    });
+    const deck = this.root.querySelector<HTMLElement>('.city-deck');
+    const target = deck?.querySelector<HTMLElement>(`[data-city="${cityId}"].city-card`);
+    if (deck && target) deck.scrollTo({ left: Math.max(0, target.offsetLeft - (deck.clientWidth - target.clientWidth) / 2), behavior: this.motionQuery.matches ? 'auto' : 'smooth' });
+    const previous = this.root.querySelector<HTMLButtonElement>('[data-action="previous-city"]');
+    const next = this.root.querySelector<HTMLButtonElement>('[data-action="next-city"]');
+    if (previous) previous.disabled = index === 0;
+    if (next) next.disabled = index === CITIES.length - 1;
+    this.root.querySelectorAll<HTMLButtonElement>('.globe-city-list [data-action="city"]').forEach(button => {
+      button.classList.toggle('selected', button.dataset.city === cityId);
+      button.setAttribute('aria-pressed', String(button.dataset.city === cityId));
+    });
+    const summary = this.root.querySelector<HTMLElement>('.globe-city-summary');
+    if (summary) summary.innerHTML = this.globeSummary(selected);
+    const departure = this.root.querySelector<HTMLElement>('.city-departure');
+    if (departure) departure.innerHTML = this.departure(selected);
+    const announce = this.root.querySelector<HTMLElement>('.city-announcement');
+    if (announce) announce.textContent = `${selected.name}，${selected.available ? '可挑战' : '未开放'}`;
+    this.globe?.selectCity(cityId);
+    if (focused?.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+    else if (focused && !focused.isConnected) this.root.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+  }
+
+  private updateCityTab() {
+    const selected = CITIES.find(city => city.id === this.cityId)!;
+    const body = this.root.querySelector<HTMLElement>('.city-card.is-selected .city-card-body, .globe-city-summary .city-card-body');
+    if (body) {
+      body.innerHTML = this.cityCardBody(selected, true);
+      if (!this.motionQuery.matches) body.animate([{ opacity: 0, translate: '0 7px' }, { opacity: 1, translate: '0 0' }], { duration: 180, easing: 'ease-out' });
+    }
+    this.root.querySelectorAll<HTMLButtonElement>('[data-action="city-tab"]').forEach(button => {
+      button.classList.toggle('selected', button.dataset.tab === this.cityTab);
+      button.setAttribute('aria-pressed', String(button.dataset.tab === this.cityTab));
+    });
+  }
+
+  private selectVehicle(vehicleId: VehicleId) {
+    this.vehicleId = vehicleId;
+    this.root.querySelectorAll<HTMLButtonElement>('[data-action="vehicle"]').forEach(button => {
+      const selected = button.dataset.vehicle === vehicleId;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const vehicle = VEHICLES.find(item => item.id === vehicleId)!;
+    const specs = this.root.querySelector<HTMLElement>('.garage-setup > p:first-child');
+    if (specs) specs.innerHTML = `${vehicle.topSpeed} km/h <span>·</span> ${vehicle.width.toFixed(2)} m <span>·</span> 目标 5 公里`;
   }
 
   private handleKey(event: KeyboardEvent) {
@@ -136,26 +254,28 @@ export class GameUI {
       if (event.shiftKey && index <= 0) { event.preventDefault(); buttons.at(-1)?.focus(); }
       else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0]?.focus(); }
     }
-    if (this.panel === 'cities' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    if (this.pendingPanel) return;
+    if (['cities', 'globe'].includes(this.panel) && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
       event.preventDefault();
       this.changeCity(event.key === 'ArrowRight' ? 1 : -1);
     }
-    if (event.key === 'Escape' && ['cities', 'garage', 'options', 'leaderboard', 'rules'].includes(this.panel)) {
+    if (event.key === 'Escape' && ['cities', 'globe', 'garage', 'options', 'leaderboard', 'rules'].includes(this.panel)) {
       event.preventDefault();
       this.navigate(this.panel === 'garage' ? 'cities' : 'home');
     }
   }
 
   private handleClick(event: Event) {
-    if (performance.now() - this.swipeAt < 350) return;
+    if (this.pendingPanel || performance.now() - this.swipeAt < 350) return;
     const button = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!button || button.hasAttribute('disabled')) return;
     const action = button.dataset.action;
     if (action === 'home') this.navigate('home');
     if (action === 'options') this.navigate('options');
+    if (action === 'globe') this.navigate('globe');
     if (action === 'city-tab') {
       this.cityTab = button.dataset.tab as 'map' | 'records' | 'guide';
-      this.render();
+      this.updateCityTab();
     }
     if (action === 'reload') window.location.reload();
     if (action === 'cities') this.navigate('cities');
@@ -172,35 +292,27 @@ export class GameUI {
     if (action === 'city') {
       const city = CITIES.find(item => item.id === button.dataset.city);
       if (city) {
-        this.cityId = city.id;
-        this.render();
+        this.selectCity(city.id);
       }
     }
     if (action === 'vehicle') {
-      this.vehicleId = button.dataset.vehicle as VehicleId;
-      this.render();
+      this.selectVehicle(button.dataset.vehicle as VehicleId);
     }
     if (action === 'mode') {
       this.boardMode = button.dataset.mode as 'time' | 'score';
       this.render();
     }
-    if (action === 'start' && this.ready) {
+    if (action === 'start' && this.ready && !this.error && CITIES.find(city => city.id === this.cityId)!.available) {
       this.nickname = this.nickname.trim() || '公路旅人';
-      this.panel = 'race';
-      this.render();
-      this.callbacks.onStart(this.vehicleId, this.nickname);
+      void this.transitionTo('race', () => this.callbacks.onStart(this.vehicleId, this.nickname));
     }
     if (action === 'pause') this.callbacks.onPause();
     if (action === 'resume') this.callbacks.onResume();
     if (action === 'restart') {
-      this.panel = 'race';
-      this.render();
-      this.callbacks.onRestart();
+      void this.transitionTo('race', () => this.callbacks.onRestart());
     }
     if (action === 'leave') {
-      this.panel = 'home';
-      this.render();
-      this.callbacks.onLeave();
+      void this.transitionTo('home', () => this.callbacks.onLeave());
     }
     if (action === 'sound') {
       this.muted = !this.muted;
@@ -220,6 +332,9 @@ export class GameUI {
   }
 
   private render() {
+    this.globe?.dispose();
+    this.globe = null;
+    cancelAnimationFrame(this.countFrame);
     const racing = this.panel === 'race' || this.panel === 'pause';
     const focused = document.activeElement instanceof HTMLElement && this.root.contains(document.activeElement) ? document.activeElement : null;
     const focusAction = focused?.dataset.action;
@@ -228,13 +343,21 @@ export class GameUI {
     const focusHeading = focused?.matches('main h1');
     const focusId = focused?.id;
     const focusName = focused?.getAttribute('name');
-    const menu = ['home', 'cities', 'garage', 'options'].includes(this.panel);
+    const menu = ['home', 'cities', 'globe', 'garage', 'options'].includes(this.panel);
     this.root.className = `game-ui panel-${this.panel}${menu ? ' menu-screen' : ''}`;
-    this.root.innerHTML = `${racing || menu ? '' : this.header()}${this.error ? `<div class="error-banner" role="alert"><strong>暂时无法出发</strong><span>${escapeHTML(this.error)}</span><button data-action="reload">重新载入</button></div>` : ''}${this.content()}${racing || menu ? '' : '<footer class="site-footer"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap 贡献者</a></footer>'}`;
+    this.root.innerHTML = `${racing || menu ? '' : this.header()}${this.error ? `<div class="error-banner" role="alert"><strong>暂时无法出发</strong><span>${escapeHTML(this.error)}</span><button data-action="reload">重新载入</button></div>` : ''}<div class="screen-content">${this.content()}</div>${racing || menu ? '' : '<footer class="site-footer"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap 贡献者</a></footer>'}`;
     this.root.querySelectorAll<HTMLElement>('main h1').forEach(heading => heading.tabIndex = -1);
     this.refs.clear();
     this.root.querySelectorAll<HTMLElement>('[data-hud]').forEach(element => this.refs.set(element.dataset.hud!, element));
     if (racing && this.snapshot) this.updateHud(this.snapshot);
+    const globeHost = this.root.querySelector<HTMLElement>('.globe-canvas-host');
+    if (globeHost) this.globe = new CityGlobe(globeHost, CITIES, this.cityId, cityId => this.selectCity(cityId));
+    if (this.panel === 'cities') {
+      const deck = this.root.querySelector<HTMLElement>('.city-deck')!;
+      const selected = deck.querySelector<HTMLElement>('.city-card.is-selected')!;
+      deck.scrollLeft = Math.max(0, selected.offsetLeft - (deck.clientWidth - selected.clientWidth) / 2);
+    }
+    if (this.panel === 'result') this.animateResultNumbers();
     if (this.panel === 'pause') {
       this.root.querySelector('.race-hud')?.setAttribute('inert', '');
       this.root.querySelector<HTMLButtonElement>('[data-action="resume"]')?.focus({ preventScroll: true });
@@ -251,6 +374,7 @@ export class GameUI {
     if (this.panel === 'home') return this.home();
     if (this.panel === 'cities') return this.cities();
     if (this.panel === 'garage') return this.garage();
+    if (this.panel === 'globe') return this.globePanel();
     if (this.panel === 'options') return this.options();
     if (this.panel === 'leaderboard') return this.leaderboard();
     if (this.panel === 'rules') return this.rules();
@@ -262,10 +386,7 @@ export class GameUI {
     return `<main class="menu-stage home-main"><section class="title-menu"><p class="menu-location">北京 · 四环</p><h1>人类<span>超频</span></h1><span class="game-wordmark">HUMAN OVERDRIVE</span><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
   }
 
-  private cities() {
-    const selectedIndex = CITIES.findIndex(city => city.id === this.cityId);
-    const selected = CITIES[selectedIndex];
-    const results = loadResults();
+  private cityCardBody(city: CityConfig, active: boolean) {
     const summaries: Record<string, string> = {
       beijing: '完整四环 · 主路与辅路',
       shanghai: '黄浦江 · 城市高架',
@@ -273,18 +394,45 @@ export class GameUI {
       tokyo: '东京湾 · 都市高速',
       'los-angeles': '市区路网 · 城市高速',
     };
-    return `<main class="menu-stage cities-main"><button class="menu-back" data-action="home" aria-label="返回首页">${uiIcon('arrow-left')}</button><div class="selection-title"><h1>选择城市</h1><span>← → 切换</span></div><section class="city-deck" aria-label="城市选择，使用左右方向键切换" aria-roledescription="轮播">${CITIES.map((city, index) => {
-      let offset = index - selectedIndex;
-      if (offset > CITIES.length / 2) offset -= CITIES.length;
-      if (offset < -CITIES.length / 2) offset += CITIES.length;
-      const active = offset === 0;
-      const best = results.filter(result => result.cityId === city.id).reduce((score, result) => Math.max(score, result.score), 0);
+    const results = loadResults();
+    const best = results.filter(result => result.cityId === city.id).reduce((score, result) => Math.max(score, result.score), 0);
+    let detail = `<p class="card-description">${summaries[city.id]}</p><div class="card-divider"></div><p class="card-best"><span>最佳车技</span><strong>${number(best)}<small> 分</small></strong></p>`;
+    if (active && this.cityTab === 'records') {
       const top = getLeaderboard(results, { cityId: city.id, mode: 'time' }).slice(0, 3);
-      let detail = `<p class="card-description">${summaries[city.id]}</p><div class="card-divider"></div><p class="card-best"><span>最佳车技</span><strong>${number(best)}<small> 分</small></strong></p>`;
-      if (active && this.cityTab === 'records') detail = `<p class="card-description">最快逃脱</p><div class="card-divider"></div>${top.length ? `<ol class="card-records">${top.map(result => `<li><span>${escapeHTML(result.nickname)}</span><b>${time(result.duration)}</b></li>`).join('')}</ol>` : '<p class="card-empty">暂无纪录</p>'}<button class="card-link" data-action="leaderboard">查看排行榜 ${uiIcon('arrow-right')}</button>`;
-      if (active && this.cityTab === 'guide') detail = `<p class="card-description">${city.available ? '目标：5 公里' : '暂未开放'}</p><div class="card-divider"></div><p class="card-guide">${city.available ? '累计有效里程即可逃脱。翻车或持续被围堵则挑战结束。' : '此城市当前仅展示地图预告。'}</p><button class="card-link" data-action="rules">驾驶指南 ${uiIcon('arrow-right')}</button>`;
-      return `<article class="city-card city-${city.id} ${active ? 'is-selected' : ''}" style="--offset:${offset}" aria-label="${city.name}"><button class="city-select" tabindex="${active ? 0 : -1}" data-action="city" data-city="${city.id}" aria-label="选择${city.name}${city.available ? '' : '，即将开放'}" aria-pressed="${active}"></button><div class="city-color"><div class="city-art">${cityMapArt(city.id)}</div><span class="city-status ${city.available ? 'available' : ''}">${city.available ? '可挑战' : '未开放'}</span><span class="city-map-caption">真实路网 · 风格地图</span></div><div class="city-card-body"><h2>${escapeHTML(city.name)}</h2>${detail}</div>${active ? `<nav class="city-tabs" aria-label="关卡信息">${([['map', 'pin', '城市介绍'], ['records', 'records', '城市纪录'], ['guide', 'medal', '挑战规则']] as const).map(([tab, icon, label]) => `<button class="${this.cityTab === tab ? 'selected' : ''}" data-action="city-tab" data-tab="${tab}" aria-label="${label}" aria-pressed="${this.cityTab === tab}">${uiIcon(icon)}</button>`).join('')}</nav>` : ''}</article>`;
-    }).join('')}</section><div class="city-departure"><span>${selected.available ? '目标 5 公里' : '当前仅开放北京'}</span><button class="menu-button city-play" data-action="choose-city" ${selected.available ? '' : 'disabled'}>${selected.available ? '选择车辆' : '未开放'}${uiIcon(selected.available ? 'arrow-right' : 'lock')}</button></div><div class="city-map-attribution">地图参考 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a><span>·</span><a href="https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af" target="_blank" rel="noreferrer">Esri 及数据提供者</a></div></main>`;
+      detail = `<p class="card-description">最快逃脱</p><div class="card-divider"></div>${top.length ? `<ol class="card-records">${top.map(result => `<li><span>${escapeHTML(result.nickname)}</span><b>${time(result.duration)}</b></li>`).join('')}</ol>` : '<p class="card-empty">暂无纪录</p>'}<button class="card-link" data-action="leaderboard">查看排行榜 ${uiIcon('arrow-right')}</button>`;
+    }
+    if (active && this.cityTab === 'guide') detail = `<p class="card-description">${city.available ? '目标：5 公里' : '暂未开放'}</p><div class="card-divider"></div><p class="card-guide">${city.available ? '累计有效里程即可逃脱。翻车或持续被围堵则挑战结束。' : '此城市当前仅展示地图预告。'}</p><button class="card-link" data-action="rules">驾驶指南 ${uiIcon('arrow-right')}</button>`;
+    return `<h2>${escapeHTML(city.name)}</h2>${detail}`;
+  }
+
+  private cityTabs() {
+    return `<nav class="city-tabs" aria-label="关卡信息">${([['map', 'pin', '城市介绍'], ['records', 'records', '城市纪录'], ['guide', 'medal', '挑战规则']] as const).map(([tab, icon, label]) => `<button class="${this.cityTab === tab ? 'selected' : ''}" data-action="city-tab" data-tab="${tab}" aria-label="${label}" aria-pressed="${this.cityTab === tab}">${uiIcon(icon)}</button>`).join('')}</nav>`;
+  }
+
+  private departure(city: CityConfig) {
+    return `<span>${city.available ? '目标 5 公里' : '当前仅开放北京'}</span><button class="menu-button city-play" data-action="choose-city" ${city.available ? '' : 'disabled'}>${city.available ? '选择车辆' : '未开放'}${uiIcon(city.available ? 'arrow-right' : 'lock')}</button>`;
+  }
+
+  private cityViewSwitch(globe: boolean) {
+    return `<nav class="city-view-switch" aria-label="城市选择视角"><button class="${globe ? '' : 'selected'}" data-action="cities" aria-pressed="${!globe}">卡片视角</button><button class="${globe ? 'selected' : ''}" data-action="globe" aria-pressed="${globe}">${uiIcon('globe')} 地球视角</button></nav>`;
+  }
+
+  private cities() {
+    const selectedIndex = CITIES.findIndex(city => city.id === this.cityId);
+    const selected = CITIES[selectedIndex];
+    return `<main class="menu-stage cities-main"><button class="menu-back" data-action="home" aria-label="返回首页">${uiIcon('arrow-left')}</button><div class="selection-title"><h1>选择城市</h1><span>← → 切换 · 滚动浏览</span></div>${this.cityViewSwitch(false)}<div class="city-list-arrows"><button class="icon-button" data-action="previous-city" aria-label="上一座城市" ${selectedIndex === 0 ? 'disabled' : ''}>${uiIcon('arrow-left')}</button><button class="icon-button" data-action="next-city" aria-label="下一座城市" ${selectedIndex === CITIES.length - 1 ? 'disabled' : ''}>${uiIcon('arrow-right')}</button></div><section class="city-deck" aria-label="城市选择，北京位于列表第一项，使用左右方向键切换" aria-roledescription="轮播">${CITIES.map(city => {
+      const active = city.id === this.cityId;
+      return `<article class="city-card city-${city.id} ${active ? 'is-selected' : ''} ${city.available ? '' : 'city-locked'}" data-city="${city.id}" aria-label="${city.name}"><button class="city-select" tabindex="${active ? 0 : -1}" data-action="city" data-city="${city.id}" aria-label="选择${city.name}${city.available ? '' : '，即将开放'}" aria-pressed="${active}"></button><div class="city-color"><div class="city-art">${cityMapArt(city.id)}</div><span class="city-status ${city.available ? 'available' : ''}">${city.available ? '可挑战' : '未开放'}</span><span class="city-map-caption">真实路网 · 风格地图</span></div><div class="city-card-body">${this.cityCardBody(city, active)}</div>${active ? this.cityTabs() : ''}</article>`;
+    }).join('')}</section><div class="city-departure">${this.departure(selected)}</div><p class="visually-hidden city-announcement" aria-live="polite">${selected.name}，${selected.available ? '可挑战' : '未开放'}</p><div class="city-map-attribution">地图参考 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a><span>·</span><a href="https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af" target="_blank" rel="noreferrer">Esri 及数据提供者</a></div></main>`;
+  }
+
+  private globeSummary(city: CityConfig) {
+    return `<div class="globe-preview ${city.available ? '' : 'is-locked'}">${cityMapArt(city.id)}<span class="city-status ${city.available ? 'available' : ''}">${city.available ? '可挑战' : '未开放'}</span></div><div class="city-card-body">${this.cityCardBody(city, true)}</div>${this.cityTabs()}`;
+  }
+
+  private globePanel() {
+    const selected = CITIES.find(city => city.id === this.cityId)!;
+    return `<main class="menu-stage globe-main"><button class="menu-back" data-action="home" aria-label="返回首页">${uiIcon('arrow-left')}</button><div class="selection-title"><h1>地球选城</h1><span>拖拽旋转 · 滚轮缩放</span></div>${this.cityViewSwitch(true)}<div class="globe-canvas-host" aria-label="可交互地球，点击城市标记进行选择"></div><aside class="globe-selection-panel"><div class="globe-city-list" role="group" aria-label="城市列表">${CITIES.map(city => `<button class="${city.id === this.cityId ? 'selected' : ''} ${city.available ? '' : 'is-locked'}" data-action="city" data-city="${city.id}" aria-pressed="${city.id === this.cityId}">${escapeHTML(city.name)}${city.available ? '' : uiIcon('lock')}</button>`).join('')}</div><article class="globe-city-summary">${this.globeSummary(selected)}</article><div class="city-departure">${this.departure(selected)}</div></aside><p class="globe-hint">点击地球上的城市标记，或从右侧列表选择。</p><p class="visually-hidden city-announcement" aria-live="polite">${selected.name}，${selected.available ? '可挑战' : '未开放'}</p><a class="city-map-attribution" href="https://visibleearth.nasa.gov/collection/1484/blue-marble" target="_blank" rel="noreferrer">地球影像：NASA GSFC / Blue Marble</a></main>`;
   }
 
   private garage() {
@@ -317,12 +465,24 @@ export class GameUI {
     const result = this.result!;
     const escaped = result.outcome === 'escaped';
     const vehicle = VEHICLES.find(item => item.id === result.vehicleId)!;
-    const title = escaped ? '这一程，你自由了。' : result.outcome === 'flipped' ? '失控，只是一瞬间。' : '这次，被围住了。';
-    const subtitle = escaped ? '北京的这条路，记住了你的名字。' : '记住这次转向，下次开得更漂亮。';
+    const title = escaped ? '成功逃脱' : result.outcome === 'flipped' ? '车辆翻覆' : '被警方围堵';
     const rating = result.stars === 10 ? '大佬 · 满警力逃脱' : result.stars >= 8 ? '城市游侠' : result.stars >= 5 ? '公路高手' : result.stars >= 2 ? '正在上手' : '初次上路';
     const board = getLeaderboard(loadResults(), { cityId: result.cityId, vehicleId: result.vehicleId, mode: escaped ? 'time' : 'score' });
     const rank = board.findIndex(item => item.id === result.id) + 1;
-    return `<main class="page-main result-main"><div class="result-kicker"><span class="status-badge ${escaped ? '' : 'failed'}">${escaped ? '成功逃脱' : result.outcome === 'flipped' ? '翻车 · 挑战结束' : '被捕 · 挑战结束'}</span><span>北京 · 四环逃亡</span></div><div class="result-heading"><h1>${title}</h1><p>${subtitle}</p></div><div class="result-layout"><section class="rating-panel"><span class="eyebrow subtle">本次车技评级</span><div class="rating-number">${result.stars}<span>/ 10</span></div>${stars(result.stars)}<h2>${rating}</h2><p>${escapeHTML(result.nickname)} <span>·</span> ${escapeHTML(vehicle.name)}</p><div class="result-rank"><span>${escaped ? '本车型最快逃脱榜' : '本车型车技分榜'}</span><strong>${rank ? `第 ${rank} 名` : '本次挑战已结束'}</strong></div></section><section class="result-details"><div class="result-score"><span>本次车技分</span><strong>${number(result.score)}</strong><span>最高警告 ${result.maxWarning} 级</span></div><div class="result-metrics"><div><span>${escaped ? '逃脱用时' : '存活时间'}</span><strong>${time(result.duration)}</strong></div><div><span>有效里程</span><strong>${distance(result.distance)}<small> km</small></strong></div><div><span>近失超车</span><strong>${result.nearMisses}<small> 次</small></strong></div><div><span>发生碰撞</span><strong>${result.collisions}<small> 次</small></strong></div></div><div class="result-breakdown"><h3>每一分，都来自驾驶。</h3>${[['速度表现', result.speedScore, 30], ['干净操控', result.controlScore, 40], ['风险技巧', result.riskScore, 30]].map(([label, value, weight]) => `<div><span>${label}</span><span class="breakdown-track"><i style="width:${Math.min(100, Number(value) / (Number(weight) * 100) * 100)}%"></i></span><b>${number(Number(value))}<small> / ${number(Number(weight) * 100)}</small></b><small>权重 ${weight}%</small></div>`).join('')}<p>${escaped ? '完成目标里程，表现全部计入车技分。' : `本次完成 ${Math.min(100, Math.round(result.distance / result.targetDistance * 100))}% 目标里程，车技分已按完成比例计入。`}</p></div>${this.storageNotice()}<div class="result-actions"><button class="button primary" data-action="restart">再跑一次 ${arrow}</button><button class="button secondary" data-action="leaderboard">查看排行 ↗</button><button class="text-button" data-action="leave">回到首页</button></div></section></div></main>`;
+    return `<main class="page-main result-main ${escaped ? 'result-success' : 'result-failed'}"><div class="result-kicker"><span class="status-badge ${escaped ? '' : 'failed'}">${escaped ? '挑战完成' : '挑战结束'}</span><span>北京 · 四环逃亡</span></div><div class="result-heading"><h1>${title}</h1><p>${escaped ? `已完成 ${distance(result.targetDistance)} 公里目标里程` : `已完成 ${Math.min(100, Math.round(result.distance / result.targetDistance * 100))}% 目标里程`}</p></div><div class="result-layout"><section class="rating-panel"><span class="eyebrow subtle">本次车技评级</span><div class="rating-number"><b class="result-number" data-count="${result.stars}">${result.stars}</b><span>/ 10</span></div>${stars(result.stars)}<h2>${rating}</h2><p>${escapeHTML(result.nickname)} <span>·</span> ${escapeHTML(vehicle.name)}</p><div class="result-rank"><span>${escaped ? '本车型最快逃脱榜' : '本车型车技分榜'}</span><strong>${rank ? `第 ${rank} 名` : '成绩尚未保存'}</strong></div></section><section class="result-details"><div class="result-score"><span>本次车技分</span><strong class="result-number" data-count="${result.score}">${number(result.score)}</strong><span>最高警告 ${result.maxWarning} 级</span></div><div class="result-metrics"><div><span>${escaped ? '完成时间' : '存活时间'}</span><strong>${time(result.duration)}</strong></div><div><span>有效里程</span><strong>${distance(result.distance)}<small> km</small></strong></div><div><span>近失超车</span><strong>${result.nearMisses}<small> 次</small></strong></div><div><span>发生碰撞</span><strong>${result.collisions}<small> 次</small></strong></div></div><div class="result-breakdown"><h3>得分分项</h3>${[['速度表现', result.speedScore, 30], ['干净操控', result.controlScore, 40], ['风险技巧', result.riskScore, 30]].map(([label, value, weight]) => `<div><span>${label}</span><span class="breakdown-track"><i style="width:${Math.min(100, Number(value) / (Number(weight) * 100) * 100)}%"></i></span><b>${number(Number(value))}<small> / ${number(Number(weight) * 100)}</small></b><small>权重 ${weight}%</small></div>`).join('')}<p>${escaped ? '完成目标里程，表现全部计入车技分。' : '车技分已按完成里程比例计入。'}</p></div>${this.storageNotice()}<div class="result-actions"><button class="button primary" data-action="restart">再跑一次 ${uiIcon('restart')}</button><button class="button secondary" data-action="leaderboard">查看排行 ${uiIcon('records')}</button><button class="text-button" data-action="leave">返回首页</button></div></section></div></main>`;
+  }
+
+  private animateResultNumbers() {
+    if (this.motionQuery.matches) return;
+    const elements = [...this.root.querySelectorAll<HTMLElement>('[data-count]')];
+    const start = performance.now();
+    const frame = (now: number) => {
+      const progress = this.motionQuery.matches ? 1 : Math.min(1, (now - start) / 820);
+      const eased = 1 - (1 - progress) ** 3;
+      for (const element of elements) element.textContent = number(Number(element.dataset.count) * eased);
+      if (progress < 1) this.countFrame = requestAnimationFrame(frame);
+    };
+    this.countFrame = requestAnimationFrame(frame);
   }
 
   private storageNotice() {

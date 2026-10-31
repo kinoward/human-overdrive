@@ -89,3 +89,9 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 | `city-bus.glb` | 公交 NPC | 10.5 × 2.5 × 3.2 米 |
 
 整理命令为 `node scripts/prepare-traffic-models.mjs <原始车辆目录> <独立工具目录> [车型名]`，复用架构地图列出的模型工具依赖；脚本为 `scripts/prepare-traffic-models.mjs`，统一 Y 向上、+Z 车头、地面为 0 和长向居中，采用 Meshopt 与 WebP。三款当前均为单车体网格、单材质和单纹理，车轮仍包含于车体，未宣称独立轮轴；已有 SUV 和摩托继续复用原生成模型及其轮轴。运行时共享几何与纹理，每辆车克隆自己的渐显材质，不因单车回收或销毁释放其他车辆资源。
+
+## 城市选择地球影像
+
+`public/assets/ui-racing/globe/earth-blue-marble.jpg` 为 NASA Goddard Space Flight Center 的 Blue Marble 2002 全球合成影像，原文件 `land_ocean_ice_2048.jpg`，2048×1024，266599 字节。直接从 [NASA 官方影像地址](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg)保存，未修改像素；来源、下载地址和使用说明见同目录 `SOURCES.json`。
+
+使用遵循 [NASA 图片与媒体规范](https://www.nasa.gov/nasa-brand-center/images-and-media/)，界面署名 NASA Goddard Space Flight Center / Blue Marble，不使用 NASA 标识或暗示其对游戏背书。地球影像为历史全球合成，不代表实时卫星画面；城市标记采用真实城市中心经纬度，不等同于比赛起跑点。运行时从本地离线加载，与其余关卡封面生成素材分别记录来源。

@@ -1,0 +1,21 @@
+{
+  "资源": "earth-blue-marble.jpg",
+  "用途": "城市选择地球的等距经纬真实地表纹理",
+  "来源": "NASA Goddard Space Flight Center，Blue Marble 2002",
+  "图片编号": "G57730",
+  "原始文件": "land_ocean_ice_2048.jpg",
+  "下载地址": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg",
+  "官方资料": "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
+  "媒体使用规范": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+  "官方使用说明": "https://science.nasa.gov/earth/faq/",
+  "取得日期": "2026-10-31",
+  "尺寸": [
+    2048,
+    1024
+  ],
+  "文件字节": 266599,
+  "处理": "原始 JPEG 按原字节下载，未改图。材质渲染采用冷色光照，不改变地理投影。",
+  "署名": "NASA Goddard Space Flight Center / Blue Marble",
+  "使用边界": "使用 NASA 原始地球影像，遵循官方媒体规范并注明来源；不使用 NASA 标识，不表示 NASA 对游戏背书。图像是历史卫星观测的全球合成，不代表实时地表影像。",
+  "经纬度": "按标准等距经纬纹理投影映射；城市使用各自真实城市中心坐标，不是游戏内起跑点。"
+}
