@@ -1,7 +1,7 @@
 import type { CityConfig, VehicleConfig } from './types';
 
 export const TARGET_DISTANCE = 20000;
-export const INITIAL_POLICE_COUNT = 5;
+export const INITIAL_POLICE_COUNT = 3;
 export const MAX_POLICE_COUNT = 10;
 export const POLICE_REINFORCEMENT_INTERVAL = 75;
 export const HELICOPTER_ARRIVAL_TIMES = [180, 330, 450] as const;
