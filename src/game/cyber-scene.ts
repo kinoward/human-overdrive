@@ -1,0 +1,76 @@
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import type { Point3,RoadPath } from '../types';
+import { createCyberCity } from './cyber-city';
+import { createCyberAtmosphere } from './cyber-atmosphere';
+import { styleCyberMaterials } from './cyber-materials';
+
+export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,roads:RoadPath[],spawn:Point3,sun:THREE.DirectionalLight){
+  const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone()};
+  const previousAutoReset=renderer.info.autoReset;
+  renderer.info.autoReset=false;
+  sun.color.set('#9ebbd6');sun.intensity=1.05;
+  sun.shadow.mapSize.set(1024,1024);
+  const originalFill:{light:THREE.HemisphereLight;color:THREE.Color;ground:THREE.Color;intensity:number}[]=[];
+  scene.traverse(object=>{
+    if(!(object instanceof THREE.HemisphereLight))return;
+    originalFill.push({light:object,color:object.color.clone(),ground:object.groundColor.clone(),intensity:object.intensity});
+    object.color.set('#829eb6');object.groundColor.set('#17202a');object.intensity=.28;
+  });
+  const materials=styleCyberMaterials(scene);
+  const distant:{object:THREE.Object3D;visible:boolean;sphere:THREE.Sphere}[]=[];
+  const seen=new Set<THREE.Object3D>();
+  scene.traverse(object=>{
+    if(!(object instanceof THREE.Mesh))return;
+    const target=object.parent instanceof THREE.LOD?object.parent:object;
+    if(seen.has(target))return;seen.add(target);
+    if(object instanceof THREE.InstancedMesh){if(!object.boundingSphere)object.computeBoundingSphere();}
+    else if(!object.geometry.boundingSphere)object.geometry.computeBoundingSphere();
+    const bounds=object instanceof THREE.InstancedMesh?object.boundingSphere:object.geometry.boundingSphere;
+    if(bounds)distant.push({object:target,visible:target.visible,sphere:bounds.clone().applyMatrix4(object.matrixWorld)});
+  });
+  const focus=new THREE.Vector3(spawn.x,spawn.y,spawn.z);
+  const cullingFocus=new THREE.Vector3(Infinity,0,Infinity);
+  const city=createCyberCity(roads,focus,materials.occupied);scene.add(city.group);
+  const atmosphere=createCyberAtmosphere(renderer,scene,roads);scene.add(atmosphere.group);
+  const composer=new EffectComposer(renderer);
+  const renderPass=new RenderPass(scene,new THREE.PerspectiveCamera());composer.addPass(renderPass);
+  const size=renderer.getSize(new THREE.Vector2());
+  const bloom=new UnrealBloomPass(size,.31,.62,1.15);composer.addPass(bloom);composer.addPass(new OutputPass());
+  const film=new ShaderPass({
+    uniforms:{tDiffuse:{value:null},time:{value:0}},
+    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`uniform sampler2D tDiffuse;uniform float time;varying vec2 vUv;float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,.96);c+=vec3(-.004,.003,.008)*(1.-l);vec2 p=vUv*2.-1.;c*=1.-dot(p*vec2(.65,.8),p*vec2(.65,.8))*.1;c+=(hash(gl_FragCoord.xy+fract(time)*713.)-.5)*.009;gl_FragColor=vec4(c,1.);}`
+  });composer.addPass(film);
+  const fxaa=new ShaderPass(FXAAShader);composer.addPass(fxaa);
+  const resize=(width:number,height:number)=>{composer.setSize(width,height);const ratio=renderer.getPixelRatio();fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
+  resize(size.x,size.y);
+  let disposed=false;
+  const dispose=()=>{
+    if(disposed)return;disposed=true;
+    window.removeEventListener('pagehide',pagehide);
+    atmosphere.dispose();city.dispose();materials.dispose();sun.color.copy(previousSun.color);sun.intensity=previousSun.intensity;sun.shadow.mapSize.copy(previousSun.mapSize);
+    distant.forEach(({object,visible})=>{object.visible=visible;});
+    originalFill.forEach(({light,color,ground,intensity})=>{light.color.copy(color);light.groundColor.copy(ground);light.intensity=intensity;});
+    composer.dispose();bloom.dispose();renderPass.dispose();film.dispose();fxaa.dispose();renderer.info.autoReset=previousAutoReset;
+  };
+  const pagehide=(event:PageTransitionEvent)=>{if(!event.persisted)dispose();};
+  window.addEventListener('pagehide',pagehide);
+  return {
+    resize,dispose,
+    render:(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number)=>{
+      focus.set(position.x,position.y,position.z);
+      if(focus.distanceToSquared(cullingFocus)>32*32){
+        cullingFocus.copy(focus);
+        distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+580;});
+      }
+      city.update(focus);atmosphere.update(time,focus,heading);film.uniforms.time.value=time;
+      renderPass.camera=camera;renderer.info.reset();composer.render();
+    }
+  };
+}

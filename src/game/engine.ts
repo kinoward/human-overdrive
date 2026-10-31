@@ -27,6 +27,7 @@ import { loadGeneratedAssets } from './generated-assets';
 import { VehicleDamage } from './vehicle-damage';
 import { DamageDebris } from './damage-debris';
 import { RaceMinimap } from './minimap';
+import { createCyberScene } from './cyber-scene';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -46,6 +47,7 @@ export class GameEngine {
   private physics!: RAPIER.World;
   private events!: RAPIER.EventQueue;
   private track!: WorldData;
+  private scenery?: ReturnType<typeof createCyberScene>;
   private airspace!: Airspace;
   private collisionSystem!: CollisionSystem;
   private pursuit?: PolicePursuit;
@@ -160,6 +162,7 @@ export class GameEngine {
     await onProgress?.(0.92, '准备空域与道路边界');
     this.airspace = new Airspace(this.physics);
     this.airspace.addScene(this.scene);
+    this.scenery = createCyberScene(this.renderer, this.scene, this.track.roads, this.track.spawn.position, this.sun);
     for (const obstacle of this.track.obstacles ?? []) {
       const key = `${Math.floor(obstacle.center.x / 500)},${Math.floor(obstacle.center.z / 500)}`;
       if (!this.barrierCells.has(key)) this.barrierCells.set(key, []);
@@ -707,7 +710,8 @@ export class GameEngine {
       if (this.status !== 'ready') { this.emit(); this.drawMap() }
     }
     const renderStarted = performance.now();
-    this.renderer.render(this.scene, this.camera);
+    const focus = this.player?.model.group.position ?? this.track.spawn.position;
+    this.scenery!.render(this.camera, this.simulationTime, focus, this.player?.heading ?? this.track.spawn.heading);
     this.renderCost += performance.now() - renderStarted;
     this.needsRender = false;
     const duration = (performance.now() - this.frameWindow) / 1000;
@@ -721,6 +725,7 @@ export class GameEngine {
   private resize = () => {
     this.needsRender = true;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.scenery?.resize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.drawMap();
