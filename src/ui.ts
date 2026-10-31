@@ -3,6 +3,7 @@ import { getLeaderboard, getStorageStatus, loadResults } from './game/storage';
 import type { CityConfig, GameSnapshot, RaceResult, VehicleConfig, VehicleId } from './types';
 import { cityMapArt, uiIcon } from './ui-art';
 import { CityGlobe } from './ui-globe';
+import { raceHud, RaceHudController } from './ui-race';
 import './style.css';
 import './ui-motion.css';
 
@@ -51,7 +52,7 @@ export class GameUI {
   private snapshot: GameSnapshot | null = null;
   private result: RaceResult | null = null;
   private error = '';
-  private refs = new Map<string, HTMLElement>();
+  private raceHud: RaceHudController | null = null;
   private swipeStart: { x: number; y: number } | null = null;
   private swipeAt = -1000;
   private globe: CityGlobe | null = null;
@@ -332,6 +333,8 @@ export class GameUI {
   }
 
   private render() {
+    this.raceHud?.dispose();
+    this.raceHud = null;
     this.globe?.dispose();
     this.globe = null;
     cancelAnimationFrame(this.countFrame);
@@ -347,8 +350,8 @@ export class GameUI {
     this.root.className = `game-ui panel-${this.panel}${menu ? ' menu-screen' : ''}`;
     this.root.innerHTML = `${racing || menu ? '' : this.header()}${this.error ? `<div class="error-banner" role="alert"><strong>暂时无法出发</strong><span>${escapeHTML(this.error)}</span><button data-action="reload">重新载入</button></div>` : ''}<div class="screen-content">${this.content()}</div>${racing || menu ? '' : '<footer class="site-footer"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap 贡献者</a></footer>'}`;
     this.root.querySelectorAll<HTMLElement>('main h1').forEach(heading => heading.tabIndex = -1);
-    this.refs.clear();
-    this.root.querySelectorAll<HTMLElement>('[data-hud]').forEach(element => this.refs.set(element.dataset.hud!, element));
+    const hudRoot = this.root.querySelector<HTMLElement>('.race-hud');
+    if (hudRoot) this.raceHud = new RaceHudController(hudRoot);
     if (racing && this.snapshot) this.updateHud(this.snapshot);
     const globeHost = this.root.querySelector<HTMLElement>('.globe-canvas-host');
     if (globeHost) this.globe = new CityGlobe(globeHost, CITIES, this.cityId, cityId => this.selectCity(cityId));
@@ -454,7 +457,7 @@ export class GameUI {
   }
 
   private hud() {
-    return `<div class="race-hud"><div class="race-top"><div class="race-title">${logo}<div><strong>北京 · 四环逃亡</strong><span>原尺度完整四环 / 本局目标 ${TARGET_DISTANCE / 1000} 公里 · 约 10 分钟</span></div></div><div class="race-pursuit"><div class="pursuit-heading"><span>完好警车 <b data-hud="police">3</b><small> / <span data-hud="police-target">3</span></small></span></div><div class="pursuer-counts"><span>增援上限 10 辆</span><span>直升机 <b data-hud="helicopters">0</b></span></div></div><div class="race-actions"><button class="hud-button" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}">${this.soundLabel()}</button><button class="hud-button" data-action="pause" aria-label="暂停驾驶">${uiIcon('pause')} <span>暂停</span></button></div></div><div class="race-event" data-hud="event" aria-live="polite"></div><div class="wrong-way" data-hud="wrong-way" aria-hidden="true">↶ 逆向行驶 <span>里程仍然计入</span></div><div class="capture-alert" data-hud="capture" aria-hidden="true"><strong>正在被围堵</strong><span>恢复行驶，冲出包围</span><div><i data-hud="capture-bar"></i></div></div><div class="race-bottom"><div class="speedometer"><span class="speed-label">当前时速</span><div><strong data-hud="speed">000</strong><span>km/h</span></div><div class="speed-ticks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="live-score"><span>车技分</span><strong data-hud="score">0</strong><div><span data-hud="combo">干净驾驶</span><span>近失 <b data-hud="near-miss">0</b></span></div></div><div class="race-progress"><div class="progress-title"><span>逃脱里程</span><strong><b data-hud="distance">0.00</b><small> / <span data-hud="target">${distance(TARGET_DISTANCE)}</span> km</small></strong></div><div class="distance-track"><i data-hud="progress"></i><span>↗</span></div><div class="progress-meta"><span data-hud="elapsed">00:00.0</span><span>往返与逆行均计入</span></div></div></div><div class="race-key-hint"><span>WASD / 方向键 驾驶</span><span>空格 刹车</span><span>Esc 暂停</span></div></div>`;
+    return raceHud(this.muted, this.soundLabel());
   }
 
   private pause() {
@@ -490,35 +493,7 @@ export class GameUI {
     return message ? `<p class="storage-notice" role="status">${escapeHTML(message)}</p>` : '';
   }
 
-  private text(name: string, value: string) {
-    const element = this.refs.get(name);
-    if (element && element.textContent !== value) element.textContent = value;
-  }
-
   private updateHud(snapshot: GameSnapshot) {
-    this.text('speed', Math.round(Math.abs(snapshot.speedKmh)).toString().padStart(3, '0'));
-    this.text('police', snapshot.policeCount.toString());
-    this.text('police-target', snapshot.policeTarget.toString());
-    this.text('helicopters', snapshot.helicopterCount.toString());
-    this.text('score', number(snapshot.score));
-    this.text('combo', snapshot.combo > 1 ? `${snapshot.combo} 连续干净超车` : '干净驾驶');
-    this.text('near-miss', snapshot.nearMisses.toString());
-    this.text('distance', distance(snapshot.distance));
-    this.text('target', distance(snapshot.targetDistance));
-    this.text('elapsed', time(snapshot.elapsed));
-    this.text('event', snapshot.event);
-    const event = this.refs.get('event');
-    if (event) event.className = `race-event ${snapshot.event ? 'visible' : ''} ${snapshot.eventTone}`;
-    const progress = this.refs.get('progress');
-    if (progress) progress.style.width = `${Math.min(100, snapshot.distance / snapshot.targetDistance * 100)}%`;
-    const wrongWay = this.refs.get('wrong-way');
-    wrongWay?.classList.toggle('visible', snapshot.wrongWay);
-    wrongWay?.setAttribute('aria-hidden', String(!snapshot.wrongWay));
-    const capture = snapshot.captureProgress <= 1 ? snapshot.captureProgress : snapshot.captureProgress / 100;
-    const captureAlert = this.refs.get('capture');
-    captureAlert?.classList.toggle('visible', capture > 0);
-    captureAlert?.setAttribute('aria-hidden', String(capture <= 0));
-    const captureBar = this.refs.get('capture-bar');
-    if (captureBar) captureBar.style.width = `${Math.min(100, capture * 100)}%`;
+    this.raceHud?.update(snapshot);
   }
 }

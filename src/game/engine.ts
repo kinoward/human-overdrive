@@ -124,7 +124,7 @@ export class GameEngine {
     this.mapCanvas.width = 420;
     this.mapCanvas.height = 280;
     this.mapCanvas.className = 'race-map';
-    this.mapCanvas.style.cssText = 'position:fixed;left:28px;bottom:28px;width:210px;height:140px;z-index:3;pointer-events:none;display:none;border:1px solid #ffffff24;border-radius:10px;background:#14201dec';
+    this.mapCanvas.style.display = 'none';
     this.mapContext = this.mapCanvas.getContext('2d')!;
     document.querySelector('#scene')!.append(this.mapCanvas);
     window.addEventListener('resize', this.resize);
@@ -627,19 +627,19 @@ export class GameEngine {
     for (const road of this.track.roads) {
       ctx.beginPath();
       road.points.forEach((point, i) => { const x = (point.x - p.x) * scale, y = (point.z - p.z) * scale; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) });
-      ctx.strokeStyle = road.kind === 'main' ? '#a4ad9b' : '#536759';
+      ctx.strokeStyle = road.kind === 'main' ? '#bcdae6' : '#527487';
       ctx.lineWidth = road.kind === 'main' ? 5 : 2.5;
       ctx.stroke();
     }
     for (const actor of this.police) {
       const point = actor.vehicle.body.translation();
-      ctx.beginPath(); ctx.arc((point.x - p.x) * scale, (point.z - p.z) * scale, actor.operational ? 4 : 3, 0, Math.PI * 2); ctx.fillStyle = actor.operational ? '#ef715b' : '#89918c'; ctx.fill();
+      ctx.beginPath(); ctx.arc((point.x - p.x) * scale, (point.z - p.z) * scale, actor.operational ? 4 : 3, 0, Math.PI * 2); ctx.fillStyle = actor.operational ? '#ff6778' : '#718591'; ctx.fill();
     }
     ctx.rotate(-this.player.heading);
-    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-7, -7); ctx.lineTo(7, -7); ctx.closePath(); ctx.fillStyle = '#dcfa73'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-7, -7); ctx.lineTo(7, -7); ctx.closePath(); ctx.fillStyle = '#dcf45b'; ctx.fill();
     ctx.restore();
-    ctx.fillStyle = '#e2e8d7'; ctx.font = '18px system-ui'; ctx.fillText('四环全线 · 主辅路', 18, 28);
-    ctx.fillStyle = '#92a18e'; ctx.font = '15px system-ui'; ctx.fillText('© OpenStreetMap', 18, 264);
+    ctx.fillStyle = '#e4f3fa'; ctx.font = '18px system-ui'; ctx.fillText('四环全线 · 主辅路', 18, 28);
+    ctx.fillStyle = '#8ba7b8'; ctx.font = '15px system-ui'; ctx.fillText('© OpenStreetMap', 18, 264);
   }
 
   private resetFrameStats() {
