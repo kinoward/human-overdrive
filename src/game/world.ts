@@ -13,6 +13,7 @@ import { addUrbanFrontage } from './urban-frontage';
 import { addBuildingFacades } from './building-facades';
 import { addStreetFurniture } from './street-furniture';
 import { addVergeVariation } from './verge-material';
+import { roadCrossSection } from './road-cross-section';
 
 export { sampleRoad, nearestRoad } from './road-network';
 
@@ -97,7 +98,7 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   const mainRoads = roads.filter(road => road.kind === 'main');
   const north = mainRoads.flatMap(road => road.points.map((point, i) => ({ road, point, distance: road.cumulative[i] }))).filter(item => item.point.z < -6000 && item.point.x < 0 && Math.abs(item.point.y) < 0.05 && item.distance > 60 && item.distance < item.road.length - 250);
   const origin = north.reduce((best, item) => Math.hypot(item.point.x + 5100, item.point.z + 8700) < Math.hypot(best.point.x + 5100, best.point.z + 8700) ? item : best, north[0] ?? { road: mainRoads[0], point: mainRoads[0].points[0], distance: 0 });
-  const spawn = sampleRoad(origin.road, origin.distance, origin.road.width / 8);
+  const spawn = sampleRoad(origin.road, origin.distance, roadCrossSection(origin.road).laneOffset(Math.floor(origin.road.lanes / 2)));
   await onProgress?.(1, '北京场景准备完成');
   return {
     roads, bounds, surfaces, mainLoopLength: mainRoads.reduce((length, road) => length + road.length, 0) / 2, obstacles,

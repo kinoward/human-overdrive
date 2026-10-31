@@ -1,5 +1,6 @@
 import type { Point3, RoadPath } from '../types';
 import { nearestRoad, sampleRoad } from './road-network';
+import { roadCrossSection } from './road-cross-section';
 import type { TrafficFocus } from './traffic';
 import type { TrafficVehicleSpec } from './traffic-vehicles';
 
@@ -28,7 +29,7 @@ export function laneCount(leg: TrafficLeg) {
 
 export function laneOffset(leg: TrafficLeg, lane: number) {
   const count = laneCount(leg);
-  return leg.road.oneWay ? ((lane + 0.5) / count - 0.5) * leg.road.width : -leg.sign * (leg.road.width / 2 - (lane + 0.5) * leg.road.width / (2 * count));
+  return leg.road.oneWay ? roadCrossSection(leg.road).laneOffset(lane) : -leg.sign * (leg.road.width / 2 - (lane + 0.5) * leg.road.width / (2 * count));
 }
 
 export class TrafficNetwork {
@@ -121,7 +122,7 @@ export class TrafficNetwork {
   }
 
   private fits(leg: TrafficLeg, profile: TrafficVehicleSpec) {
-    const width = leg.road.width / (leg.road.oneWay ? laneCount(leg) : laneCount(leg) * 2);
+    const width = roadCrossSection(leg.road).travelWidth / (leg.road.oneWay ? laneCount(leg) : laneCount(leg) * 2);
     if (width < profile.width + (profile.heavy ? 0.45 : 0.15)) return false;
     if (!profile.heavy) return true;
     if (!leg.road.oneWay && leg.road.lanes === 1) return false;

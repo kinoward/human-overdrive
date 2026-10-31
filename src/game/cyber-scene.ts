@@ -14,13 +14,13 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone()};
   const previousAutoReset=renderer.info.autoReset;
   renderer.info.autoReset=false;
-  sun.color.set('#aec6dc');sun.intensity=.98;
-  sun.shadow.mapSize.set(1024,1024);
+  sun.color.set('#c0cbd4');sun.intensity=.72;
+  sun.shadow.mapSize.set(2048,2048);
   const originalFill:{light:THREE.HemisphereLight;color:THREE.Color;ground:THREE.Color;intensity:number}[]=[];
   scene.traverse(object=>{
     if(!(object instanceof THREE.HemisphereLight))return;
     originalFill.push({light:object,color:object.color.clone(),ground:object.groundColor.clone(),intensity:object.intensity});
-    object.color.set('#8a9faf');object.groundColor.set('#292831');object.intensity=.34;
+    object.color.set('#a2afba');object.groundColor.set('#343338');object.intensity=.46;
   });
   const materials=styleCyberMaterials(scene);
   const distant:{object:THREE.Object3D;visible:boolean;sphere:THREE.Sphere}[]=[];

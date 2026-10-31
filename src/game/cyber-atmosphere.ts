@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { RoadPath } from '../types';
-import { sampleRoad } from './road-network';
+import { RoadIndex, sampleRoad } from './road-network';
 import { createCyberWetRoad } from './cyber-wet-road';
 
 export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.Scene,roads:RoadPath[]) {
@@ -13,14 +13,14 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     const material=new THREE.MeshBasicMaterial({color:new THREE.Color(color).multiplyScalar(intensity),side:THREE.DoubleSide});
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),material);mesh.position.set(x,y,z);mesh.lookAt(0,0,0);environment.add(mesh);
   };
-  panel('#b6dced',2.7,-18,16,0,14,27);
-  panel('#efb48b',1.9,18,7,-8,10,17);
-  panel('#dce9ec',2.35,0,25,0,26,15);
-  panel('#5dc2d7',1.25,0,6,-24,16,14);
+  panel('#b6dced',1.45,-18,16,0,14,27);
+  panel('#efb48b',1.05,18,7,-8,10,17);
+  panel('#dce9ec',1.6,0,25,0,26,15);
+  panel('#5dc2d7',.8,0,6,-24,16,14);
   const pmrem=new THREE.PMREMGenerator(renderer),environmentTarget=pmrem.fromScene(environment,.13,.1,100);
-  scene.environment=environmentTarget.texture;scene.environmentIntensity=.76;
+  scene.environment=environmentTarget.texture;scene.environmentIntensity=.5;
   environment.traverse(object=>{if(object instanceof THREE.Mesh){object.geometry.dispose();(object.material as THREE.Material).dispose();}});pmrem.dispose();
-  group.add(new THREE.HemisphereLight('#abc6d8','#39302b',.5));
+  group.add(new THREE.HemisphereLight('#b6c3cc','#3a3836',.56));
   const wetRoad=createCyberWetRoad(roads);group.add(wetRoad.object);
   let seed=47293;
   const random=()=>((seed=Math.imul(seed,1664525)+1013904223|0)>>>0)/4294967296;
@@ -53,22 +53,49 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     fragmentShader:`varying vec2 vUv;varying float vAge;void main(){float d=length(vUv-.5);float ring=1.-smoothstep(.005,.02,abs(d-vAge*.46));gl_FragColor=vec4(.43,.63,.7,ring*pow(1.-vAge,2.)*.09);}`
   });
   const splashes=new THREE.InstancedMesh(splashGeometry,splashMaterial,splashCount);splashes.frustumCulled=false;group.add(splashes);
-  const lights=Array.from({length:4},(_,index)=>{const light=new THREE.PointLight(index===1?'#79c0d0':'#ffd1a3',78,30,2);group.add(light);return light;});
+  const roadIndex=new RoadIndex(roads),lampCells=new Map<string,THREE.Vector3[]>();
+  for(const road of roads)for(let distance=40;distance<road.length-10;distance+=road.kind==='main'?48:70){
+    const pole=sampleRoad(road,distance,road.width/2+1.7);
+    if(roadIndex.covers(pole.point,road,.5))continue;
+    const head=sampleRoad(road,distance,road.width/2-1).point;
+    const site=new THREE.Vector3(head.x,head.y+8.77,head.z),key=`${Math.floor(head.x/100)},${Math.floor(head.z/100)}`;
+    if(!lampCells.has(key))lampCells.set(key,[]);
+    lampCells.get(key)!.push(site);
+  }
+  const lights=Array.from({length:4},()=>{const light=new THREE.PointLight('#ffd6ad',0,44,2);group.add(light);return {light,site:null as THREE.Vector3|null};});
+  let lastTime:number|null=null;
+  const updateLights=(time:number,focus:THREE.Vector3)=>{
+    const delta=lastTime===null?1/60:THREE.MathUtils.clamp(time-lastTime,0,.1),blend=1-Math.exp(-delta*9);
+    lastTime=time;
+    const cx=Math.floor(focus.x/100),cz=Math.floor(focus.z/100),sites:THREE.Vector3[]=[];
+    for(let x=cx-1;x<=cx+1;x++)for(let z=cz-1;z<=cz+1;z++)for(const site of lampCells.get(`${x},${z}`)??[]){
+      if(Math.abs(site.y-8.77-(focus.y-.85))<3&&site.distanceToSquared(focus)<10000)sites.push(site);
+    }
+    sites.sort((a,b)=>a.distanceToSquared(focus)-b.distanceToSquared(focus));
+    const desired=sites.slice(0,4);
+    for(const slot of lights){
+      const intensity=slot.site&&desired.includes(slot.site)?92*(1-THREE.MathUtils.smoothstep(slot.site.distanceTo(focus),55,100)):0;
+      slot.light.intensity=THREE.MathUtils.lerp(slot.light.intensity,intensity,blend);
+      if(!intensity&&slot.light.intensity<.15){slot.light.intensity=0;slot.site=null;}
+    }
+    for(const site of desired){
+      if(lights.some(slot=>slot.site===site))continue;
+      const slot=lights.find(slot=>!slot.site);if(!slot)break;
+      slot.site=site;slot.light.position.copy(site);
+    }
+  };
   const transform=new THREE.Object3D();
   let lastX=Infinity,lastZ=Infinity,lastY=Infinity;
   const update=(time:number,focus:THREE.Vector3,heading:number)=>{
     rainMaterial.uniforms.time.value=time;steamMaterial.uniforms.time.value=time;splashMaterial.uniforms.time.value=time;
+    updateLights(time,focus);
     rainGroup.position.set(focus.x,focus.y-.85,focus.z);rainGroup.rotation.y=heading+Math.PI;
     const nearest=wetRoad.update(time,focus);
     if(Math.hypot(focus.x-lastX,focus.z-lastZ)<18&&Math.abs(focus.y-lastY)<.2)return;
     lastX=focus.x;lastZ=focus.z;lastY=focus.y;
-    if(!nearest){lights.forEach(light=>light.visible=false);steams.forEach(steam=>steam.visible=false);splashes.visible=false;return;}
+    if(!nearest){steams.forEach(steam=>steam.visible=false);splashes.visible=false;return;}
     splashes.visible=true;
     const direction=nearest.direction.x*Math.sin(heading)+nearest.direction.z*Math.cos(heading)>=0?1:-1;
-    for(let i=0;i<lights.length;i++){
-      const side=i%2===0?-1:1,sample=sampleRoad(nearest.road,nearest.distance+direction*(Math.floor(i/2)*47-12),side*(nearest.road.width/2+.15));
-      lights[i].visible=true;lights[i].position.set(sample.point.x,sample.point.y+7.8,sample.point.z);
-    }
     steams.forEach((steam,index)=>{
       const side=index%2===0?-1:1,sample=sampleRoad(nearest.road,nearest.distance+direction*(index*43+18),side*(nearest.road.width/2+.45));
       steam.visible=true;steam.position.set(sample.point.x,sample.point.y+2.48,sample.point.z);steam.rotation.y=sample.heading;

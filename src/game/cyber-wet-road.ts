@@ -12,7 +12,7 @@ export function createCyberWetRoad(roads:RoadPath[]) {
       fragmentShader:`uniform sampler2D tDiffuse;uniform float time;varying vec4 vProject;varying vec3 vWorld;
 float wetHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float wetNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(wetHash(i),wetHash(i+vec2(1,0)),f.x),mix(wetHash(i+vec2(0,1)),wetHash(i+vec2(1,1)),f.x),f.y);}
-void main(){vec2 uv=vProject.xy/vProject.w;vec2 p=vWorld.xz;float n=wetNoise(p*1.2);float puddle=smoothstep(.39,.8,wetNoise(p*.28)+wetNoise(p*1.5)*.2);uv+=(vec2(wetNoise(p*19.+time*.05),wetNoise(p.yx*24.))-.5)*.0009;vec3 reflected=texture2D(tDiffuse,uv).rgb*.38;for(int i=1;i<4;i++){float d=float(i)*(.00045+.0002*n);reflected+=texture2D(tDiffuse,uv+vec2(d*.4,d)).rgb*.1033;reflected+=texture2D(tDiffuse,uv-vec2(d*.4,d)).rgb*.1033;}float fresnel=pow(1.-abs(normalize(cameraPosition-vWorld).y),2.);gl_FragColor=vec4(reflected*.88,(.025+puddle*.39)*(.36+fresnel*.64));
+void main(){vec2 uv=vProject.xy/vProject.w;vec2 p=vWorld.xz;float n=wetNoise(p*1.2);float puddle=smoothstep(.67,.88,wetNoise(p*.28)+wetNoise(p*1.5)*.12);uv+=(vec2(wetNoise(p*19.+time*.05),wetNoise(p.yx*24.))-.5)*.0018;vec3 reflected=texture2D(tDiffuse,uv).rgb*.38;for(int i=1;i<4;i++){float d=float(i)*(.0013+.001*n);reflected+=texture2D(tDiffuse,uv+vec2(d*.4,d)).rgb*.1033;reflected+=texture2D(tDiffuse,uv-vec2(d*.4,d)).rgb*.1033;}float fresnel=pow(1.-abs(normalize(cameraPosition-vWorld).y),2.);gl_FragColor=vec4(reflected*.68,puddle*.14*(.25+fresnel*.75));
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }`

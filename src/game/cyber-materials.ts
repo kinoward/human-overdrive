@@ -25,16 +25,21 @@ export function styleCyberMaterials(scene:THREE.Scene) {
     let material:THREE.MeshStandardMaterial;
     if(source.userData.roadSurface){
       material=new THREE.MeshPhysicalMaterial({
-        color:source.color.clone().multiply(new THREE.Color('#b4c1ca')),map:source.map,normalMap:source.normalMap,normalScale:source.normalScale.clone().multiplyScalar(.7),
-        roughnessMap:source.roughnessMap,roughness:.48,metalness:.04,clearcoat:.68,clearcoatRoughness:.24,
+        color:source.color.clone().multiply(new THREE.Color('#aab0b4')),map:source.map,normalMap:source.normalMap,normalScale:source.normalScale.clone().multiplyScalar(1.6),
+        roughnessMap:source.roughnessMap,roughness:.96,metalness:0,clearcoat:.035,clearcoatRoughness:.85,envMapIntensity:.4,specularIntensity:.38,
         polygonOffset:source.polygonOffset,polygonOffsetFactor:source.polygonOffsetFactor,polygonOffsetUnits:source.polygonOffsetUnits
       });
       material.userData={...source.userData};
+      material.onBeforeCompile=(shader,renderer)=>{
+        source.onBeforeCompile.call(material,shader,renderer);
+        shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=max(.82,roughnessFactor);');
+      };
+      material.customProgramCacheKey=()=>`${source.customProgramCacheKey()}:粗糙沥青1`;
     }else{
       material=source.clone();material.onBeforeCompile=source.onBeforeCompile;material.customProgramCacheKey=source.customProgramCacheKey;
-      material.color.multiply(tint);
-      if(source.roughness<.6){material.roughness=Math.max(.18,source.roughness*.8);material.metalness=Math.max(material.metalness,.22);}
-      if(source.map&&source.map.image instanceof HTMLCanvasElement&&!source.normalMap){material.emissiveMap=source.map;material.emissive.set('#7caaa9');material.emissiveIntensity=.28;}
+      if(!source.userData.roadDecal)material.color.multiply(tint);
+      if(source.roughness<.6)material.roughness=Math.max(.4,source.roughness);
+      if(!source.userData.roadDecal&&source.map&&source.map.image instanceof HTMLCanvasElement&&!source.normalMap){material.emissiveMap=source.map;material.emissive.set('#7caaa9');material.emissiveIntensity=.28;}
     }
     if(buildingMaterials.has(source)){
       const base=material.onBeforeCompile;

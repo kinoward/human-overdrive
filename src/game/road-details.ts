@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { Point3, RoadPath } from '../types';
 import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { roadCrossSection } from './road-cross-section';
+import { addRoadSkidMarks } from './road-skid-marks';
 
 function wheelTexture() {
   const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 256;
@@ -55,6 +57,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
   const wear = new THREE.MeshStandardMaterial({ map: wheelTexture(), transparent: true, opacity: 0.42, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
   const paint = new THREE.MeshStandardMaterial({ color: '#dddccd', roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -10, polygonOffsetUnits: -10 });
   const joint = new THREE.MeshStandardMaterial({ color: '#353d40', transparent: true, opacity: 0.18, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+  for (const material of [wear, paint, joint]) material.userData.roadDecal = true;
   const edging = new THREE.MeshStandardMaterial({ color: '#7d817b', roughness: 1 });
   const curb = new THREE.MeshStandardMaterial({ color: '#b6b8b0', roughness: 0.98 });
   const metal = new THREE.MeshStandardMaterial({ color: '#929e9c', metalness: 0.55, roughness: 0.62 });
@@ -91,12 +94,12 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
   };
   const nearJunction = (road: RoadPath, point: Point3, radius: number) => road.junctions.some(junction => Math.hypot(junction.point.x - point.x, junction.point.z - point.z, (junction.point.y - point.y) * 4) < radius);
   for (const road of roads) {
-    const laneWidth = road.width / road.lanes;
+    const section = roadCrossSection(road), laneWidth = section.laneWidth;
     for (let distance = 0; distance < road.length; distance += 18) {
       const end = Math.min(distance + 18, road.length), middle = (distance + end) / 2;
       const sample = sampleRoad(road, middle);
       if (index.covers(sample.point, road, 0.1)) continue;
-      ribbon(wear, road, distance, end, road.width - 0.5, 0, 0.042, road.lanes);
+      ribbon(wear, road, distance, end, section.travelWidth - 0.5, section.travelOffset, 0.042, road.lanes);
       for (const side of [-1, 1]) {
         if (!clear(road, middle, side * (road.width / 2 + 0.12), (end - distance) / 2, 0.2)) continue;
         ribbon(edging, road, distance, end, 0.16, side * (road.width / 2 - 0.04), 0.041);
@@ -106,7 +109,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
       const middle = sampleRoad(road, distance);
       if (nearJunction(road, middle.point, 45) || index.covers(middle.point, road, 0)) continue;
       for (let lane = 0; lane < road.lanes; lane++) {
-        const sample = sampleRoad(road, distance, (lane + 0.5) * laneWidth - road.width / 2);
+        const sample = sampleRoad(road, distance, section.laneOffset(lane));
         const width = Math.min(1, laneWidth / 3.2);
         batch.instance(paint, p.set(sample.point.x, sample.point.y + 0.057, sample.point.z), scale.set(width, 1, 1), sample.heading, arrow, undefined, -Math.atan(sample.direction.y));
       }
@@ -162,6 +165,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
       box(metal, upright.point, 0.18, 2.65, 0.16, sample.heading, 1.325);
     }
   }
+  addRoadSkidMarks(roads, batch, index);
   for (const surface of surfaces.values()) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(surface.positions, 3));
