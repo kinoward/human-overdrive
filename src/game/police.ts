@@ -161,7 +161,7 @@ export class PolicePursuit {
     if (!this.target) this.remember(player.body.translation(), player.body.linvel());
     const location = this.navigation.locate(groundPosition(player));
     if (!location) return;
-    const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: player.config.acceleration, accelerationTopSpeed: player.config.topSpeed, topSpeed: player.config.topSpeed * 1.05, color: '#e4e8e5' };
+    const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: player.config.acceleration, accelerationTopSpeed: player.config.topSpeed, topSpeed: player.config.topSpeed * 1.1, color: '#e4e8e5' };
     const velocity = player.body.linvel();
     const travelHeading = Math.hypot(velocity.x, velocity.z) > 2 ? Math.atan2(velocity.x, velocity.z) : this.targetRoad ? Math.atan2(this.targetRoad.direction.x * this.targetSign, this.targetRoad.direction.z * this.targetSign) : player.heading;
     const candidates = this.spawnCandidates(location, travelHeading, initial, player.speed).flatMap(candidate =>
@@ -498,15 +498,15 @@ export class PolicePursuit {
     const margin = Math.max(0, road.road.width / 2 - actor.vehicle.config.width / 2 - 0.6);
     const playerOffset = clamp(road.offset, -margin, margin);
     let offset = playerOffset;
-    let along = -5;
+    let along = -2.5;
     if (!narrow && speed < 7 && (actor.role === 'left' || actor.role === 'right')) {
       offset += (actor.role === 'left' ? -1 : 1) * this.targetSign * 2.6;
       along = actor.role === 'left' ? 5 : -2.5;
     } else if (!narrow && (actor.role === 'left' || actor.role === 'right')) {
       offset += (actor.role === 'left' ? -1 : 1) * this.targetSign * 2.6;
-      along = -1.5;
+      along = -0.5;
     } else if (actor.role === 'intercept') along = Math.max(22, Math.min(75, speed * 1.3));
-    else if (actor.role === 'support') along = -12 - actor.slot * 6;
+    else if (actor.role === 'support') along = -8 - actor.slot * 3;
     if (actor.state === 'positioning' || actor.state === 'contact') {
       offset = clamp(actor.attackOffset, -margin, margin);
       along = actor.attackAlong;
@@ -530,7 +530,7 @@ export class PolicePursuit {
         this.assignAt = this.time + 0.4;
       } else {
         this.events.push({ type: 'evaded', id: actor.id, side: this.eventSide(actor.role), damage: actor.damage });
-        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.2; actor.routeAt = -Infinity; actor.readyTime = 0;
+        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.1; actor.routeAt = -Infinity; actor.readyTime = 0;
       }
       this.nextAttackAt = Math.max(this.nextAttackAt, this.time + 0.05);
     }
@@ -592,7 +592,7 @@ export class PolicePursuit {
       return;
     }
     const same = this.navigation.sameCorridor(actor.road, this.targetRoad!, 65) && Math.abs(playerPosition.y - position.y) < 2.2;
-    const maxAttackers = this.targetRoad!.road.width > 9 ? 2 : 1;
+    const maxAttackers = this.targetRoad!.road.width > 9 ? 3 : 1;
     const attackers = this.activeCars.filter(other => other.state === 'positioning' || other.state === 'contact').length;
     const playerSpeed = Math.hypot(this.targetVelocity.x, this.targetVelocity.z);
     const playerMoving = playerSpeed > 2;
@@ -603,14 +603,14 @@ export class PolicePursuit {
     const stationaryHeading = plan.along > 0 ? Math.atan2(this.targetRoad!.direction.x * this.targetSign, this.targetRoad!.direction.z * this.targetSign) : Math.atan2(approach.x - position.x, approach.z - position.z);
     const heading = playerMoving ? Math.atan2(this.targetVelocity.x, this.targetVelocity.z) : stationaryHeading;
     const headingError = Math.abs(angleDifference(vehicle.heading, heading));
-    const readyDistance = intendedTactic === 'brake-check' ? 26 : intendedTactic === 'pit' ? 18 : intendedTactic === 'box' ? 20 : 22;
+    const readyDistance = intendedTactic === 'brake-check' ? 32 : intendedTactic === 'pit' ? 26 : intendedTactic === 'box' ? 26 : 32;
     const playerAlong = (playerPosition.x - position.x) * Math.sin(vehicle.heading) + (playerPosition.z - position.z) * Math.cos(vehicle.heading);
     const slotReady = plan.along > 1 ? playerAlong < -0.4 : intendedTactic === 'ram' || plan.along < -1 ? playerAlong > 0.4 : Math.abs(playerAlong) < 9;
     const alignedForAttack = headingError < 0.8;
     const attackPathClear = this.clearAttack(actor, approachPosition, player);
     const approachClear = same && age < 0.8 && distance < readyDistance * 1.8 && alignedForAttack && attackPathClear;
     const sustainedAttack = actor.lastPlayerImpact >= actor.attackStarted && same && age < 0.8 && distance < readyDistance * 2.2 && attackPathClear;
-    const ready = approachClear && age < 0.55 && distance < readyDistance && slotReady && headingError < 0.48 && actor.role !== 'support';
+    const ready = approachClear && age < 0.55 && distance < readyDistance && slotReady && headingError < 0.65 && actor.role !== 'support';
     const boxDirectionOccupied = intendedTactic === 'box' && this.activeCars.some(other => other !== actor && (other.state === 'positioning' || other.state === 'contact') && other.tactic === 'box' && (other.attackAlong > 0) === (plan.along > 0));
     if (actor.state === 'closing' && ready && attackers < maxAttackers && !boxDirectionOccupied && this.time >= this.nextAttackAt) {
       const maximum = vehicle.config.topSpeed / 3.6;
@@ -627,14 +627,14 @@ export class PolicePursuit {
     } else if (actor.state === 'contact' && !approachClear) {
       if (!sustainedAttack) {
         if (actor.lastPlayerImpact < actor.attackStarted) this.events.push({ type: 'evaded', id: actor.id, side: this.eventSide(actor.role), damage: actor.damage });
-        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.2; actor.readyTime = 0; actor.routeAt = -Infinity;
+        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.1; actor.readyTime = 0; actor.routeAt = -Infinity;
       }
     } else if (actor.state === 'positioning') {
       actor.readyTime += dt;
-      if (!approachClear && !sustainedAttack && actor.readyTime > 0.2) {
-        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.2; actor.readyTime = 0; actor.routeAt = -Infinity;
-      } else if (actor.readyTime >= 0.2) {
-        actor.state = 'contact'; actor.actionUntil = this.time + (actor.tactic === 'box' ? 3.6 : 3.2); actor.readyTime = 0; actor.routeAt = -Infinity;
+      if (!approachClear && !sustainedAttack && actor.readyTime > 0.12) {
+        actor.state = 'recovering'; actor.recoverUntil = this.time + 0.1; actor.readyTime = 0; actor.routeAt = -Infinity;
+      } else if (actor.readyTime >= 0.12) {
+        actor.state = 'contact'; actor.actionUntil = this.time + (actor.tactic === 'box' ? 2.2 : 1.8); actor.readyTime = 0; actor.routeAt = -Infinity;
       }
     }
     const reverseDistance = Math.min(8, distance + 2);
@@ -665,7 +665,7 @@ export class PolicePursuit {
     let steer = clamp(-vehicle.speed * curvature / yawLimit, -1, 1);
     const error = angleDifference(Math.atan2(dx, dz), vehicle.heading);
     if (vehicle.speed < 5 && Math.abs(error) > 0.7) steer = clamp(-error * 1.8, -1, 1);
-    let targetSpeed = Math.min(vehicle.config.topSpeed / 3.6, Math.max(12, playerSpeed + Math.min(8, 2 + gap * 0.16)));
+    let targetSpeed = Math.min(vehicle.config.topSpeed / 3.6, Math.max(12, playerSpeed + Math.min(12, 4 + gap * 0.24)));
     const curveSpeed = Math.sqrt(6.8 / Math.max(0.0008, followed.curvature, Math.abs(curvature)));
     targetSpeed = Math.min(targetSpeed, curveSpeed);
     if (followed.remaining < lookAhead + 5) targetSpeed = Math.min(targetSpeed, Math.sqrt(playerSpeed ** 2 + 2 * 7 * Math.max(0, followed.remaining - 4)));
@@ -679,10 +679,10 @@ export class PolicePursuit {
     if (age > 6) targetSpeed = Math.min(targetSpeed, Math.sqrt(2 * 5 * Math.max(0, followed.remaining - 4)));
     if (corridorLimited) targetSpeed = Math.min(targetSpeed, clear ? Math.sqrt(2 * 7 * Math.max(0, lookAhead - 3)) : 0);
     if (Math.abs(error) > 0.6) targetSpeed = Math.min(targetSpeed, Math.max(4, 15 * (1 - Math.min(1, Math.abs(error) / 2))));
-    targetSpeed = this.obstacleSpeed(actor, targetSpeed, player);
+    const approachingPlayer = approachClear && actor.role !== 'support' && actor.state !== 'recovering';
+    targetSpeed = this.obstacleSpeed(actor, targetSpeed, player, approachingPlayer);
     const probe = Math.min(lookAhead, Math.max(5, vehicle.speed * 0.65));
     const probeTarget = { x: position.x + Math.sin(vehicle.heading) * probe, y: position.y, z: position.z + Math.cos(vehicle.heading) * probe };
-    const approachingPlayer = same && age < 0.8 && alignedForAttack && actor.role !== 'support' && actor.state !== 'recovering';
     if (!this.clearSweep(actor, probeTarget, player, approachingPlayer)) targetSpeed = Math.min(targetSpeed, 3);
     const corridor = this.navigation.locate({ x: followed.target.x, y: followed.target.y - 0.85, z: followed.target.z });
     if (!corridor || Math.abs(corridor.offset) > corridor.road.width / 2 - vehicle.config.width / 2) targetSpeed = Math.min(targetSpeed, 4);
@@ -794,11 +794,11 @@ export class PolicePursuit {
     return { target, curvature, remaining };
   }
 
-  private obstacleSpeed(actor: PoliceCar, speed: number, player: PhysicsVehicle) {
+  private obstacleSpeed(actor: PoliceCar, speed: number, player: PhysicsVehicle, approachingPlayer: boolean) {
     const vehicle = actor.vehicle, position = vehicle.body.translation();
     const playerObstacle = this.obstacle(player);
     const seen = this.cars.filter(other => other !== actor).map(other => this.obstacle(other.vehicle));
-    if (actor.state !== 'contact' && actor.state !== 'positioning') seen.push(playerObstacle);
+    if (!approachingPlayer && actor.state !== 'contact' && actor.state !== 'positioning') seen.push(playerObstacle);
     for (const other of seen) {
       if (Math.abs(other.position.y - position.y) > 2.2 || Math.hypot(other.position.x - position.x, other.position.z - position.z) < 0.2) continue;
       const dx = other.position.x - position.x, dz = other.position.z - position.z;
