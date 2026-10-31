@@ -60,14 +60,13 @@ export class RaceReplay {
     const alpha = b.time > a.time ? THREE.MathUtils.clamp((this.playhead - a.time) / (b.time - a.time), 0, 1) : 0;
     this.sceneTime = THREE.MathUtils.lerp(a.sceneTime, b.sceneTime, alpha);
     this.visuals!.beginFrame();
-    const subject = clip.subject === undefined ? 0 : a.ids.subarray(0, a.count).indexOf(clip.subject);
     for (let index = 0; index < a.count; index++) {
       const next = b.ids.subarray(0, b.count).indexOf(a.ids[index]);
       const offset = index * REPLAY_STRIDE;
       const compatible = next >= 0 && a.appearances[index].channels.length === b.appearances[next].channels.length;
       const root = this.visuals!.show(a.ids[index], a.appearances[index], a.data, offset,
         compatible ? b.data : a.data, compatible ? next * REPLAY_STRIDE : offset, compatible ? alpha : 0);
-      if (index === (subject >= 0 ? subject : 0)) {
+      if (index === 0) {
         this.focus.copy(root.position);
         this.speed = a.data[offset + 7];
         this.forward.set(0, 0, 1).applyQuaternion(root.quaternion);
