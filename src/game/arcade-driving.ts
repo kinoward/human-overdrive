@@ -77,7 +77,7 @@ export class ArcadeDriving {
         forwardDelta = this.approach(state.forwardSpeed, targetSpeed, 4 * dt);
       } else {
         const speedRatio = THREE.MathUtils.clamp(Math.abs(state.forwardSpeed) / limit, 0, 1);
-        const acceleration = this.config.acceleration * 1.15 * (1 - speedRatio * speedRatio) * Math.abs(input.throttle) * powerWeight;
+        const acceleration = this.config.acceleration * (direction > 0 ? 2 : 1.15) * (1 - speedRatio * speedRatio) * Math.abs(input.throttle) * powerWeight;
         const requested = direction * acceleration * dt;
         forwardDelta = direction > 0
           ? Math.min(requested, targetSpeed - state.forwardSpeed)
