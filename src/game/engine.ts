@@ -204,8 +204,9 @@ export class GameEngine {
     this.flippedTime = 0;
     this.drivingScore = new DrivingScore();
     this.collisionSystem.reset();
+    delete this.renderer.domElement.dataset.policeTrafficImpact;
     this.nextSight = 0;
-    this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible });
+    this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible, isTrafficBody: handle => this.traffic.some(actor => actor.body.handle === handle) });
     this.accumulator = 0;
     this.simulationTime = 0;
     this.presentationTime = 0;
@@ -600,8 +601,9 @@ export class GameEngine {
       const actor = this.police.find(car => car.vehicle.body.handle === impact.bodyHandle);
       if (!actor || !impact.feedback) continue;
       actor.vehicle.applyImpact(impact.point, impact.direction, impact.strength);
-      actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, impact.balanceDisabled);
-      this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.approachSpeed, impact.otherBodyHandle === this.player.body.handle);
+      if (impact.otherKind !== 'traffic') actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, impact.balanceDisabled);
+      this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.approachSpeed, impact.otherKind);
+      if (impact.otherKind === 'traffic') this.renderer.domElement.dataset.policeTrafficImpact = JSON.stringify({ id: actor.id, time: this.simulationTime, state: actor.state, deltaV: impact.deltaV, strength: impact.strength });
     }
     this.showPoliceEvents();
     return result.contactBodies;
