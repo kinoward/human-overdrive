@@ -177,7 +177,7 @@ export class GameEngine {
     this.updateRoadColliders(this.track.spawn.position);
     this.renderer.domElement.dataset.course = JSON.stringify({ mainLoopKm: this.track.mainLoopLength / 1000, roads: this.track.roads.length, source: this.track.source });
     await onProgress?.(0.97, '准备驾驶场景');
-    this.preview = createVehicleModel(VEHICLES[0]);
+    this.preview = createVehicleModel(VEHICLES[0], false, true);
     for (const wheel of this.preview.wheels) wheel.position.y = -0.49;
     this.preview.group.position.set(this.track.spawn.position.x, this.track.spawn.position.y + 0.85, this.track.spawn.position.z);
     this.preview.group.rotation.y = this.track.spawn.heading;

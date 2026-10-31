@@ -3,10 +3,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { assetUrl } from '../asset-url';
+import { preparePlayerVehicle } from './player-vehicle-detail';
 
 export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree' | 'lush-shrub' | 'bus-shelter';
 interface AssetMesh { geometry: THREE.BufferGeometry; material: THREE.Material }
 const models = new Map<GeneratedAsset, THREE.Group>();
+const playerModels = new Map<GeneratedAsset, THREE.Group>();
 const meshCache = new Map<string, AssetMesh[]>();
 
 function floatGeometry(source: THREE.BufferGeometry) {
@@ -47,12 +49,13 @@ export async function loadGeneratedAssets(onProgress?: (loaded: number, total: n
       }
     });
     models.set(name, asset.scene);
+    if (name === 'electric-suv' || name === 'adventure-motorcycle') playerModels.set(name, await preparePlayerVehicle(name, asset.scene));
     await onProgress?.(++loaded, names.length);
   }));
 }
 
-export function cloneGeneratedVehicle(name: 'electric-suv' | 'adventure-motorcycle') {
-  return models.get(name)!.clone(true);
+export function cloneGeneratedVehicle(name: 'electric-suv' | 'adventure-motorcycle', detailed = false) {
+  return (detailed ? playerModels : models).get(name)!.clone(true);
 }
 
 export function generatedMeshes(name: GeneratedAsset, level?: 'near' | 'far'): AssetMesh[] {

@@ -1,0 +1,233 @@
+{
+  "atlasSize": 3072,
+  "texture": "electric-suv.webp",
+  "sourceAtlas": {
+    "size": 2048,
+    "columns": 6,
+    "cell": 340,
+    "padding": 3
+  },
+  "tiles": [
+    {
+      "part": "tripo_part_29",
+      "x": 3004,
+      "y": 76,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "part": "tripo_part_21",
+      "x": 2868,
+      "y": 4,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_0",
+      "x": 4,
+      "y": 4,
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "part": "tripo_part_22",
+      "x": 2596,
+      "y": 4,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_10",
+      "x": 2868,
+      "y": 140,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_4",
+      "x": 1036,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_7",
+      "x": 1556,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_6",
+      "x": 2076,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_19",
+      "x": 2868,
+      "y": 276,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_23",
+      "x": 2868,
+      "y": 412,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_27",
+      "x": 2868,
+      "y": 548,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_20",
+      "x": 2868,
+      "y": 684,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_2",
+      "x": 1036,
+      "y": 524,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_28",
+      "x": 3004,
+      "y": 4,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "part": "tripo_part_18",
+      "x": 2868,
+      "y": 820,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_16",
+      "x": 2596,
+      "y": 268,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_1",
+      "x": 524,
+      "y": 1036,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_15",
+      "x": 2076,
+      "y": 524,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_8",
+      "x": 2340,
+      "y": 532,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_3",
+      "x": 4,
+      "y": 1036,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_9",
+      "x": 2076,
+      "y": 788,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_12",
+      "x": 2604,
+      "y": 532,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_5",
+      "x": 1556,
+      "y": 524,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_25",
+      "x": 2868,
+      "y": 956,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_26",
+      "x": 3004,
+      "y": 116,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "part": "tripo_part_24",
+      "x": 4,
+      "y": 1556,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_13",
+      "x": 2340,
+      "y": 796,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_14",
+      "x": 2604,
+      "y": 796,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_17",
+      "x": 788,
+      "y": 1044,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_11",
+      "x": 524,
+      "y": 1300,
+      "width": 256,
+      "height": 256
+    }
+  ],
+  "platform": "Tripo Studio",
+  "model": "H3.1",
+  "date": "2026-10-31",
+  "sourceFile": "beijing-electric-suv.glb",
+  "sourceUrl": "https://studio.tripo3d.ai/zh/workspace/generate/9ac1bd6b-2e7d-430f-bf67-7ce26b443dee",
+  "terms": "https://www.tripo3d.ai/terms",
+  "attribution": "本项目通过主办方提供的 Tripo 资源生成；保留平台来源，不宣称 CC0 或指定现实车型的精确模型。",
+  "preparation": "保留各部件原生底色像素，四像素边缘延拓并紧凑打包，无缩放及无损 WebP 编码；新图集供玩家第二套 UV 使用，原始图集与车损分件保持不变。",
+  "bytes": 1983840,
+  "nativePixels": 3495936,
+  "padding": 4
+}

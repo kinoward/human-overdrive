@@ -54,7 +54,7 @@ export class PhysicsVehicle {
       .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
     world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25)
       .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
-    this.model = createVehicleModel(config, police);
+    this.model = createVehicleModel(config, police, !police);
     this.driving = new ArcadeDriving(config);
     this.damage = new VehicleDamage(this.model.group, config, this.body, world);
     this.pose = new RenderPose(this.model.group);

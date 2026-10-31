@@ -1,0 +1,191 @@
+{
+  "atlasSize": 3072,
+  "texture": "adventure-motorcycle.webp",
+  "sourceAtlas": {
+    "size": 2048,
+    "columns": 6,
+    "cell": 340,
+    "padding": 3
+  },
+  "tiles": [
+    {
+      "part": "tripo_part_15",
+      "x": 2596,
+      "y": 4,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_8",
+      "x": 1036,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_3",
+      "x": 1556,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_11",
+      "x": 2596,
+      "y": 268,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_13",
+      "x": 2596,
+      "y": 532,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_18",
+      "x": 2860,
+      "y": 4,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_6",
+      "x": 2076,
+      "y": 4,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_12",
+      "x": 2596,
+      "y": 796,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_22",
+      "x": 2996,
+      "y": 148,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "part": "tripo_part_4",
+      "x": 1036,
+      "y": 524,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_5",
+      "x": 4,
+      "y": 1036,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_14",
+      "x": 4,
+      "y": 2596,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_0",
+      "x": 4,
+      "y": 4,
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "part": "tripo_part_7",
+      "x": 1556,
+      "y": 524,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_1",
+      "x": 2076,
+      "y": 524,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_21",
+      "x": 2996,
+      "y": 4,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "part": "tripo_part_19",
+      "x": 2860,
+      "y": 140,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "part": "tripo_part_2",
+      "x": 4,
+      "y": 1556,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_23",
+      "x": 3036,
+      "y": 148,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "part": "tripo_part_20",
+      "x": 2996,
+      "y": 76,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "part": "tripo_part_17",
+      "x": 268,
+      "y": 2596,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_9",
+      "x": 4,
+      "y": 2076,
+      "width": 512,
+      "height": 512
+    },
+    {
+      "part": "tripo_part_16",
+      "x": 532,
+      "y": 1036,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "part": "tripo_part_10",
+      "x": 524,
+      "y": 1300,
+      "width": 256,
+      "height": 256
+    }
+  ],
+  "platform": "Tripo Studio",
+  "model": "H3.1",
+  "date": "2026-10-31",
+  "sourceFile": "beijing-adventure-motorcycle.glb",
+  "sourceUrl": "https://studio.tripo3d.ai/zh/workspace/generate/515ae50d-0a3b-437c-9cf6-fcc6b31d84f5",
+  "terms": "https://www.tripo3d.ai/terms",
+  "attribution": "本项目通过主办方提供的 Tripo 资源生成；保留平台来源，不宣称 CC0 或指定现实车型的精确模型。",
+  "preparation": "保留各部件原生底色像素，四像素边缘延拓并紧凑打包，无缩放及无损 WebP 编码；新图集供玩家第二套 UV 使用，原始图集与车损分件保持不变。",
+  "bytes": 3179124,
+  "nativePixels": 3975168,
+  "padding": 4
+}

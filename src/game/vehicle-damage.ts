@@ -35,7 +35,7 @@ function atlasTile(uv: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
 
 function subsetGeometry(source: THREE.BufferGeometry, vertices: number[]) {
   const geometry = new THREE.BufferGeometry();
-  for (const name of ['position', 'normal', 'uv']) {
+  for (const name of ['position', 'normal', 'uv', 'uv1']) {
     const attribute = source.getAttribute(name);
     if (!attribute) continue;
     const array = new Float32Array(vertices.length * attribute.itemSize);

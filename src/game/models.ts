@@ -179,16 +179,17 @@ function policeTextMaterial() {
 
 const vehiclePaints = new Map<string, THREE.MeshStandardMaterial>();
 
-function addCar(group: THREE.Group, config: VehicleConfig, police: boolean) {
-  const asset = cloneGeneratedVehicle('electric-suv');
+function addCar(group: THREE.Group, config: VehicleConfig, police: boolean, detailed: boolean) {
+  const asset = cloneGeneratedVehicle('electric-suv', detailed);
   group.add(asset);
   const body = asset.getObjectByName('body') as THREE.Mesh;
   const tint = police ? '#ffffff' : config.color;
-  if (!vehiclePaints.has(tint)) {
+  const paintKey = `${detailed}:${tint}`;
+  if (!vehiclePaints.has(paintKey)) {
     const material = (body.material as THREE.MeshStandardMaterial).clone();
-    material.color.set(tint); vehiclePaints.set(tint, material);
+    material.color.set(tint); vehiclePaints.set(paintKey, material);
   }
-  body.material = vehiclePaints.get(tint)!;
+  body.material = vehiclePaints.get(paintKey)!;
   const wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map(name => asset.getObjectByName(name) as THREE.Group);
   const owned = new THREE.Group(); group.add(owned);
   const brakeMaterial = new THREE.MeshStandardMaterial({ color: '#8b1812', emissive: '#ff2415', emissiveIntensity: 0.4 });
@@ -211,8 +212,8 @@ function addCar(group: THREE.Group, config: VehicleConfig, police: boolean) {
   return { wheels, brakeLights, policeLights, turnSignals, dispose: createDisposer(owned) };
 }
 
-function addMotorcycle(group: THREE.Group, _config: VehicleConfig) {
-  const asset = cloneGeneratedVehicle('adventure-motorcycle'); group.add(asset);
+function addMotorcycle(group: THREE.Group, detailed: boolean) {
+  const asset = cloneGeneratedVehicle('adventure-motorcycle', detailed); group.add(asset);
   const wheels = ['wheel_front', 'wheel_rear'].map(name => asset.getObjectByName(name) as THREE.Group);
   const owned = new THREE.Group(); group.add(owned);
   const material = new THREE.MeshStandardMaterial({ color: '#8d1713', emissive: '#ff2415', emissiveIntensity: 0.4 });
@@ -220,10 +221,10 @@ function addMotorcycle(group: THREE.Group, _config: VehicleConfig) {
   return { wheels, brakeLights, policeLights: [] as THREE.Mesh[], turnSignals: [] as THREE.Mesh[], dispose: createDisposer(owned) };
 }
 
-export function createVehicleModel(config: VehicleConfig, police = false) {
+export function createVehicleModel(config: VehicleConfig, police = false, detailed = false) {
   const group = new THREE.Group();
   group.userData.damageModel = config.kind === 'motorcycle' && !police ? 'motorcycle' : 'car';
-  const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
+  const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, detailed) : addCar(group, config, police, detailed);
   mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);
   const motorcycle = config.kind === 'motorcycle' && !police;
   const dispose = details.dispose ?? createDisposer(group);
