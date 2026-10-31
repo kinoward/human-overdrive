@@ -1,5 +1,7 @@
 # 资产来源
 
+来源清单保留公开链接、作者、许可、固定版本、提示词与内容哈希。参考项目内的文件路径相对于对应项目根目录；独立归档的生成原图仅记录原始文件名，参考图归档和验证副本仅记录目录名称或副本标识，不公开本机用户目录和工具缓存目录。这些本机归档不随游戏分发。
+
 ## 北京道路
 
 - 数据：[OpenStreetMap](https://www.openstreetmap.org/copyright)，通过 [Overpass API](https://overpass-api.de/api/interpreter)离线提取。
