@@ -1,6 +1,6 @@
 # 追逐最后的自由
 
-本项目参加 VibeHacks #06，在短开发窗口内制作城市道路警追游戏 Demo。本次项目完全使用 Three.js + Rapier + TypeScript + Vite；优先复用许可明确的成熟模型、场景与美术资产，项目独有的路网逃跑、追捕和评分逻辑由本项目实现。
+本项目参加 VibeHacks #06，制作面向全球城市、以车技星级为核心的城市追逐游戏，目前仅实现北京可玩 Demo。最初希望引入类似 Google Earth 的实景三维城市作为赛道，受开发时间与技术要求限制暂未实现；当前采用真实路网改编与简化三维场景，愿景和交付范围见[产品规格](docs/产品/产品规格.md)。本次项目完全使用 Three.js + Rapier + TypeScript + Vite；优先复用许可明确的成熟模型、场景与美术资产，项目独有的路网逃跑、追捕和评分逻辑由本项目实现。
 
 [在线游玩](https://kinoward.github.io/human-overdrive/) · [自动构建与发布记录](https://github.com/kinoward/human-overdrive/actions/workflows/deploy-pages.yml)
 
