@@ -48,9 +48,9 @@ export const CITIES: CityConfig[] = [
   {
     id: 'beijing',
     name: '北京',
-    district: '完整四环 · 主路与辅路',
+    district: '主路 · 辅路 · 连接匝道',
     available: true,
-    description: '沿原尺度完整四环驾驶，通过真实匝道切换主辅路；道路两侧保留简化城市建筑。',
+    description: '沿城市道路驾驶，通过连接匝道切换主辅路；道路两侧分布城市建筑。',
     coordinates: '39.99° N · 116.33° E',
     targetDistance: TARGET_DISTANCE,
   },

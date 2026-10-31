@@ -77,7 +77,7 @@ export class GameEngine {
   private flippedTime = 0;
   private drivingScore = new DrivingScore();
   private lastPosition = new THREE.Vector3();
-  private event = '沿四环自由驾驶，累计 20 公里即可逃脱';
+  private event = '沿城市道路自由驾驶，累计 20 公里即可逃脱';
   private eventTone: GameSnapshot['eventTone'] = 'neutral';
   private eventUntil = 0;
   private cameraPosition = new THREE.Vector3();
@@ -132,7 +132,7 @@ export class GameEngine {
     this.sun.shadow.camera.far = 240;
     this.sun.shadow.normalBias = 0.04;
     this.scene.add(this.sun, this.sun.target);
-    this.renderer.domElement.setAttribute('aria-label', '北京四环驾驶场景');
+    this.renderer.domElement.setAttribute('aria-label', '城市驾驶场景');
     this.renderer.domElement.tabIndex = 0;
     document.querySelector('#scene')!.append(this.renderer.domElement);
     this.mapCanvas.className = 'race-map';

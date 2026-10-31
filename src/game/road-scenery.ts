@@ -174,7 +174,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
         const at = sampleRoad(road, distance, side * (road.width / 2 + 1.2)).point;
         box(metal, at, 0.18, 7.2, 0.18, s.heading, 3.6);
       }
-      const material = new THREE.MeshStandardMaterial({ map: signTexture(road.name, '四环主路　　辅路出口注意右侧'), roughness: 0.65, side: THREE.DoubleSide });
+      const material = new THREE.MeshStandardMaterial({ map: signTexture('城市主路', '辅路出口注意右侧'), roughness: 0.65, side: THREE.DoubleSide });
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(road.width - 1, 12), 3), material);
       sign.position.set(s.point.x, s.point.y + 5.65, s.point.z);
       sign.rotation.y = s.heading + Math.PI;

@@ -25,9 +25,9 @@ interface StoredWorld {
 }
 
 export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: number, message: string) => Promise<void>): Promise<WorldData> {
-  await onProgress?.(0, '读取北京道路');
+  await onProgress?.(0, '读取城市道路');
   const response = await fetch(assetUrl('data/beijing-roads.json'));
-  if (!response.ok) throw new Error('北京道路加载失败，请重新进入关卡。');
+  if (!response.ok) throw new Error('道路加载失败，请重新进入关卡。');
   const stored = await response.json() as StoredWorld;
   const roads = buildBeijingRoads(stored.roads);
   const points = roads.flatMap(road => road.points);
@@ -82,7 +82,7 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   addVergeVariation(ground);
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
-  await onProgress?.(0.55, '铺设四环道路');
+  await onProgress?.(0.55, '铺设城市道路');
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
   addRoadDetails(roads, batch);
   await onProgress?.(0.65, '布置沿街场景');
@@ -99,7 +99,7 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   const north = mainRoads.flatMap(road => road.points.map((point, i) => ({ road, point, distance: road.cumulative[i] }))).filter(item => item.point.z < -6000 && item.point.x < 0 && Math.abs(item.point.y) < 0.05 && item.distance > 60 && item.distance < item.road.length - 250);
   const origin = north.reduce((best, item) => Math.hypot(item.point.x + 5100, item.point.z + 8700) < Math.hypot(best.point.x + 5100, best.point.z + 8700) ? item : best, north[0] ?? { road: mainRoads[0], point: mainRoads[0].points[0], distance: 0 });
   const spawn = sampleRoad(origin.road, origin.distance, roadCrossSection(origin.road).laneOffset(Math.floor(origin.road.lanes / 2)));
-  await onProgress?.(1, '北京场景准备完成');
+  await onProgress?.(1, '城市场景准备完成');
   return {
     roads, bounds, surfaces, mainLoopLength: mainRoads.reduce((length, road) => length + road.length, 0) / 2, obstacles,
     source: `${stored.source.name} · ${stored.source.osmTimestamp.slice(0, 10)} · 米制改编路网`, attribution: stored.attribution,

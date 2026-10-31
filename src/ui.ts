@@ -33,7 +33,7 @@ const distance = (value: number) => `${(value / 1000).toFixed(2)}`;
 const stars = (value: number) => `<span class="stars" aria-label="${value}星">${Array.from({ length: 10 }, (_, index) => `<span class="${index < value ? 'lit' : ''}" aria-hidden="true">★</span>`).join('')}</span>`;
 
 function roadMap(className = '', detailed = false) {
-  return `<img class="road-map ${className}" src="${assetUrl('data/beijing-map.svg')}" alt="北京完整四环主辅路地图${detailed ? '，北、东、南、西四环按真实线形连接' : ''}">`;
+  return `<img class="road-map ${className}" src="${assetUrl('data/beijing-map.svg')}" alt="城市主辅路地图${detailed ? '，包含主路、辅路与连接匝道' : ''}">`;
 }
 
 function vehicleArt(vehicle: VehicleConfig) {
@@ -395,12 +395,12 @@ export class GameUI {
   }
 
   private home() {
-    return `<main class="menu-stage home-main"><section class="title-menu"><p class="menu-location">北京 · 四环</p><h1 aria-label="人类超频 · 都市追逃">人类<span>超频</span><small class="game-subtitle">· 都市追逃</small></h1><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
+    return `<main class="menu-stage home-main"><section class="title-menu"><h1 aria-label="追逐最后的自由">追逐<span>最后的自由</span></h1><div class="title-actions"><button class="menu-button" data-action="cities"><span>开始游戏</span>${uiIcon('arrow-right')}</button><button class="menu-button menu-secondary" data-action="options">选项</button></div></section><button class="corner-sound" data-action="sound" aria-label="${this.muted ? '开启声音' : '关闭声音'}" aria-pressed="${this.muted}">${this.soundLabel()}</button></main>`;
   }
 
   private cityCardBody(city: CityConfig, active: boolean) {
     const summaries: Record<string, string> = {
-      beijing: '完整四环 · 主路与辅路',
+      beijing: '主路 · 辅路 · 连接匝道',
       shanghai: '黄浦江 · 城市高架',
       chongqing: '两江交汇 · 山城路网',
       tokyo: '东京湾 · 都市高速',
@@ -458,7 +458,7 @@ export class GameUI {
 
   private leaderboard() {
     const results = getLeaderboard(loadResults(), { cityId: 'beijing', vehicleId: this.boardVehicle, mode: this.boardMode });
-    return `<main class="page-main leaderboard-main"><div class="page-heading"><div><h1>排行榜</h1></div><p>成绩保存在当前浏览器。</p></div><div class="board-toolbar"><div class="segmented" role="group" aria-label="排行类型"><button class="${this.boardMode === 'time' ? 'selected' : ''}" data-action="mode" data-mode="time" aria-pressed="${this.boardMode === 'time'}">最快逃脱</button><button class="${this.boardMode === 'score' ? 'selected' : ''}" data-action="mode" data-mode="score" aria-pressed="${this.boardMode === 'score'}">车技得分</button></div><div class="board-filters"><span>北京 · 四环逃亡</span><select name="board-vehicle" aria-label="按车型筛选"><option value="">全部车型</option>${VEHICLES.map(vehicle => `<option value="${vehicle.id}" ${vehicle.id === this.boardVehicle ? 'selected' : ''}>${escapeHTML(vehicle.name)}</option>`).join('')}</select></div></div><div class="leaderboard-table"><div class="board-row board-labels"><span>名次</span><span>驾驶者 / 座驾</span><span>${this.boardMode === 'time' ? '逃脱用时' : '车技分'}</span><span>评级</span><span>最高完好警车</span><span>挑战日期</span></div>${results.length ? results.slice(0, 20).map((result, index) => `<div class="board-row ${index === 0 ? 'first-place' : ''}"><strong class="board-rank">${(index + 1).toString().padStart(2, '0')}</strong><span class="board-player"><strong>${escapeHTML(result.nickname)}</strong><small>${escapeHTML(VEHICLES.find(vehicle => vehicle.id === result.vehicleId)?.name ?? result.vehicleId)}${result.outcome !== 'escaped' ? ' · 未逃脱' : ''}</small></span><strong class="board-value">${this.boardMode === 'time' ? time(result.duration) : number(result.score)}</strong><span class="board-rating">${result.stars}<small> 星</small></span><span class="board-police">${result.maxPoliceCount} 辆</span><span class="board-date">${new Date(result.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span></div>`).join('') : `<div class="board-empty">${roadMap()}<span class="eyebrow subtle">这里还没有纪录</span><h2>暂无纪录</h2><p>完成挑战后，成绩保存在本机。</p><button class="button primary" data-action="garage">游玩 ${arrow}</button></div>`}</div>${this.storageNotice()}<div class="page-note"><span>${this.boardMode === 'time' ? '仅成功逃脱的成绩进入计时榜；跨车型用时仅供比较。' : '按星级、车技分排序；失败局最高 8 星，旧版成绩单独保留。'}</span><button data-action="rules">评分如何计算 ↗</button></div></main>`;
+    return `<main class="page-main leaderboard-main"><div class="page-heading"><div><h1>排行榜</h1></div><p>成绩保存在当前浏览器。</p></div><div class="board-toolbar"><div class="segmented" role="group" aria-label="排行类型"><button class="${this.boardMode === 'time' ? 'selected' : ''}" data-action="mode" data-mode="time" aria-pressed="${this.boardMode === 'time'}">最快逃脱</button><button class="${this.boardMode === 'score' ? 'selected' : ''}" data-action="mode" data-mode="score" aria-pressed="${this.boardMode === 'score'}">车技得分</button></div><div class="board-filters"><select name="board-vehicle" aria-label="按车型筛选"><option value="">全部车型</option>${VEHICLES.map(vehicle => `<option value="${vehicle.id}" ${vehicle.id === this.boardVehicle ? 'selected' : ''}>${escapeHTML(vehicle.name)}</option>`).join('')}</select></div></div><div class="leaderboard-table"><div class="board-row board-labels"><span>名次</span><span>驾驶者 / 座驾</span><span>${this.boardMode === 'time' ? '逃脱用时' : '车技分'}</span><span>评级</span><span>最高完好警车</span><span>挑战日期</span></div>${results.length ? results.slice(0, 20).map((result, index) => `<div class="board-row ${index === 0 ? 'first-place' : ''}"><strong class="board-rank">${(index + 1).toString().padStart(2, '0')}</strong><span class="board-player"><strong>${escapeHTML(result.nickname)}</strong><small>${escapeHTML(VEHICLES.find(vehicle => vehicle.id === result.vehicleId)?.name ?? result.vehicleId)}${result.outcome !== 'escaped' ? ' · 未逃脱' : ''}</small></span><strong class="board-value">${this.boardMode === 'time' ? time(result.duration) : number(result.score)}</strong><span class="board-rating">${result.stars}<small> 星</small></span><span class="board-police">${result.maxPoliceCount} 辆</span><span class="board-date">${new Date(result.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span></div>`).join('') : `<div class="board-empty">${roadMap()}<span class="eyebrow subtle">这里还没有纪录</span><h2>暂无纪录</h2><p>完成挑战后，成绩保存在本机。</p><button class="button primary" data-action="garage">游玩 ${arrow}</button></div>`}</div>${this.storageNotice()}<div class="page-note"><span>${this.boardMode === 'time' ? '仅成功逃脱的成绩进入计时榜；跨车型用时仅供比较。' : '按星级、车技分排序；失败局最高 8 星，旧版成绩单独保留。'}</span><button data-action="rules">评分如何计算 ↗</button></div></main>`;
   }
 
   private rules() {
@@ -485,7 +485,7 @@ export class GameUI {
     return `<main class="page-main result-main ${escaped ? 'result-success' : 'result-failed'}">
       <div class="result-layout">
         <section class="rating-panel" aria-label="本局结果与评级">
-          <div class="result-kicker"><span class="status-badge ${escaped ? '' : 'failed'}">${escaped ? '挑战完成' : '挑战结束'}</span><span>北京 · 四环逃亡</span></div>
+          <div class="result-kicker"><span class="status-badge ${escaped ? '' : 'failed'}">${escaped ? '挑战完成' : '挑战结束'}</span></div>
           <div class="result-heading"><h1>${title}</h1><p>${escaped ? `已完成 ${distance(result.targetDistance)} 公里目标里程` : `已完成 ${completion}% 目标里程`}</p><div class="result-completion" aria-hidden="true"><i style="width:${completion}%"></i></div></div>
           <div class="result-rating"><div class="rating-number"><b class="result-number" data-count="${result.stars}">${result.stars}</b><span>/ 10</span></div><div class="result-rating-copy"><span class="eyebrow subtle">本次车技评级</span>${stars(result.stars)}<h2>${rating}</h2></div></div>
           <p class="result-driver"><strong>${escapeHTML(result.nickname)}</strong><span>${escapeHTML(vehicle.name)}</span></p>

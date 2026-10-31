@@ -7,7 +7,7 @@ function shopSigns() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024; canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
-  const names = ['四环便利', '京北书店', '晨光面馆', '街角咖啡', '城市花房', '顺路生鲜', '邻里食堂', '远行车品'];
+  const names = ['街角便利', '京北书店', '晨光面馆', '街角咖啡', '城市花房', '顺路生鲜', '邻里食堂', '远行车品'];
   const colors = ['#49615b', '#4c5962', '#8b5b43', '#4d4540', '#62715d', '#657368', '#826853', '#535e67'];
   for (let i = 0; i < names.length; i++) {
     const x = i % 2 * 512, y = Math.floor(i / 2) * 128;
