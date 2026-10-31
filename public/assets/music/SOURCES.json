@@ -1,0 +1,65 @@
+{
+  "title": "《给我闹》《细妹细狗》《匹配の小曲》完整版 争取最后的自由BGM 美国警车の小曲",
+  "sourceUrl": "https://www.bilibili.com/video/BV1HWup6tEJz/",
+  "uploader": "MMD老狼",
+  "bvid": "BV1HWup6tEJz",
+  "cid": 40658471374,
+  "retrievedDate": "2026-10-31",
+  "sourceDurationSeconds": 499.787279,
+  "sourceSha256": "1b18d901d6e042eebfc145deede21d61f02f6184095c29f7b8e4b34e01fd5cec",
+  "sourceDescription": "投稿简介说明此版本为两首曲子的拼接。视频上传者不是原曲作者；精确混音版本未确认。",
+  "rightsStatus": "未找到允许游戏再分发的公开许可；不标为原创、CC0或已获商用授权。视频注明未经作者授权禁止转载，简介要求不要在其他音乐平台二次发布或收费。用户指定的Demo配乐来源记录不替代权利人授权。",
+  "processing": "原始AAC音轨统一导出AAC-LC、160kbps、44.1kHz立体声、M4A faststart；保留完整编曲与速度，循环段端点各作12毫秒淡变，结算段尾0.8至1秒淡出。分段按实际源文件波形、节奏及能量选择，仍需人工听感调校。",
+  "files": [
+    {
+      "file": "freedom-full.m4a",
+      "sourceStartSeconds": 0,
+      "sourceEndSeconds": 499.787279,
+      "durationSeconds": 499.787279,
+      "bytes": 10421917,
+      "sha256": "2fff07853896645f50027bc816fe8ce1ffc0e0716119b38286c36fcac33a316f",
+      "usage": "主界面、城市、选车与其他菜单，完整播放并循环",
+      "loop": true
+    },
+    {
+      "file": "freedom-drive.m4a",
+      "sourceStartSeconds": 90.35,
+      "sourceEndSeconds": 120.35,
+      "durationSeconds": 30.0,
+      "bytes": 622705,
+      "sha256": "0d1ab987b52cde65df314f7f6065a7f288e0960a74e32ba1ef5be782f0de7814",
+      "usage": "比赛警告0至2级，节奏段循环",
+      "loop": true
+    },
+    {
+      "file": "freedom-pursuit.m4a",
+      "sourceStartSeconds": 127.55,
+      "sourceEndSeconds": 180.05,
+      "durationSeconds": 52.5,
+      "bytes": 1085667,
+      "sha256": "05209c2b35d9c5cddeb33ca4f6cd98339f8c46092e0c1922f9966448e012f2ab",
+      "usage": "比赛警告3至5级，高能段循环",
+      "loop": true
+    },
+    {
+      "file": "freedom-escaped.m4a",
+      "sourceStartSeconds": 240.1,
+      "sourceEndSeconds": 251.35,
+      "durationSeconds": 11.25,
+      "bytes": 231529,
+      "sha256": "59ff9ccaaa635d633a49ffefc25a34757e9e079a11f734a38e3383ff76f84e93",
+      "usage": "逃脱成功结算，播放一次",
+      "loop": false
+    },
+    {
+      "file": "freedom-failed.m4a",
+      "sourceStartSeconds": 180.1,
+      "sourceEndSeconds": 187.6,
+      "durationSeconds": 7.5,
+      "bytes": 152218,
+      "sha256": "722792b66534d94560cd25bb8fb815404b5c85b09604c9bd3f96c287da1dcc4b",
+      "usage": "翻车或围堵失败结算，播放一次",
+      "loop": false
+    }
+  ]
+}

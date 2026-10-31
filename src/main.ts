@@ -2,20 +2,22 @@ import './style.css';
 import { GameUI } from './ui';
 import { GameEngine } from './game/engine';
 import { saveResult } from './game/storage';
+import { MusicController } from './game/music';
 
 let engine: GameEngine | undefined;
+const music = new MusicController();
 const ui = new GameUI({
-  onStart: (vehicleId, nickname) => engine?.start(vehicleId, nickname),
+  onStart: (vehicleId, nickname) => { music.startRace(); engine?.start(vehicleId, nickname) },
   onPause: () => engine?.pause(),
   onResume: () => engine?.resume(),
-  onRestart: () => engine?.restart(),
-  onLeave: () => engine?.leave(),
-  onSound: muted => engine?.setMuted(muted),
+  onRestart: () => { music.startRace(); engine?.restart() },
+  onLeave: () => { engine?.leave(); music.showMenu() },
+  onSound: muted => { engine?.setMuted(muted); music.setMuted(muted) },
 });
 
 async function boot() {
   try {
-    engine = new GameEngine(snapshot => ui.update(snapshot), result => { saveResult(result); ui.showResult(result) });
+    engine = new GameEngine(snapshot => { music.update(snapshot); ui.update(snapshot) }, result => { music.finish(result.outcome); saveResult(result); ui.showResult(result) });
     await engine.init();
     ui.setReady();
   } catch (error) {
