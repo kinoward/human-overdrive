@@ -134,14 +134,23 @@ export class GameEngine {
     this.resize();
   }
 
-  async init() {
-    await Promise.all([RAPIER.init(), loadGeneratedAssets(), loadTrafficModels()]);
+  async init(onProgress?: (progress: number, message: string) => Promise<void>) {
+    await onProgress?.(0.05, '加载车辆与场景模型');
+    let physicsReady = 0, modelsProgress = 0, trafficReady = 0;
+    const reportAssets = async () => { await onProgress?.(0.05 + (physicsReady + modelsProgress + trafficReady) / 3 * 0.4, '加载车辆与场景模型'); };
+    await Promise.all([
+      RAPIER.init().then(async () => { physicsReady = 1; await reportAssets(); }),
+      loadGeneratedAssets(async (loaded, total) => { modelsProgress = loaded / total; await reportAssets(); }),
+      loadTrafficModels().then(async () => { trafficReady = 1; await reportAssets(); }),
+    ]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = 1 / 60;
     this.events = new RAPIER.EventQueue(true);
-    this.track = await buildWorld(this.scene);
+    this.track = await buildWorld(this.scene, async (progress, message) => { await onProgress?.(0.45 + progress * 0.4, message); });
+    await onProgress?.(0.87, '准备道路碰撞');
     this.collisionSystem = new CollisionSystem(this.physics, this.events);
     for (const surface of this.track.surfaces) this.physics.createCollider(RAPIER.ColliderDesc.trimesh(surface.vertices, surface.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.9).setCollisionGroups(ROAD_GROUPS));
+    await onProgress?.(0.92, '准备空域与道路边界');
     this.airspace = new Airspace(this.physics);
     this.airspace.addScene(this.scene);
     for (const obstacle of this.track.obstacles ?? []) {
@@ -151,6 +160,7 @@ export class GameEngine {
     }
     this.updateRoadColliders(this.track.spawn.position);
     this.renderer.domElement.dataset.course = JSON.stringify({ mainLoopKm: this.track.mainLoopLength / 1000, roads: this.track.roads.length, source: this.track.source });
+    await onProgress?.(0.97, '准备驾驶场景');
     this.preview = createVehicleModel(VEHICLES[0]);
     for (const wheel of this.preview.wheels) wheel.position.y = -0.49;
     this.preview.group.position.set(this.track.spawn.position.x, this.track.spawn.position.y + 0.85, this.track.spawn.position.z);

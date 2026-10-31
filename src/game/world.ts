@@ -21,7 +21,8 @@ interface StoredWorld {
   mainLoopLength: number;
 }
 
-export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
+export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: number, message: string) => Promise<void>): Promise<WorldData> {
+  await onProgress?.(0, '读取北京道路');
   const response = await fetch(`${import.meta.env.BASE_URL}data/beijing-roads.json`);
   if (!response.ok) throw new Error('北京道路加载失败，请重新进入关卡。');
   const stored = await response.json() as StoredWorld;
@@ -33,21 +34,30 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const points = roads.flatMap(road => road.points);
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (const point of points) { bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x); bounds.minZ = Math.min(bounds.minZ, point.z); bounds.maxZ = Math.max(bounds.maxZ, point.z) }
+  await onProgress?.(0.1, '加载道路材质与天空');
   const loader = new THREE.TextureLoader();
+  let loadedTextures = 0;
+  const textureLoaded = async () => {
+    loadedTextures++;
+    await onProgress?.(0.1 + loadedTextures / 7 * 0.35, `加载道路材质与天空（${loadedTextures}/7）`);
+  };
   const load = async (path: string, color = false) => {
     const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/art/${path}`);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 8;
     if (color) texture.colorSpace = THREE.SRGBColorSpace;
+    await textureLoaded();
     return texture;
   };
   const [asphaltMap, asphaltNormal, asphaltRough, concreteMap, concreteNormal, concreteRough, environment] = await Promise.all([
     load('Textures/Asphalt02/asphalt_02_diff_2k.jpg', true), load('Textures/Asphalt02/asphalt_02_nor_gl_2k.png'), load('Textures/Asphalt02/asphalt_02_rough_2k.jpg'),
     load('Textures/ConcreteWall006/concrete_wall_006_diff_2k.jpg', true), load('Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.png'), load('Textures/ConcreteWall006/concrete_wall_006_rough_2k.jpg'),
-    new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/art/Environment/venice_sunset_2k.hdr`)
+    new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/art/Environment/venice_sunset_2k.hdr`).then(async texture => { await textureLoaded(); return texture; })
   ]);
+  await onProgress?.(0.45, '加载中文字体');
   const font = new FontFace('Source Han Sans', `url(${import.meta.env.BASE_URL}assets/art/Fonts/SourceHanSansCN-Regular.otf)`);
   document.fonts.add(await font.load());
+  await onProgress?.(0.5, '准备天空与地面');
   environment.mapping = THREE.EquirectangularReflectionMapping;
   const skyTexture = createDrivingAtmosphere(scene);
   scene.environment = environment;
@@ -73,11 +83,16 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   addVergeVariation(ground);
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
+  await onProgress?.(0.55, '铺设四环道路');
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
   addRoadDetails(roads, batch);
+  await onProgress?.(0.65, '布置沿街场景');
   const frontageOccupied = addUrbanFrontage(roads, batch);
+  await onProgress?.(0.75, '布置楼体与绿化');
   const city = addCityScenery(roads, batch, frontageOccupied, placement => addStreetFurniture(roads, batch, placement));
+  await onProgress?.(0.85, '补充建筑立面');
   for (const building of city.buildings) if (building.type !== 'office-block') addBuildingFacades(batch, { ...building, type: building.type });
+  await onProgress?.(0.95, '整理场景');
   const surfaces = batch.finish();
   group.add(new THREE.HemisphereLight('#e4edf5', '#7e806d', 1.8));
   scene.add(group);
@@ -85,6 +100,7 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const north = mainRoads.flatMap(road => road.points.map((point, i) => ({ road, point, distance: road.cumulative[i] }))).filter(item => item.point.z < -6000 && item.point.x < 0 && Math.abs(item.point.y) < 0.05 && item.distance > 60 && item.distance < item.road.length - 250);
   const origin = north.reduce((best, item) => Math.hypot(item.point.x + 5100, item.point.z + 8700) < Math.hypot(best.point.x + 5100, best.point.z + 8700) ? item : best, north[0] ?? { road: mainRoads[0], point: mainRoads[0].points[0], distance: 0 });
   const spawn = sampleRoad(origin.road, origin.distance, origin.road.width / 8);
+  await onProgress?.(1, '北京场景准备完成');
   return {
     roads, bounds, surfaces, mainLoopLength: stored.mainLoopLength, obstacles,
     source: `${stored.source.name} · ${stored.source.osmTimestamp.slice(0, 10)} · 1:1 米制路网`, attribution: stored.attribution,

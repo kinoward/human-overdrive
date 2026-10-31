@@ -15,15 +15,9 @@ const ui = new GameUI({
   onSound: muted => { engine?.setMuted(muted); music.setMuted(muted) },
 });
 
-async function boot() {
-  try {
-    engine = new GameEngine(snapshot => { music.update(snapshot); ui.update(snapshot) }, result => { music.finish(result.outcome); saveResult(result); ui.showResult(result) });
-    await engine.init();
-    ui.setReady();
-  } catch (error) {
-    console.error('游戏启动失败', error);
-    ui.showError(error instanceof Error ? `游戏启动失败：${error.message}` : '游戏启动失败，请刷新重试');
-  }
+export async function boot(onProgress: (progress: number, message: string) => Promise<void>) {
+  await onProgress(0.02, '准备驾驶环境');
+  engine = new GameEngine(snapshot => { music.update(snapshot); ui.update(snapshot) }, result => { music.finish(result.outcome); saveResult(result); ui.showResult(result) });
+  await engine.init(onProgress);
+  ui.setReady();
 }
-
-void boot();

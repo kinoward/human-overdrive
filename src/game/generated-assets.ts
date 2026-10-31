@@ -20,9 +20,11 @@ function floatGeometry(source: THREE.BufferGeometry) {
   return geometry;
 }
 
-export async function loadGeneratedAssets() {
+export async function loadGeneratedAssets(onProgress?: (loaded: number, total: number) => Promise<void>) {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  await Promise.all((['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree', 'lush-shrub', 'bus-shelter'] as const).map(async name => {
+  const names = ['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree', 'lush-shrub', 'bus-shelter'] as const;
+  let loaded = 0;
+  await Promise.all(names.map(async name => {
     const asset = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/generated/${name}.glb`);
     asset.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -44,6 +46,7 @@ export async function loadGeneratedAssets() {
       }
     });
     models.set(name, asset.scene);
+    await onProgress?.(++loaded, names.length);
   }));
 }
 
