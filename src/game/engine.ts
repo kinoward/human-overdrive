@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CITIES, HELICOPTER_COUNTS, POLICE_COUNTS, VEHICLES } from '../config';
-import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleConfig, VehicleId, WorldData } from '../types';
+import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleId, WorldData } from '../types';
 import { buildWorld, nearestRoad } from './world';
 import { PhysicsVehicle } from './physics';
 import { createVehicleModel } from './models';
@@ -14,6 +14,8 @@ import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-gro
 import { buildResult, calculateScore, getWarning } from './rules';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
+import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
+import { createTrafficVehicleModel, loadTrafficModels } from './traffic-models';
 import { ArcadeCameraMotion } from './camera-motion';
 import { RenderPose } from './render-pose';
 import { loadGeneratedAssets } from './generated-assets';
@@ -22,10 +24,11 @@ import { VehicleDamage } from './vehicle-damage';
 interface TrafficCar {
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
-  model: ReturnType<typeof createVehicleModel>;
+  model: ReturnType<typeof createTrafficVehicleModel>;
   driver: TrafficAgent;
   encounter: number;
   collided: boolean;
+  appearance: number;
   pose: RenderPose;
   damage?: VehicleDamage;
 }
@@ -133,7 +136,7 @@ export class GameEngine {
   }
 
   async init() {
-    await Promise.all([RAPIER.init(), loadGeneratedAssets()]);
+    await Promise.all([RAPIER.init(), loadGeneratedAssets(), loadTrafficModels()]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = 1 / 60;
     this.events = new RAPIER.EventQueue(true);
@@ -281,19 +284,19 @@ export class GameEngine {
   private spawnTraffic() {
     const palette = ['#d6d8ce', '#7f9a98', '#374550', '#c6aa84', '#8a929a', '#c1b5a7'];
     this.trafficSimulation = new TrafficSimulation(this.track.roads);
-    for (let i = 0; i < 34; i++) {
-      const config: VehicleConfig = { ...VEHICLES[0], color: palette[i % palette.length], name: '城市交通', mass: 1550, length: VEHICLES[0].length };
-      const driver = this.trafficSimulation.addCar(i, config.length, config.width, this.player!.body.translation());
+    const focus = { position: this.player!.body.translation(), heading: this.player!.heading, speed: 0, lookBack: false };
+    for (let i = 0; i < TRAFFIC_COUNT; i++) {
+      const profile = trafficVehicleForSlot(i);
+      const driver = this.trafficSimulation.addCar(i, profile, focus);
       if (!driver) continue;
-      const model = createVehicleModel(config);
-      for (const wheel of model.wheels) wheel.position.y = -0.43;
+      const model = createTrafficVehicleModel(profile, palette[i % palette.length]);
       const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(driver.pitch, driver.heading, 0, 'YXZ'));
       const position = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
       const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z).setRotation(rotation));
-      const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(config.width * 0.5, 0.42, config.length * 0.5).setFriction(0.3).setRestitution(0.08).setCollisionGroups(GROUND_BODY_GROUPS), body);
+      const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(profile.width * 0.5, Math.max(0.25, (profile.height - 0.32) * 0.5), profile.length * 0.5).setTranslation(0, profile.height * 0.5 - 0.79, 0).setFriction(0.3).setRestitution(0.08).setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(profile.mass * 0.4), body);
       this.scene.add(model.group);
       model.group.position.copy(position); model.group.quaternion.copy(rotation);
-      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false, pose: new RenderPose(model.group) });
+      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false, appearance: 1, pose: new RenderPose(model.group) });
     }
   }
 
@@ -418,12 +421,13 @@ export class GameEngine {
       position: vehicle.body.translation(), velocity: vehicle.body.linvel(), heading: vehicle.heading,
       length: vehicle.config.length, width: vehicle.config.width,
     }));
-    this.trafficSimulation.update(dt, this.player.body.translation(), obstacles);
+    this.trafficSimulation.update(dt, { position: this.player.body.translation(), heading: this.player.heading, speed: this.player.speed, lookBack: this.lookBack, velocity: this.player.body.linvel() }, obstacles);
     for (const actor of this.traffic) {
       const driver = actor.driver;
       const translation = { x: driver.position.x, y: driver.position.y + 0.79, z: driver.position.z };
       const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(driver.pitch, driver.heading, 0, 'YXZ'));
       if (driver.relocated) {
+        actor.appearance = 0;
         actor.damage?.dispose();
         actor.damage = undefined;
         actor.body.setTranslation(translation, true);
@@ -431,6 +435,8 @@ export class GameEngine {
         actor.pose.snap(translation, rotation);
         actor.encounter = Infinity; actor.collided = false;
       }
+      actor.appearance = Math.min(1, actor.appearance + dt / 1.5);
+      actor.model.setOpacity(actor.appearance);
       actor.body.setNextKinematicTranslation(translation);
       actor.body.setNextKinematicRotation(rotation);
       for (const light of actor.model.brakeLights) (light.material as THREE.MeshStandardMaterial).emissiveIntensity = driver.braking ? 3 : 0.7;
@@ -509,7 +515,7 @@ export class GameEngine {
       if (Math.abs(position.y - p.y) > 2) { actor.encounter = Infinity; continue }
       if (distance < 9 && this.player.speed > actor.driver.speed + 4) actor.encounter = Math.min(actor.encounter, distance);
       if (distance > 10 && actor.encounter < Infinity) {
-        if (!actor.collided && actor.encounter > this.player.config.width * 0.5 + 0.8 && actor.encounter < this.player.config.width * 0.5 + 2.3) {
+        if (!actor.collided && actor.encounter > (this.player.config.width + actor.driver.width) * 0.5 + 0.1 && actor.encounter < (this.player.config.width + actor.driver.width) * 0.5 + 1.6) {
           this.metrics.nearMisses++;
           this.combo++;
           this.message(`干净擦身 +1 · ${this.combo > 1 ? `${this.combo} 连击` : '漂亮的超越'}`, 'good', 2.5);
@@ -543,6 +549,20 @@ export class GameEngine {
     const score = calculateScore(this.metrics);
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
     this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), capture: this.capture, collisions: this.metrics.collisions });
+    if (this.player) {
+      const position = this.player.body.translation(), heading = this.player.heading;
+      const types: Record<string, number> = {};
+      let nearby = 0, ahead = 0;
+      for (const actor of this.traffic) {
+        const driver = actor.driver, dx = driver.position.x - position.x, dz = driver.position.z - position.z;
+        types[driver.profile.id] = (types[driver.profile.id] ?? 0) + 1;
+        if (Math.hypot(dx, dz) < 260 && Math.abs(driver.position.y + 0.79 - position.y) < 2.2) {
+          nearby++;
+          if (dx * Math.sin(heading) + dz * Math.cos(heading) > 15 && Math.cos(driver.heading - heading) > 0.6) ahead++;
+        }
+      }
+      this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types });
+    }
     this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, heat: this.heat, warning: getWarning(this.heat), policeCount: this.police.length, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 

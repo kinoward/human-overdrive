@@ -122,7 +122,7 @@ export class TrafficRightOfWay {
       lane = this.network.mappedLane(leg, next, offset);
       leg = next;
       distance += leg.length;
-      next = this.network.next(leg, lane, agent.id + agent.visits + count + 1);
+      next = this.network.next(leg, lane, agent.id + agent.visits + count + 1, agent.profile);
     }
     return undefined;
   }
@@ -139,7 +139,7 @@ export class TrafficRightOfWay {
   private exitClear(request: EntryRequest, cars: TrafficAgent[], obstacles: TrafficObstacle[]) {
     let leg = request.leg, lane = 0;
     for (let count = 0; count < 48; count++) {
-      const next = this.network.next(leg, lane, request.agent.id + request.visits + count);
+      const next = this.network.next(leg, lane, request.agent.id + request.visits + count, request.agent.profile);
       if (!next) return false;
       lane = this.network.mappedLane(leg, next, laneOffset(leg, lane));
       if (next.road !== request.leg.road) {

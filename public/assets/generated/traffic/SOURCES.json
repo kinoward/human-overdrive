@@ -1,0 +1,106 @@
+{
+  "platform": "Tripo Studio",
+  "model": "H3.1",
+  "date": "2026-10-31",
+  "terms": "https://www.tripo3d.ai/terms",
+  "attribution": "本项目通过主办方提供的Tripo资源生成，保留平台来源，不宣称CC0或真实品牌的精确车型。",
+  "preparation": [
+    "官方文字生成几何，并独立生成2K材质。",
+    "GLB实际正反方向检视确认车头为+Z，Y向上，地面minY=0，长向居中；按游戏车型目标长宽高归一。",
+    "每车1个body网格、1材质、1张2K WebP纹理，使用Meshopt压缩；车轮仍包含于body，不宣称已有独立转动轮轴。"
+  ],
+  "sourcePrompts": {
+    "box-truck": "现代中国城市物流大型刚性厢式货车，平头驾驶室，封闭货厢，三轴六轮，完整单车，简化写实，独立清楚的轮胎，无拖挂、人物、地面、文字和商标。",
+    "delivery-van": "现代城市配送厢式货车，高顶封闭物流车，四个轮胎，短车头，完整单车，简化写实，无人物、地面、文字和商标；实际输出为独立驾驶室与货厢的小型配送车。",
+    "city-bus": "现代中国城市低地板公交巴士，绿色与白色车身，非铰接刚性车体，两轴四轮，连续侧窗与前中门，完整单车，简化写实，无乘客、文字、线路号和商标。"
+  },
+  "assets": [
+    {
+      "file": "box-truck.glb",
+      "bytes": 323404,
+      "triangles": 15931,
+      "materials": 1,
+      "textures": 1,
+      "dimensions": {
+        "length": 9.2,
+        "width": 2.5,
+        "height": 3.5
+      },
+      "front": "+Z",
+      "ground": "minY=0",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/fc1abe30-9d77-419d-b75c-06439b8b3abb",
+      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "bounds": {
+        "min": [
+          -1.250129677747521,
+          0.00009922143482876677,
+          -4.599999904632568
+        ],
+        "max": [
+          1.250129677747521,
+          3.4999007785651712,
+          4.599999904632568
+        ]
+      },
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+    },
+    {
+      "file": "delivery-van.glb",
+      "bytes": 275696,
+      "triangles": 15048,
+      "materials": 1,
+      "textures": 1,
+      "dimensions": {
+        "length": 5.5,
+        "width": 2.05,
+        "height": 2.5
+      },
+      "front": "+Z",
+      "ground": "minY=0",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/6302f7b8-0382-4895-95e3-5e5b7fb7788a",
+      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "bounds": {
+        "min": [
+          -1.0249870296334727,
+          0.00009155552842798897,
+          -2.75
+        ],
+        "max": [
+          1.0249870296334727,
+          2.499908444471572,
+          2.75
+        ]
+      },
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+    },
+    {
+      "file": "city-bus.glb",
+      "bytes": 259892,
+      "triangles": 14696,
+      "materials": 1,
+      "textures": 1,
+      "dimensions": {
+        "length": 10.5,
+        "width": 2.5,
+        "height": 3.2
+      },
+      "front": "+Z",
+      "ground": "minY=0",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/2768afbc-b88f-4789-86b9-1a4d44903af0",
+      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "bounds": {
+        "min": [
+          -1.249732963042085,
+          0.00018160897324004388,
+          -5.25
+        ],
+        "max": [
+          1.249732963042085,
+          3.1998184387104756,
+          5.25
+        ]
+      },
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+    }
+  ]
+}

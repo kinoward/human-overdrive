@@ -1,5 +1,7 @@
 import type { Point3, RoadPath } from '../types';
-import { sampleRoad } from './road-network';
+import { nearestRoad, sampleRoad } from './road-network';
+import type { TrafficFocus } from './traffic';
+import type { TrafficVehicleSpec } from './traffic-vehicles';
 
 export interface TrafficLeg {
   id: number;
@@ -16,6 +18,10 @@ export const clamp = (value: number, min: number, max: number) => Math.max(min, 
 export const angleDifference = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const key = (point: Point3) => `${point.x.toFixed(2)},${point.y.toFixed(2)},${point.z.toFixed(2)}`;
 
+export function travelHeading(focus: TrafficFocus) {
+  return focus.speed > 3 && focus.velocity && Math.hypot(focus.velocity.x, focus.velocity.z) > 1 ? Math.atan2(focus.velocity.x, focus.velocity.z) : focus.heading;
+}
+
 export function laneCount(leg: TrafficLeg) {
   return leg.road.oneWay ? Math.max(1, leg.road.lanes) : Math.max(1, Math.floor(leg.road.lanes / 2));
 }
@@ -30,9 +36,11 @@ export class TrafficNetwork {
   private outgoing = new Map<string, TrafficLeg[]>();
   private incoming = new Map<string, TrafficLeg[]>();
   private narrowExits = new Map<number, boolean>();
+  private profileLegs = new Map<string, Set<number>>();
+  private roadCurvature = new Map<string, number>();
   private cells = new Map<string, { leg: TrafficLeg; along: number }[]>();
 
-  constructor(roads: RoadPath[]) {
+  constructor(private roads: RoadPath[]) {
     for (const road of roads) {
       const junctions = new Set(road.junctions.map(junction => key(junction.point)));
       const cuts = [0];
@@ -112,10 +120,71 @@ export class TrafficNetwork {
     return false;
   }
 
-  next(leg: TrafficLeg, lane: number, seed: number): TrafficLeg | undefined {
+  private fits(leg: TrafficLeg, profile: TrafficVehicleSpec) {
+    const width = leg.road.width / (leg.road.oneWay ? laneCount(leg) : laneCount(leg) * 2);
+    if (width < profile.width + (profile.heavy ? 0.45 : 0.15)) return false;
+    if (!profile.heavy) return true;
+    if (!leg.road.oneWay && leg.road.lanes === 1) return false;
+    if (leg.road.kind !== 'ramp') return true;
+    if (leg.road.length < Math.max(40, profile.length * 5)) return false;
+    let curvature = this.roadCurvature.get(leg.road.id);
+    if (curvature === undefined) {
+      curvature = 0;
+      for (let i = 1; i < leg.road.points.length - 1; i++) {
+        const a = leg.road.points[i - 1], b = leg.road.points[i], c = leg.road.points[i + 1];
+        const incoming = Math.atan2(b.x - a.x, b.z - a.z), outgoing = Math.atan2(c.x - b.x, c.z - b.z);
+        const span = Math.max(1, (Math.hypot(b.x - a.x, b.z - a.z) + Math.hypot(c.x - b.x, c.z - b.z)) / 2);
+        curvature = Math.max(curvature, Math.abs(angleDifference(outgoing, incoming)) / span);
+      }
+      this.roadCurvature.set(leg.road.id, curvature);
+    }
+    return curvature < 1 / Math.max(15, profile.length * 2.1);
+  }
+
+  private profileConnects(from: TrafficLeg, to: TrafficLeg, profile?: TrafficVehicleSpec) {
+    if (!this.connects(from, to)) return false;
+    if (!profile?.heavy) return true;
+    const a = this.sample(from, Math.max(0, from.length - 2), 0).heading;
+    const b = this.sample(to, Math.min(2, to.length), 0).heading;
+    return Math.abs(angleDifference(a, b)) < 0.85;
+  }
+
+  allows(leg: TrafficLeg, profile?: TrafficVehicleSpec) {
+    if (!profile) return true;
+    if (!this.fits(leg, profile)) return false;
+    if (!profile.heavy) return true;
+    let viable = this.profileLegs.get(profile.id);
+    if (!viable) {
+      viable = new Set(this.legs.filter(candidate => this.fits(candidate, profile)).map(candidate => candidate.id));
+      const counts = new Map<number, number>(), predecessors = new Map<number, number[]>();
+      for (const id of viable) {
+        const current = this.legs[id];
+        const next = (this.outgoing.get(current.to) ?? []).filter(candidate => viable!.has(candidate.id) && this.profileConnects(current, candidate, profile));
+        counts.set(id, next.length);
+        for (const candidate of next) {
+          if (!predecessors.has(candidate.id)) predecessors.set(candidate.id, []);
+          predecessors.get(candidate.id)!.push(id);
+        }
+      }
+      const queue = [...viable].filter(id => counts.get(id) === 0);
+      while (queue.length) {
+        const id = queue.pop()!;
+        viable.delete(id);
+        for (const previous of predecessors.get(id) ?? []) {
+          const remaining = counts.get(previous)! - 1;
+          counts.set(previous, remaining);
+          if (remaining === 0) queue.push(previous);
+        }
+      }
+      this.profileLegs.set(profile.id, viable);
+    }
+    return viable.has(leg.id);
+  }
+
+  next(leg: TrafficLeg, lane: number, seed: number, profile?: TrafficVehicleSpec): TrafficLeg | undefined {
     const heading = this.sample(leg, Math.max(0, leg.length - 2), 0).heading;
     const options = (this.outgoing.get(leg.to) ?? []).filter(next => {
-      if (!this.connects(leg, next) || !this.canExitNarrow(next)) return false;
+      if (!this.profileConnects(leg, next, profile) || !this.canExitNarrow(next) || !this.allows(next, profile)) return false;
       const turn = angleDifference(this.sample(next, Math.min(2, next.length), 0).heading, heading);
       if (next.road.kind === 'ramp' && leg.road.kind !== 'ramp' && laneCount(leg) > 1) return turn < 0 ? lane === 0 : lane === laneCount(leg) - 1;
       return true;
@@ -125,22 +194,81 @@ export class TrafficNetwork {
     options.sort((a, b) => score(a) - score(b));
     const branches = options.filter(next => next.road.kind === 'ramp' && next.road !== leg.road);
     const random = ((Math.imul(seed + 31, 1103515245) >>> 0) % 1000) / 1000;
-    if (branches.length && options[0].road.kind !== 'ramp' && random < 0.13) return branches[seed % branches.length];
+    if (branches.length && options[0].road.kind !== 'ramp' && random < (profile?.heavy ? 0.04 : 0.13)) return branches[seed % branches.length];
     return options[0];
   }
 
-  spawnCandidates(focus: Point3, seed: number) {
-    const cx = Math.floor(focus.x / 256), cz = Math.floor(focus.z / 256);
-    const candidates: { leg: TrafficLeg; along: number }[] = [];
-    for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) {
-      for (const candidate of this.cells.get(`${x},${z}`) ?? []) {
-        const point = this.sample(candidate.leg, candidate.along, 0).point;
-        const distance = Math.hypot(point.x - focus.x, point.z - focus.z);
-        if (distance > 125 && distance < 560 && Math.abs(point.y + 0.79 - focus.y) < 15 && candidate.leg.length > 12 && candidate.along > 6 && candidate.leg.length - candidate.along > 6) candidates.push(candidate);
+  private previous(leg: TrafficLeg, profile: TrafficVehicleSpec) {
+    const heading = this.sample(leg, Math.min(2, leg.length), 0).heading;
+    return (this.incoming.get(leg.from) ?? []).filter(previous => this.profileConnects(previous, leg, profile) && this.allows(previous, profile)).sort((a, b) => {
+      const score = (candidate: TrafficLeg) => Math.abs(angleDifference(this.sample(candidate, Math.max(0, candidate.length - 2), 0).heading, heading)) + (candidate.road === leg.road ? -1 : 0);
+      return score(a) - score(b);
+    })[0];
+  }
+
+  anchor(focus: TrafficFocus) {
+    const near = nearestRoad(this.roads, focus.position.x, focus.position.z, focus.position.y - 0.79);
+    if (!near) return undefined;
+    const sample = sampleRoad(near.road, near.distance);
+    const sign = near.road.oneWay || Math.cos(travelHeading(focus) - sample.heading) >= 0 ? 1 : -1;
+    const leg = this.legs.find(candidate => candidate.road === near.road && candidate.sign === sign && near.distance >= Math.min(candidate.start, candidate.end) - 0.01 && near.distance <= Math.max(candidate.start, candidate.end) + 0.01);
+    return leg ? { leg, along: (near.distance - leg.start) * leg.sign, observedSign: Math.cos(travelHeading(focus) - this.sample(leg, 0, 0).heading) >= 0 ? 1 : -1 } : undefined;
+  }
+
+  private walk(leg: TrafficLeg, along: number, distance: number, lane: number, seed: number, profile: TrafficVehicleSpec) {
+    along += distance;
+    for (let count = 0; count < 64; count++) {
+      if (along >= 0 && along < leg.length) return { leg, along };
+      if (along >= leg.length) {
+        const next = this.next(leg, lane, seed + count, profile);
+        if (!next) return undefined;
+        along -= leg.length;
+        lane = this.mappedLane(leg, next, laneOffset(leg, Math.min(lane, laneCount(leg) - 1)));
+        leg = next;
+      } else {
+        const previous = this.previous(leg, profile);
+        if (!previous) return undefined;
+        along += previous.length;
+        leg = previous;
+        lane = Math.min(lane, laneCount(leg) - 1);
       }
     }
-    if (!candidates.length) return candidates;
-    const rotation = (seed * 37) % candidates.length;
-    return [...candidates.slice(rotation), ...candidates.slice(0, rotation)];
+    return undefined;
+  }
+
+  spawnCandidates(focus: TrafficFocus, seed: number, profile: TrafficVehicleSpec, replenishing: boolean) {
+    const candidates: { leg: TrafficLeg; along: number; primary: boolean; observedDistance: number; priority: number }[] = [];
+    const anchor = this.anchor(focus);
+    if (anchor && this.allows(anchor.leg, profile)) {
+      const start = replenishing ? 220 : anchor.leg.road.kind === 'main' ? 55 : 42;
+      const end = replenishing ? 420 : anchor.leg.road.kind === 'main' ? 460 : 210;
+      const target = start + (seed % 8) * (end - start) / 8;
+      const lane = profile.heavy ? laneCount(anchor.leg) - 1 : seed % laneCount(anchor.leg);
+      for (let distance = start; distance <= end; distance += 17) {
+        const candidate = this.walk(anchor.leg, anchor.along, distance * anchor.observedSign, lane, seed, profile);
+        if (candidate) candidates.push({ ...candidate, primary: true, observedDistance: distance, priority: (seed % 10 === 9 ? 3 : 0) + Math.abs(distance - target) / 100 });
+      }
+      if (!replenishing) for (let distance = 65; distance <= 160; distance += 25) {
+        const candidate = this.walk(anchor.leg, anchor.along, -distance * anchor.observedSign, lane, seed, profile);
+        if (candidate) candidates.push({ ...candidate, primary: true, observedDistance: -distance, priority: seed % 10 === 8 ? 0 : 4 });
+      }
+    }
+    const cx = Math.floor(focus.position.x / 256), cz = Math.floor(focus.position.z / 256);
+    for (let x = cx - 2; x <= cx + 2; x++) for (let z = cz - 2; z <= cz + 2; z++) {
+      for (const candidate of this.cells.get(`${x},${z}`) ?? []) {
+        if (!this.allows(candidate.leg, profile)) continue;
+        const sample = this.sample(candidate.leg, candidate.along, 0);
+        const dx = sample.point.x - focus.position.x, dz = sample.point.z - focus.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance < (replenishing ? 160 : 55) || distance > 470 || Math.abs(sample.point.y + 0.79 - focus.position.y) > 12) continue;
+        const heading = travelHeading(focus);
+        const observedDistance = dx * Math.sin(heading) + dz * Math.cos(heading);
+        const side = Math.abs(dx * Math.cos(heading) - dz * Math.sin(heading));
+        const primary = !!anchor && candidate.leg.road === anchor.leg.road && candidate.leg.sign === anchor.leg.sign && side < anchor.leg.road.width;
+        if (candidate.along < profile.length / 2 + 2 || candidate.leg.length - candidate.along < profile.length / 2 + 2) continue;
+        candidates.push({ ...candidate, primary, observedDistance, priority: primary ? 2 + distance / 400 : (seed % 10 === 9 ? 0 : 5) + distance / 500 });
+      }
+    }
+    return candidates.sort((a, b) => a.priority - b.priority);
   }
 }

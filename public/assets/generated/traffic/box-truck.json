@@ -1,0 +1,16 @@
+{
+  "file": "box-truck.glb",
+  "bytes": 323404,
+  "triangles": 15931,
+  "materials": 1,
+  "textures": 1,
+  "dimensions": {
+    "length": 9.2,
+    "width": 2.5,
+    "height": 3.5
+  },
+  "front": "+Z",
+  "ground": "minY=0",
+  "source": "https://studio.tripo3d.ai/zh/workspace/generate/fc1abe30-9d77-419d-b75c-06439b8b3abb",
+  "structure": "整车网格，节点名 body，车轮仍包含于车体网格"
+}

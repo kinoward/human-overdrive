@@ -69,3 +69,15 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 2026 年 10 月 31 日继续使用主办方 Tripo Studio H3.1，并行生成低层砖色住宅、现代办公楼与细长行道树，再分别生成 2K 底色纹理。成品为 `public/assets/generated/brick-apartment.glb`、`office-block.glb` 和 `slender-tree.glb`；三个文件共约 0.92 MB，来源链接、最终米制包围盒、面数及处理方式记录于同目录 `STREETSCAPE_SOURCES.json`。使用沿用 Tripo 条款，不宣称 CC0、实景复原或完整 PBR 贴图包。
 
 脚本 `scripts/prepare-streetscape-models.mjs` 仅处理本批三项，保持等比缩放，修正正立面朝向，删除办公楼远离主体的 691 面离散碎片；树木近景 6459 面、远景 924 面，共享材质和底色图。运行时按亮度与色相将过亮叶片校正为低饱和绿色，保留较暗树干，不改动其他共享模型。新街区、步道、庭院、绿篱、地被与渐淡土草色斑由本项目原创几何和材质生成；不使用欧卡2的受保护模型或贴图。
+
+## NPC 混合车队生成资产
+
+2026 年 10 月 31 日通过主办方提供的 Tripo Studio H3.1，继续真实生成配送厢式货车、大型刚性厢式货车和公交，并分别生成 2K 底色纹理。三个运行文件位于 `public/assets/generated/traffic/`，合计 858992 字节；源任务链接、提示词、实测包围盒及处理边界见该目录 `SOURCES.json` 和各车型 JSON。沿用 [Tripo 条款](https://www.tripo3d.ai/terms)，不标为 CC0、现实品牌型号或道路法规仿真。
+
+| 运行文件 | 实际用途 | 长 × 宽 × 高 |
+| --- | --- | --- |
+| `delivery-van.glb` | 配送厢式货车 NPC | 5.5 × 2.05 × 2.5 米 |
+| `box-truck.glb` | 大型刚性厢式货车 NPC | 9.2 × 2.5 × 3.5 米 |
+| `city-bus.glb` | 公交 NPC | 10.5 × 2.5 × 3.2 米 |
+
+整理命令为 `node scripts/prepare-traffic-models.mjs <原始车辆目录> <独立工具目录> [车型名]`，复用架构地图列出的模型工具依赖；脚本为 `scripts/prepare-traffic-models.mjs`，统一 Y 向上、+Z 车头、地面为 0 和长向居中，采用 Meshopt 与 WebP。三款当前均为单车体网格、单材质和单纹理，车轮仍包含于车体，未宣称独立轮轴；已有 SUV 和摩托继续复用原生成模型及其轮轴。运行时共享几何与纹理，每辆车克隆自己的渐显材质，不因单车回收或销毁释放其他车辆资源。

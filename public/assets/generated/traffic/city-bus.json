@@ -1,0 +1,16 @@
+{
+  "file": "city-bus.glb",
+  "bytes": 259892,
+  "triangles": 14696,
+  "materials": 1,
+  "textures": 1,
+  "dimensions": {
+    "length": 10.5,
+    "width": 2.5,
+    "height": 3.2
+  },
+  "front": "+Z",
+  "ground": "minY=0",
+  "source": "https://studio.tripo3d.ai/zh/workspace/generate/2768afbc-b88f-4789-86b9-1a4d44903af0",
+  "structure": "整车网格，节点名 body，车轮仍包含于车体网格"
+}
