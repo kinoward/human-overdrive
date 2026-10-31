@@ -3,6 +3,7 @@ import type { Point3, RoadPath } from '../types';
 import { generatedMeshes } from './generated-assets';
 import { sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { LoadingBudget } from './loading-budget';
 import { meshBounds, SceneryPlacement } from './scenery-placement';
 
 export interface LandscapePlot { x: number; z: number; width: number; depth: number; heading: number }
@@ -19,7 +20,8 @@ function grassGeometry() {
   return geometry;
 }
 
-export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, placement: SceneryPlacement, gardenSites: Point3[], parks: LandscapePlot[]) {
+export async function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, placement: SceneryPlacement, gardenSites: Point3[], parks: LandscapePlot[]) {
+  const budget = new LoadingBudget();
   const variants = (['roadside-tree', 'slender-tree'] as const).map(name => {
     const near = generatedMeshes(name, 'near'), far = generatedMeshes(name, 'far');
     const bounds = meshBounds(near);
@@ -75,6 +77,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
     scatterGrass(x, z, Math.min(radius, depth) * 0.65, 2);
   };
   for (const site of gardenSites) {
+    if (budget.exhausted) await budget.yield();
     const district = hashAt(site.x, site.z);
     plantTree(site.x, site.z, district % 3 === 0 ? 0 : 1, 0.88 + random() * 0.2, random() * Math.PI * 2, district % 7 === 0 ? tints[2] : tints[0]);
   }
@@ -82,6 +85,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
     const c = Math.cos(park.heading), s = Math.sin(park.heading), district = hashAt(park.x, park.z);
     const count = Math.floor(park.width * park.depth / 115);
     for (let member = 0; member < count; member++) {
+      if (budget.exhausted) await budget.yield();
       const localX = (random() - 0.5) * park.width, localZ = (random() - 0.5) * park.depth;
       const x = park.x + localX * c + localZ * s, z = park.z - localX * s + localZ * c;
       plantTree(x, z, member % 3 === 0 ? 1 : 0, 0.9 + random() * 0.22, random() * Math.PI * 2, district % 7 === 0 && member % 4 === 0 ? tints[2] : tints[0]);
@@ -91,6 +95,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
   for (const road of roads) {
     if (road.kind === 'ramp') continue;
     for (let along = 28 + random() * 18; along < road.length - 10; along += 47 + random() * 38) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const center = sampleRoad(road, along, side * (road.width / 2 + 12));
       if (Math.abs(center.point.y) > 0.15) continue;
       const district = hashAt(center.point.x, center.point.z), count = 3 + district % 3;
@@ -107,6 +112,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
       }
     }
     for (let along = 46; along < road.length - 25; along += 69 + random() * 43) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const center = sampleRoad(road, along, side * (road.width / 2 + 31));
       if (Math.abs(center.point.y) > 0.15) continue;
       const district = hashAt(center.point.x, center.point.z);
@@ -117,6 +123,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
       }
     }
     for (let along = 71; along < road.length - 25; along += 100 + random() * 45) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const center = sampleRoad(road, along, side * (road.width / 2 + 64));
       if (Math.abs(center.point.y) > 0.15 || hashAt(center.point.x, center.point.z) % 7 === 3) continue;
       for (let member = 0; member < 4; member++) {
@@ -125,6 +132,7 @@ export function addLandscapeScenery(roads: RoadPath[], batch: SceneryBatch, plac
       }
     }
     for (let along = 20 + random() * 16; along < road.length - 10; along += 26 + random() * 18) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const center = sampleRoad(road, along, side * (road.width / 2 + 5.1));
       if (Math.abs(center.point.y) > 0.15) continue;
       const district = hashAt(center.point.x, center.point.z);

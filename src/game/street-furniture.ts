@@ -3,6 +3,7 @@ import type { RoadPath } from '../types';
 import { generatedMeshes } from './generated-assets';
 import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { LoadingBudget } from './loading-budget';
 import { meshBounds, type SceneryPlacement } from './scenery-placement';
 
 function stopSignMaterial() {
@@ -17,7 +18,8 @@ function stopSignMaterial() {
   return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 });
 }
 
-export function addStreetFurniture(roads: RoadPath[], batch: SceneryBatch, placement: SceneryPlacement) {
+export async function addStreetFurniture(roads: RoadPath[], batch: SceneryBatch, placement: SceneryPlacement) {
+  const budget = new LoadingBudget();
   const shelter = generatedMeshes('bus-shelter'), shelterBounds = meshBounds(shelter);
   const shelterSize = shelterBounds.getSize(new THREE.Vector3()), shelterCenter = shelterBounds.getCenter(new THREE.Vector3());
   const shrubNear = generatedMeshes('lush-shrub', 'near'), shrubFar = generatedMeshes('lush-shrub', 'far');
@@ -47,6 +49,7 @@ export function addStreetFurniture(roads: RoadPath[], batch: SceneryBatch, place
   for (const road of roads) {
     if (road.kind !== 'service') continue;
     for (let distance = Math.min(85 + roadHash(road) % 75, road.length / 2); distance < road.length - 25; distance += 520 + random() * 220) {
+      if (budget.exhausted) await budget.yield();
       if (!level(road, distance, 10) || nearJunction(road, distance, 45)) continue;
       const center = sampleRoad(road, distance), main = mainIndex.nearest(center.point.x, center.point.z);
       const towardMain = main ? (main.point.x - center.point.x) * center.direction.z - (main.point.z - center.point.z) * center.direction.x : 0;
@@ -87,6 +90,7 @@ export function addStreetFurniture(roads: RoadPath[], batch: SceneryBatch, place
   for (const road of roads) {
     if (road.kind === 'ramp') continue;
     for (let distance = 48 + roadHash(road) % 65; distance < road.length - 22; distance += 72 + random() * 58) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       if (!level(road, distance, 8) || nearJunction(road, distance, 26)) continue;
       const count = 2 + Math.floor(random() * 3), outer = road.kind === 'service' && random() < 0.34;
       const setback = outer ? 18 + random() * 10 : 4.6 + random() * 9;

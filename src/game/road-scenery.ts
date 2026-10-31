@@ -4,6 +4,7 @@ import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
 import { roadRibbon } from './road-ribbon';
 import { roadCrossSection } from './road-cross-section';
+import { LoadingBudget } from './loading-budget';
 
 export interface RoadMaterials { asphalt: THREE.MeshStandardMaterial; concrete: THREE.MeshStandardMaterial; ground: THREE.MeshStandardMaterial }
 
@@ -39,7 +40,8 @@ function signTexture(title: string, subtitle: string) {
   return texture;
 }
 
-export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials: RoadMaterials, batch: SceneryBatch) {
+export async function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials: RoadMaterials, batch: SceneryBatch) {
+  const budget = new LoadingBudget();
   const index = new RoadIndex(roads);
   const bridgeConcrete = materials.concrete.clone();
   bridgeConcrete.onBeforeCompile = materials.concrete.onBeforeCompile;
@@ -71,11 +73,13 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
   const terrainTiles = new Set<string>();
   const excavations = new Set<string>();
   for (const road of roads) for (const point of road.points) {
+    if (budget.exhausted) await budget.yield();
     const x = Math.floor(point.x / 64), z = Math.floor(point.z / 64);
     for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) terrainTiles.add(`${x + dx},${z + dz}`);
     if (point.y < -0.1) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) excavations.add(`${x + dx},${z + dz}`);
   }
   for (const key of terrainTiles) {
+    if (budget.exhausted) await budget.yield();
     if (excavations.has(key)) continue;
     const [x, z] = key.split(',').map(Number);
     const geometry = new THREE.PlaneGeometry(64.1, 64.1).rotateX(-Math.PI / 2).translate(x * 64 + 32, -0.08, z * 64 + 32);
@@ -84,6 +88,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
   for (const road of roads) {
     const section = roadCrossSection(road);
     for (let i = 1; i < road.points.length; i++) {
+      if (budget.exhausted) await budget.yield();
       const a = road.points[i - 1], b = road.points[i];
       const d = road.cumulative[i - 1], length = road.cumulative[i] - d;
       if (length < 0.01) continue;
@@ -102,6 +107,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
       }
     }
     for (let distance = 6; distance < road.length - 3; distance += 15) {
+      if (budget.exhausted) await budget.yield();
       const a = sampleRoad(road, distance), b = sampleRoad(road, Math.min(distance + 6, road.length));
       for (let lane = 1; lane < road.lanes; lane++) {
         batch.surface(white, strip(a.point, b.point, 0.15, section.travelOffset + (lane / road.lanes - 0.5) * section.travelWidth, 0.05, distance, 1), a.point.x, a.point.z);
@@ -134,6 +140,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
         runEnd = b;
       };
       for (let distance = 0; distance < road.length; distance += 3) {
+        if (budget.exhausted) await budget.yield();
         const a = sampleRoad(road, distance, side * (road.width / 2 + 0.4)).point;
         const b = sampleRoad(road, Math.min(distance + 3, road.length), side * (road.width / 2 + 0.4)).point;
         const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };

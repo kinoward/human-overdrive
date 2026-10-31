@@ -5,7 +5,6 @@ import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleId, WorldDat
 import { buildWorld, nearestRoad } from './world';
 import { loadWorldAssets } from './world-assets';
 import { PhysicsVehicle } from './physics';
-import { createVehicleModel } from './models';
 import { PolicePursuit } from './police';
 import { Airspace } from './airspace';
 import { PursuitHelicopter } from './helicopter';
@@ -54,7 +53,6 @@ export class GameEngine {
   private collisionSystem!: CollisionSystem;
   private pursuit?: PolicePursuit;
   private player?: PhysicsVehicle;
-  private preview?: ReturnType<typeof createVehicleModel>;
   private traffic: TrafficCar[] = [];
   private helicopters: PursuitHelicopter[] = [];
   private helicopterSight = new Map<PursuitHelicopter, boolean>();
@@ -179,11 +177,6 @@ export class GameEngine {
     this.updateRoadColliders(this.track.spawn.position);
     this.renderer.domElement.dataset.course = JSON.stringify({ mainLoopKm: this.track.mainLoopLength / 1000, roads: this.track.roads.length, source: this.track.source });
     await onProgress?.(0.97, '准备驾驶场景');
-    this.preview = createVehicleModel(VEHICLES[0], false, true);
-    for (const wheel of this.preview.wheels) wheel.position.y = -0.49;
-    this.preview.group.position.set(this.track.spawn.position.x, this.track.spawn.position.y + 0.85, this.track.spawn.position.z);
-    this.preview.group.rotation.y = this.track.spawn.heading;
-    this.scene.add(this.preview.group);
     this.ready = true;
     this.frameWindow = performance.now();
     this.timer.connect(document);
@@ -197,7 +190,6 @@ export class GameEngine {
     this.nickname = nickname;
     this.player = new PhysicsVehicle(this.physics, config, this.track.spawn.position, this.track.spawn.heading);
     this.scene.add(this.player.model.group);
-    if (this.preview) this.preview.group.visible = false;
     this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxPoliceCount: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0, cleanDistance: 0, pressureDistance: 0, evadedAttacks: 0 };
     this.status = 'intro';
     this.resetFrameStats();
@@ -235,6 +227,15 @@ export class GameEngine {
     this.audio.start();
     this.renderer.domElement.focus();
     this.emit();
+  }
+
+  async prepareStart(onProgress: (progress: number, message: string) => Promise<void>) {
+    this.renderer.setAnimationLoop(null);
+    await onProgress(0.98, '准备画面与车辆');
+    await this.scenery!.prepare(this.camera, this.presentationTime, this.player!.model.group.position, this.player!.heading);
+    this.timer.reset();
+    this.resetFrameStats();
+    this.renderer.setAnimationLoop(this.frame);
   }
 
   pause() {
@@ -295,7 +296,6 @@ export class GameEngine {
     this.status = 'ready';
     this.keys.clear();
     this.mapCanvas.style.display = 'none';
-    if (this.preview) this.preview.group.visible = true;
     this.audio.update(0, false, false);
   }
 
@@ -763,6 +763,7 @@ export class GameEngine {
 
   private frame = () => {
     this.timer.update();
+    if (this.status === 'ready' || document.hidden) return;
     if ((this.status === 'paused' || this.status === 'finished') && !this.needsRender) return;
     const delta = this.timer.getDelta();
     const dt = Math.min(0.08, delta);
@@ -784,7 +785,7 @@ export class GameEngine {
       this.accumulator += dt * 0.28;
       let ticks = 0;
       while (this.accumulator >= 1 / 60 && ticks++ < 5) { this.stepPresentation(1 / 60); this.accumulator -= 1 / 60 }
-    } else if (this.status === 'ready') this.simulationTime += dt;
+    }
     this.physicsCost += performance.now() - physicsStarted;
     const alpha = Math.min(1, this.accumulator * 60);
     this.player?.render(alpha);
@@ -794,7 +795,7 @@ export class GameEngine {
       actor.pose.render(alpha);
       animateTrafficWheels(actor.model, actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed);
     }
-    if (this.ready && (this.status === 'running' || this.status === 'ready')) {
+    if (this.ready && this.status === 'running') {
       this.updateCamera(dt);
       const { steer } = this.readControls();
       this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
@@ -807,7 +808,7 @@ export class GameEngine {
     this.audio.update(this.player?.speed ?? 0, (this.pursuit?.activeCars.length ?? 0) > 0, this.status === 'running');
     if (this.timer.getElapsed() - this.hudAt > 0.08) {
       this.hudAt = this.timer.getElapsed();
-      if (this.status !== 'ready') { this.emit(); this.drawMap() }
+      this.emit(); this.drawMap();
     }
     const renderStarted = performance.now();
     const focus = this.player?.model.group.position ?? this.track.spawn.position;

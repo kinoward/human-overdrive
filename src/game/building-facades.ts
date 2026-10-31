@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Point3 } from '../types';
 import { SceneryBatch } from './scenery-batch';
 import { generatedMeshes } from './generated-assets';
+import { LoadingBudget } from './loading-budget';
 
 export interface PlacedBuildingFacade {
   type: 'residential-block' | 'brick-apartment';
@@ -48,7 +49,8 @@ function facadeResources(batch: SceneryBatch) {
   return shared;
 }
 
-function createFacadeDesign(building: PlacedBuildingFacade, style: number, shared: FacadeResources) {
+async function createFacadeDesign(building: PlacedBuildingFacade, style: number, shared: FacadeResources) {
+  const budget = new LoadingBudget();
   const { min, max } = building.bounds;
   const width = max.x - min.x, height = max.y - min.y, depth = max.z - min.z;
   const centerX = (min.x + max.x) / 2, centerZ = (min.z + max.z) / 2;
@@ -121,6 +123,7 @@ function createFacadeDesign(building: PlacedBuildingFacade, style: number, share
       if (wallX !== undefined) box('frame', wallX + side * 0.035, min.y + 0.27, z, 0.07, 0.55, (depth - 0.8) / 3);
     }
     for (let floor = 0; floor < floors; floor++) {
+      if (budget.exhausted) await budget.yield();
       const y = min.y + 1.72 + floor * floorHeight;
       for (let column = 0; column < columns; column++) {
         const z = centerZ + (column / (columns - 1) - 0.5) * spread;
@@ -144,6 +147,7 @@ function createFacadeDesign(building: PlacedBuildingFacade, style: number, share
     }
   }
   for (let floor = style % 2; floor < floors - 1; floor += 2) {
+    if (budget.exhausted) await budget.yield();
     const y = min.y + 1.72 + floor * floorHeight;
     for (const side of [-1, 1]) window(side, centerX + side * width * 0.24, y, true, true);
   }
@@ -190,13 +194,13 @@ function createFacadeDesign(building: PlacedBuildingFacade, style: number, share
   return geometry;
 }
 
-export function addBuildingFacades(batch: SceneryBatch, building: PlacedBuildingFacade) {
+export async function addBuildingFacades(batch: SceneryBatch, building: PlacedBuildingFacade) {
   const shared = facadeResources(batch);
   const district = (Math.imul(Math.floor(building.position.x / 120), 73856093) ^ Math.imul(Math.floor(building.position.z / 120), 19349663)) >>> 0;
   const style = district % 3;
   const { min, max } = building.bounds;
   const key = `${building.type}:${style}:${min.toArray().join(',')}:${max.toArray().join(',')}`;
-  if (!shared.designs.has(key)) shared.designs.set(key, createFacadeDesign(building, style, shared));
+  if (!shared.designs.has(key)) shared.designs.set(key, await createFacadeDesign(building, style, shared));
   const design = shared.designs.get(key);
   if (!design) return;
   const position = new THREE.Vector3(building.position.x, building.position.y, building.position.z);

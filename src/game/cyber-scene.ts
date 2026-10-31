@@ -99,9 +99,7 @@ void main(){
   };
   const pagehide=(event:PageTransitionEvent)=>{if(!event.persisted)dispose();};
   window.addEventListener('pagehide',pagehide);
-  return {
-    resize,dispose,
-    render:(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number,speed=0,lookBack=false)=>{
+  const update=(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number,speed=0,lookBack=false)=>{
       focus.set(position.x,position.y,position.z);
       if(focus.distanceToSquared(cullingFocus)>32*32){
         cullingFocus.copy(focus);
@@ -111,7 +109,18 @@ void main(){
       const velocity=Math.abs(speed);
       film.uniforms.speedAmount.value=reducedMotion.matches?0:(THREE.MathUtils.smoothstep(velocity,.5,4)*.2+THREE.MathUtils.smoothstep(velocity,4,55)*.8)*(lookBack?.25:1);
       film.uniforms.grainStrength.value=reducedMotion.matches?0:.0035;
-      renderPass.camera=camera;renderer.info.reset();composer.render();
-    }
+      renderPass.camera=camera;
+  };
+  return {
+    resize,dispose,
+    prepare:async(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number)=>{
+      update(camera,time,position,heading);
+      await renderer.compileAsync(scene,camera);
+      renderer.info.reset();composer.render();
+    },
+    render:(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number,speed=0,lookBack=false)=>{
+      update(camera,time,position,heading,speed,lookBack);
+      renderer.info.reset();composer.render();
+    },
   };
 }

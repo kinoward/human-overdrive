@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Point3, RoadPath } from '../types';
 import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { LoadingBudget } from './loading-budget';
 import { roadCrossSection } from './road-cross-section';
 import { addRoadSkidMarks } from './road-skid-marks';
 
@@ -52,7 +53,8 @@ function arrowGeometry() {
   return geometry;
 }
 
-export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
+export async function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
+  const budget = new LoadingBudget();
   const index = new RoadIndex(roads);
   const wear = new THREE.MeshStandardMaterial({ map: wheelTexture(), transparent: true, opacity: 0.42, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
   const paint = new THREE.MeshStandardMaterial({ color: '#dddccd', roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -10, polygonOffsetUnits: -10 });
@@ -94,8 +96,10 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
   };
   const nearJunction = (road: RoadPath, point: Point3, radius: number) => road.junctions.some(junction => Math.hypot(junction.point.x - point.x, junction.point.z - point.z, (junction.point.y - point.y) * 4) < radius);
   for (const road of roads) {
+    if (budget.exhausted) await budget.yield();
     const section = roadCrossSection(road), laneWidth = section.laneWidth;
     for (let distance = 0; distance < road.length; distance += 18) {
+      if (budget.exhausted) await budget.yield();
       const end = Math.min(distance + 18, road.length), middle = (distance + end) / 2;
       const sample = sampleRoad(road, middle);
       if (index.covers(sample.point, road, 0.1)) continue;
@@ -115,6 +119,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
       }
     }
     for (let distance = 18; distance < road.length - 8; distance += 12) {
+      if (budget.exhausted) await budget.yield();
       const center = sampleRoad(road, distance), pitch = -Math.atan(center.direction.y);
       if (nearJunction(road, center.point, 18)) continue;
       for (const side of [-1, 1]) {
@@ -153,6 +158,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
     if (road.kind !== 'main') continue;
     const roadSeed = [...road.id].reduce((value, character) => value + character.charCodeAt(0), 0);
     for (let distance = 24; distance < road.length - 24; distance += 8) {
+      if (budget.exhausted) await budget.yield();
       if ((roadSeed + Math.floor(distance / 320)) % 5 !== 0 || distance % 320 > 152) continue;
       const offset = road.width / 2 + 1.65;
       const sample = sampleRoad(road, distance, offset);
@@ -167,6 +173,7 @@ export function addRoadDetails(roads: RoadPath[], batch: SceneryBatch) {
   }
   addRoadSkidMarks(roads, batch, index);
   for (const surface of surfaces.values()) {
+    if (budget.exhausted) await budget.yield();
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(surface.positions, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(surface.uvs, 2));

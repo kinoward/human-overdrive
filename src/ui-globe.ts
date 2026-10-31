@@ -84,6 +84,7 @@ export class CityGlobe {
   private hoveredId: string | null = null;
   private drag: DragState | null = null;
   private frameId = 0;
+  private idleTimer = 0;
   private disposed = false;
 
   constructor(private container: HTMLElement, cities: readonly CityConfig[], selectedId: string, private onSelect: (cityId: string) => void) {
@@ -174,6 +175,7 @@ export class CityGlobe {
   dispose() {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
+    window.clearTimeout(this.idleTimer);
     this.observer.disconnect();
     document.removeEventListener('visibilitychange', this.visibility);
     this.motion.removeEventListener('change', this.motionChange);
@@ -269,6 +271,7 @@ export class CityGlobe {
   };
 
   private requestFrame() {
+    window.clearTimeout(this.idleTimer);
     if (!this.disposed && !document.hidden && !this.frameId) this.frameId = requestAnimationFrame(this.frame);
   }
 
@@ -277,12 +280,13 @@ export class CityGlobe {
     if (this.disposed || document.hidden) return;
     const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 1 / 60;
     this.lastFrame = now;
+    const autoRotate = !this.drag && !this.reduced && now - this.lastInteraction > 10000 && !this.container.contains(document.activeElement);
     if (!this.drag && !this.reduced) {
       this.targetYaw += this.velocityYaw * dt;
       this.targetPitch = THREE.MathUtils.clamp(this.targetPitch + this.velocityPitch * dt, -1.35, 1.35);
       this.velocityYaw *= Math.exp(-5 * dt);
       this.velocityPitch *= Math.exp(-5 * dt);
-      if (now - this.lastInteraction > 10000 && !this.container.contains(document.activeElement)) this.targetYaw += dt * 0.026;
+      if (autoRotate) this.targetYaw += dt * 0.026;
     }
     const blend = this.reduced ? 1 : 1 - Math.exp(-8 * dt);
     this.yaw = THREE.MathUtils.lerp(this.yaw, this.targetYaw, blend);
@@ -294,21 +298,20 @@ export class CityGlobe {
     this.planet.updateMatrixWorld(true);
     this.camera.updateMatrixWorld(true);
     const placed: { left: number; top: number; width: number; height: number }[] = [];
-    for (const marker of this.labelOrder) {
+    const dimensions = this.labelOrder.map(marker => ({ width: marker.label.offsetWidth || 64, height: marker.label.offsetHeight || 28 }));
+    for (const [index, marker] of this.labelOrder.entries()) {
       marker.group.getWorldPosition(this.worldPoint);
       this.toCamera.copy(this.camera.position).sub(this.worldPoint).normalize();
       marker.front = this.surfaceNormal.copy(this.worldPoint).normalize().dot(this.toCamera) > 0.04;
       marker.group.visible = marker.front;
-      marker.label.hidden = !marker.front;
-      marker.label.style.display = marker.front ? '' : 'none';
+      marker.label.style.visibility = marker.front ? '' : 'hidden';
       marker.leader.style.display = marker.front ? '' : 'none';
       if (!marker.front) continue;
       this.projected.copy(this.worldPoint).project(this.camera);
       const [offsetX, offsetY] = labelOffsets[marker.city.id];
       const anchorX = (this.projected.x * 0.5 + 0.5) * this.width;
       const anchorY = (-this.projected.y * 0.5 + 0.5) * this.height;
-      const width = marker.label.offsetWidth || 64;
-      const height = marker.label.offsetHeight || 28;
+      const { width, height } = dimensions[index];
       const left = THREE.MathUtils.clamp(anchorX + offsetX, 8, Math.max(8, this.width - width - 8));
       let top = THREE.MathUtils.clamp(anchorY + offsetY, 8, Math.max(8, this.height - height - 8));
       for (const shift of [0, height + 8, -height - 8, height * 2 + 16, -height * 2 - 16, height * 3 + 24, -height * 3 - 24]) {
@@ -331,7 +334,10 @@ export class CityGlobe {
       marker.ring.material.opacity = selected || hovered ? 0.9 : 0.32;
     }
     this.renderer.render(this.scene, this.camera);
-    if (!this.reduced || this.drag) this.requestFrame();
+    const settling = Math.abs(this.yaw - this.targetYaw) > 0.0001 || Math.abs(this.pitch - this.targetPitch) > 0.0001 || Math.abs(this.distance - this.targetDistance) > 0.0001;
+    const inertia = Math.abs(this.velocityYaw) > 0.0001 || Math.abs(this.velocityPitch) > 0.0001;
+    if (this.drag || !this.reduced && !autoRotate && (settling || inertia)) this.requestFrame();
+    else if (!this.reduced) this.idleTimer = window.setTimeout(() => this.requestFrame(), autoRotate ? 1000 / 30 : Math.max(1000, 10001 - (now - this.lastInteraction)));
   };
 
   private pick(clientX: number, clientY: number) {
@@ -426,7 +432,7 @@ export class CityGlobe {
   };
 
   private visibility = () => {
-    if (document.hidden) { cancelAnimationFrame(this.frameId); this.frameId = 0; return; }
+    if (document.hidden) { cancelAnimationFrame(this.frameId); window.clearTimeout(this.idleTimer); this.frameId = 0; return; }
     this.lastFrame = 0;
     this.lastInteraction = performance.now();
     this.requestFrame();

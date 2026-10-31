@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { RoadPath } from '../types';
 import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { LoadingBudget } from './loading-budget';
 
 function shopSigns() {
   const canvas = document.createElement('canvas');
@@ -30,7 +31,8 @@ function shopSigns() {
   return { material, panels };
 }
 
-export function addUrbanFrontage(roads: RoadPath[], batch: SceneryBatch) {
+export async function addUrbanFrontage(roads: RoadPath[], batch: SceneryBatch) {
+  const budget = new LoadingBudget();
   const cellSize = 6;
   const index = new RoadIndex(roads), occupied = new Set<string>(), lastTemplates = new Map<string, number>();
   const wall = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.94 });
@@ -54,6 +56,7 @@ export function addUrbanFrontage(roads: RoadPath[], batch: SceneryBatch) {
   for (const road of roads) {
     if (road.kind !== 'service') continue;
     for (let along = 74; along < road.length - 38; along += 76) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const at = sampleRoad(road, along, side * (road.width / 2 + 23));
       if (Math.abs(at.point.y) > 0.15) continue;
       if ([along - 22, along + 22].some(distance => Math.abs(sampleRoad(road, distance).point.y) > 0.15)) continue;

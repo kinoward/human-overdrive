@@ -25,17 +25,21 @@ export function boot({ onProgress, onLoading, onError, cacheReady }: BootOptions
     await engine.init(onProgress);
     engine.setMuted(muted);
     ready = true;
-    performance.mark('scene-ready');
-    await onProgress(1, '准备完成');
   })();
   const ui = new GameUI({
     onStart: async (vehicleId, nickname) => {
-      if (!ready) onLoading(true);
+      const firstStart = !ready;
+      if (firstStart) onLoading(true);
       try {
         await prepareEngine();
-        onLoading(false);
         music.startRace();
         engine!.start(vehicleId, nickname);
+        if (firstStart) {
+          await engine!.prepareStart(onProgress);
+          performance.mark('scene-ready');
+          await onProgress(1, '准备完成');
+        }
+        onLoading(false);
       } catch (error) {
         onError(error);
       }
@@ -50,5 +54,4 @@ export function boot({ onProgress, onLoading, onError, cacheReady }: BootOptions
   ui.setReady();
   onLoading(false);
   performance.mark('menu-ready');
-  requestAnimationFrame(() => requestAnimationFrame(() => { void prepareEngine().catch(onError) }));
 }

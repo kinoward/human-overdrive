@@ -11,6 +11,7 @@ import { addBuildingFacades } from './building-facades';
 import { addStreetFurniture } from './street-furniture';
 import { addVergeVariation } from './verge-material';
 import { roadCrossSection } from './road-cross-section';
+import { LoadingBudget } from './loading-budget';
 import type { loadWorldAssets } from './world-assets';
 
 export { sampleRoad, nearestRoad } from './road-network';
@@ -46,16 +47,20 @@ export async function buildWorld(scene: THREE.Scene, assets: Awaited<ReturnType<
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
   await onProgress?.(0.2, '铺设城市道路');
-  const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
-  addRoadDetails(roads, batch);
+  const obstacles = await addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
+  await addRoadDetails(roads, batch);
   await onProgress?.(0.4, '布置沿街场景');
-  const frontageOccupied = addUrbanFrontage(roads, batch);
+  const frontageOccupied = await addUrbanFrontage(roads, batch);
   await onProgress?.(0.6, '布置楼体与绿化');
-  const city = addCityScenery(roads, batch, frontageOccupied, placement => addStreetFurniture(roads, batch, placement));
+  const city = await addCityScenery(roads, batch, frontageOccupied, placement => addStreetFurniture(roads, batch, placement));
   await onProgress?.(0.8, '补充建筑立面');
-  for (const building of city.buildings) if (building.type !== 'office-block') addBuildingFacades(batch, { ...building, type: building.type });
+  const budget = new LoadingBudget();
+  for (const building of city.buildings) {
+    if (budget.exhausted) await budget.yield();
+    if (building.type !== 'office-block') await addBuildingFacades(batch, { ...building, type: building.type });
+  }
   await onProgress?.(0.95, '整理场景');
-  const surfaces = batch.finish();
+  const surfaces = await batch.finish();
   group.add(new THREE.HemisphereLight('#e4edf5', '#7e806d', 1.8));
   scene.add(group);
   const mainRoads = roads.filter(road => road.kind === 'main');

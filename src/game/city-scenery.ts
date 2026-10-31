@@ -5,6 +5,7 @@ import { SceneryBatch } from './scenery-batch';
 import { generatedMeshes } from './generated-assets';
 import { addLandscapeScenery, type LandscapePlot } from './landscape-scenery';
 import { meshBounds, SceneryPlacement } from './scenery-placement';
+import { LoadingBudget } from './loading-budget';
 
 export interface PlacedCityBuilding {
   type: 'residential-block' | 'brick-apartment' | 'office-block';
@@ -15,7 +16,8 @@ export interface PlacedCityBuilding {
   uniform: number;
 }
 
-export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageOccupied?: (x: number, z: number, radius: number) => boolean, beforeLandscape?: (placement: SceneryPlacement) => void) {
+export async function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageOccupied?: (x: number, z: number, radius: number) => boolean, beforeLandscape?: (placement: SceneryPlacement) => Promise<void>) {
+  const budget = new LoadingBudget();
   const placement = new SceneryPlacement(roads, frontageOccupied), blocks = new Set<string>(), backgroundBlocks = new Set<string>();
   const mainRoads = new RoadIndex(roads.filter(road => road.kind === 'main'));
   const foundation = new THREE.MeshStandardMaterial({ color: '#9b9d91', roughness: 1 });
@@ -52,6 +54,7 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageO
   for (const road of roads) {
     if (road.kind === 'ramp') continue;
     for (let along = 60 + random() * 42; along < road.length - 32; along += 130 + random() * 80) for (const side of [-1, 1]) {
+      if (budget.exhausted) await budget.yield();
       const setback = (road.kind === 'service' ? 34 : 39) + random() * 24;
       const center = sampleRoad(road, along, side * (road.width / 2 + setback));
       if (center.point.y < -0.15) continue;
@@ -81,6 +84,7 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageO
   for (const road of roads) {
     if (road.kind !== 'service') continue;
     for (let along = 140 + random() * 60; along < road.length - 60; along += 260 + random() * 140) {
+      if (budget.exhausted) await budget.yield();
       const roadCenter = sampleRoad(road, along), main = mainRoads.nearest(roadCenter.point.x, roadCenter.point.z);
       if (Math.abs(roadCenter.point.y) > 0.15 || !main) continue;
       if ([-48, 48].some(shift => Math.abs(sampleRoad(road, along + shift).point.y) > 0.15)) continue;
@@ -108,7 +112,7 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageO
       if (placed) backgroundBlocks.add(key);
     }
   }
-  beforeLandscape?.(placement);
-  addLandscapeScenery(roads, batch, placement, gardenSites, parks);
+  await beforeLandscape?.(placement);
+  await addLandscapeScenery(roads, batch, placement, gardenSites, parks);
   return { buildings, placement };
 }

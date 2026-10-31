@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { LoadingBudget } from './loading-budget';
 
 export class SceneryBatch {
   private instances = new Map<string, { material: THREE.Material; geometry: THREE.BufferGeometry; farGeometry?: THREE.BufferGeometry; matrices: THREE.Matrix4[]; colors: THREE.Color[] }>();
@@ -28,8 +29,10 @@ export class SceneryBatch {
     this.surfaces.get(key)!.geometries.push(geometry);
   }
 
-  finish() {
+  async finish() {
+    const budget = new LoadingBudget();
     for (const { material, geometry, farGeometry, matrices, colors } of this.instances.values()) {
+      if (budget.exhausted) await budget.yield();
       const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
       matrices.forEach((matrix, i) => { mesh.setMatrixAt(i, matrix); mesh.setColorAt(i, colors[i]) });
       mesh.receiveShadow = true;
@@ -47,6 +50,7 @@ export class SceneryBatch {
     }
     const collisionSurfaces: { vertices: Float32Array; indices: Uint32Array }[] = [];
     for (const { material, geometries } of this.surfaces.values()) {
+      if (budget.exhausted) await budget.yield();
       const geometry = mergeGeometries(geometries)!;
       geometries.forEach(item => item.dispose());
       const mesh = new THREE.Mesh(geometry, material);
