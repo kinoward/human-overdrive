@@ -1,0 +1,32 @@
+{
+  "生成方式": "内置 image_gen 图片生成",
+  "生成日期": "2026-10-31",
+  "来源": "原创 AI 生成；主图无参考图片，摩托图仅以主图作为风格参考。",
+  "转换方式": "使用已安装的 cwebp，质量 90，压缩方法 6，仅进行格式编码压缩；保留原始分辨率与构图，未裁剪、缩放或编辑图像内容。",
+  "使用边界": "写实竞速宣传图，不作为北京道路或建筑的实景复原；车辆均为无品牌虚构车辆，不代表现实指定车型的准确外观。",
+  "资源": [
+    {
+      "asset": "racing-hero-v1.webp",
+      "用途": "主菜单写实竞速背景",
+      "原图路径": "exec-4288a1b0-c1b7-4680-a1c4-d0b9343e4fd3.png",
+      "尺寸": {
+        "宽": 1672,
+        "高": 941
+      },
+      "文件字节": 138950,
+      "prompt": "Use case: ads-marketing\nAsset type: 16:9 landscape main-menu background key art for an original photorealistic arcade street-racing game, image only, not a screenshot of an interface.\nPrimary request: cinematic, cool, realistic nightfall driving on a Beijing ring road just after rain. Low camera close to the asphalt, wide-angle three-quarter rear view of one unbranded pearl-gray modern sporty electric SUV occupying the right-middle and lower-right of the image, traveling away toward the right-center horizon.\nScene/backdrop: realistically scaled broad urban ring-road lanes with wet dark asphalt, concrete and metal guardrails, evenly spaced streetlights, quiet layers of modern Beijing residential towers and office buildings in blue-hour atmospheric depth. Open public road rather than a racing circuit. Two tiny restrained red-blue police-light glints far ahead suggest a chase, very distant and secondary.\nComposition/framing: wide 16:9 horizontal composition. Keep the entire left 40 percent dark, low-detail, uncluttered negative space for a title and vertical game menu to be added later; absolutely no prominent subject, bright road markings, light source or buildings with distinct edges in that left menu area. SUV hero remains in the right half, rear lamps visible; keep generous wet roadway in the foreground and a long road perspective to convey speed. Wheel and asphalt motion blur are subtle, vehicle body remains crisp.\nLighting/mood: dramatic realistic blue-hour dusk, subdued clouded sky, steel-blue reflected light on pearl-gray paint, bright but controlled red rear lights and their wet-road reflections, tiny restrained acid-yellow road reflections. Premium high-budget cinematic racing-game promotional art with grounded photographic materials and believable vehicle proportions.\nColor palette: deep cool black, charcoal, steel blue and desaturated cyan, controlled warm red tail lamps, very small acid-yellow highlights.\nMaterials/textures: physically believable rain-wet asphalt, fine road texture, water sheen, brushed guardrails, glass and painted metal with restrained specular reflections.\nConstraints: no brand name, no emblem, no logos, no readable number plates, no recognizable manufacturer design signature. No people. No text, letters, typography, map, icons, symbols, buttons, UI overlays, watermarks, borders or collage. No cyberpunk skyline neon, no anime, no illustration, no aerial map view. Generate one polished background image."
+    },
+    {
+      "asset": "garage-motorcycle-v1.webp",
+      "用途": "摩托车选择页写实竞速车辆图",
+      "原图路径": "exec-66879955-9e73-4cff-bdfa-72f51d39d4de.png",
+      "风格参考": "exec-4288a1b0-c1b7-4680-a1c4-d0b9343e4fd3.png",
+      "尺寸": {
+        "宽": 1536,
+        "高": 1024
+      },
+      "文件字节": 278590,
+      "prompt": "Use case: ads-marketing\nAsset type: original photorealistic arcade-racing game vehicle-selection image, landscape 3:2 aspect ratio, no interface.\nInput image: the attached city-road SUV key art is a STYLE REFERENCE ONLY for its photographic realism, wet-road materials, blue-hour mood and cool palette. Create an entirely new close-up motorcycle composition, do not reproduce the SUV.\nPrimary request: one unbranded modern adventure-sport motorcycle with one rider in all-black armored riding clothes and a black full-face helmet, stationary or riding steadily on a rain-wet urban road, close three-quarter rear-side view, grounded wheels and believable road contact. The entire motorcycle and rider are the clear hero, together occupying about 75 percent of the image. Readable realistic motorcycle frame, wheels, tires, suspension, engine and controls, with no distortions and no extra limbs.\nScene/backdrop: dark blue-hour city ring road after rain; softly defocused guardrail, a few streetlights and distant urban buildings, unobtrusive background. Leave a modest amount of breathing room around both tires and helmet, do not crop the wheels or rider's helmet.\nStyle/medium: polished cinematic photorealistic high-budget arcade street-racing game vehicle key art; realistic manufactured materials, black rubber, painted metal, dark wet asphalt, subtle water sheen.\nLighting/mood: cool steel blue and deep charcoal black, rim-lit black helmet and jacket, small restrained acid-yellow accents on the motorcycle body panels, subtle red rear light and its reflection; crisp hero subject with shallow atmospheric background.\nConstraints: one motorcycle and one rider only. No brand names, emblem, text, readable number plate, logos, watermarks, UI, symbols, menus or buttons. No anime, vector art, cartoon, neon cyberpunk city, wheelie, stunt, jump or airborne action. The motorcycle should feel agile and mechanically credible, no bulky cargo panniers that obscure the rear wheel. No real manufacturer design signature. Generate one matching image."
+    }
+  ]
+}

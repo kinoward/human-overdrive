@@ -1,0 +1,300 @@
+{
+  "用途": "五座城市关卡选择的写实竞速风格区域图",
+  "生成日期": "2026-10-31",
+  "生成方式": "内置 image_gen；每城独立调用，逐张以真实地图作为地理几何来源，不拼图。",
+  "参考处理": "生成前逐张查看真实参考。仅保留客观道路、水系、海岸、岛屿与地块位置关系；重新生成钢蓝城市立体美术，不沿用参考地图配色、文字、字号、路盾与符号。",
+  "转换方式": "cwebp -q 90 -m 6，仅进行 WebP 编码压缩；未裁剪、缩放或修改生成图内容。原始 PNG 保留在工具默认生成目录。",
+  "参考路径说明": "referenceFileAtGeneration 记录生成调用时的仓库路径；参考PNG不作为最终游戏上线图片，后续可归档。精确地图服务URL、范围和署名同时内嵌保存。",
+  "使用边界": "用于游戏区域选择的地理参考艺术图，不作为卫星实拍、精确导航地图或建筑实景复原。建筑高度、细小支路、河宽、灯光与材质为生成式概化。北京仅以四环主辅路和匝道的真实OSM几何为依据，内部城区是艺术化补充，没有补画水体。",
+  "人工检查": "已逐张目视比对主要道路、水系和海岸的北向关系，没有镜像、旋转或重大地理关系偏移；精度要求不包含逐条小支路。",
+  "署名": "北京原始路网 © OpenStreetMap 贡献者，ODbL 1.0；其余参考地图 © Esri 及其地图数据提供者，版权及访问说明见各城市 geographicSource。",
+  "maps": [
+    {
+      "cityId": "beijing",
+      "asset": "beijing-v1.webp",
+      "prompt": "Use case: stylized-concept\nAsset type: square full-bleed geographic city-region selection artwork for a cinematic realistic arcade-racing game; an original new visual treatment of the factual geography in the supplied map.\nReference role: the attached image is the GEOGRAPHIC GEOMETRY SOURCE, not a loose moodboard. Its north-up roads, rivers, coastlines and islands define the geometry. Preserve the same camera registration, shapes, bends, relative positions, directions, topology and proportions of the major geography; do not rotate, mirror, redesign, simplify into a generic road grid, invent new loops or move water.\nStyle/medium: straight-down north-up overhead, almost orthographic photogrammetry-style three-dimensional city terrain and restrained building massing. No tilted isometric camera. New original charcoal-black and steel-blue material treatment; believable dark architectural blocks, tiny dimensional shadows, principal roads drawn as thin cool-white luminous lines, ONE restrained acid-yellow arterial highlight tracing an actual existing route, deep navy-blue water if present in source, extremely subtle cyan edge lighting. Cinematic racing-game region-map art, quiet and precise rather than science-fiction.\nConstraints: fill the entire square frame with the geographic city artwork. Source map labels, place names, text, highway shields, annotations, symbols, colors and typography are not design material: remove them all, do not copy their graphic style. No labels, no letters, no numbers, no legend, no logo, no compass, no pins, no HUD, no buttons, no circular border, no map frame, no watermarks, no cars or people. No futuristic circuit-board or arbitrary perfect street grid. Retain factual geographic relations while generating an entirely new visual surface.\nCity: Beijing. This reference is the real OSM Fourth Ring main roads, service roads and connected ramps; geographic drawing is the central dark panel, white top/bottom bands and all text are reference annotations to discard. Preserve the irregular closed Fourth Ring shape exactly: mostly horizontal north/south segments, nearly vertical east/west sides, distinctive angled upper corners, uneven rounded lower corners and all small visible junction ramps. Make this one true closed loop the restrained acid-yellow route. Show its real double carriageway and connecting ramp curves as fine white details. The source contains NO WATER GEOMETRY: do not add any river, lake, sea, canal or moat. The source does not provide internal roads: do not invent additional ring roads, radial boulevards or a new road grid. Use subtle subdued city building massing as background, keeping the actual closed ring visually dominant. Remove all labels. Reframe only enough to remove the blank annotation bands and fill the square, preserving the ring's orientation and proportions.",
+      "sourcePng": "exec-6c050fd7-4f51-4407-907a-6f0715116564.png",
+      "referenceFileAtGeneration": "public/assets/ui-racing/references/beijing-real-map.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bytes": 625476,
+      "referenceSha256": "653578d71b5eeb398c1f0314c164d219ca2b598f2f2ed535d72b2153d9e5310d",
+      "geographicSource": {
+        "cityId": "beijing",
+        "file": "beijing-real-map.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "center": {
+          "lat": 39.9075,
+          "lon": 116.3913
+        },
+        "bounds": {
+          "south": 39.8,
+          "west": 116.18,
+          "north": 40.02,
+          "east": 116.53
+        },
+        "scope": "北京完整四环主路、辅路与相接匝道；不是整个北京行政区。",
+        "sourceFiles": [
+          "public/data/beijing-map.svg",
+          "public/data/beijing-roads.json",
+          "public/data/beijing-roads.source.json"
+        ],
+        "source": {
+          "name": "OpenStreetMap / Overpass API",
+          "url": "https://overpass.private.coffee/api/interpreter",
+          "query": "[out:json][timeout:90];(way[\"highway\"][\"name\"~\"四环\"](39.8,116.18,40.02,116.53);way[\"highway\"~\"^(trunk|motorway|trunk_link|motorway_link|primary_link|secondary_link|tertiary_link)$\"](39.8,116.18,40.02,116.53););out geom;",
+          "fetchedAt": "2026-10-31T05:37:45.462Z",
+          "osmTimestamp": "2026-10-31T05:29:19Z"
+        },
+        "license": "ODbL 1.0",
+        "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+        "attribution": "© OpenStreetMap 贡献者",
+        "notes": "直接栅格化仓库内按真实 OSM 路网生成的 SVG，保持北向上；源数据未含水域，没有补画或伪造水体。",
+        "visualCheck": "已查看：北四环在上、南四环在下，真实四环闭环及主辅路连接保留；未新增源数据不存在的道路或水体。",
+        "referenceOnly": true
+      },
+      "referenceRole": "GEOGRAPHIC GEOMETRY SOURCE"
+    },
+    {
+      "cityId": "shanghai",
+      "asset": "shanghai-v1.webp",
+      "prompt": "Use case: stylized-concept\nAsset type: square full-bleed geographic city-region selection artwork for a cinematic realistic arcade-racing game; an original new visual treatment of the factual geography in the supplied map.\nReference role: the attached image is the GEOGRAPHIC GEOMETRY SOURCE, not a loose moodboard. Its north-up roads, rivers, coastlines and islands define the geometry. Preserve the same camera registration, shapes, bends, relative positions, directions, topology and proportions of the major geography; do not rotate, mirror, redesign, simplify into a generic road grid, invent new loops or move water.\nStyle/medium: straight-down north-up overhead, almost orthographic photogrammetry-style three-dimensional city terrain and restrained building massing. No tilted isometric camera. New original charcoal-black and steel-blue material treatment; believable dark architectural blocks, tiny dimensional shadows, principal roads drawn as thin cool-white luminous lines, ONE restrained acid-yellow arterial highlight tracing an actual existing route, deep navy-blue water if present in source, extremely subtle cyan edge lighting. Cinematic racing-game region-map art, quiet and precise rather than science-fiction.\nConstraints: fill the entire square frame with the geographic city artwork. Source map labels, place names, text, highway shields, annotations, symbols, colors and typography are not design material: remove them all, do not copy their graphic style. No labels, no letters, no numbers, no legend, no logo, no compass, no pins, no HUD, no buttons, no circular border, no map frame, no watermarks, no cars or people. No futuristic circuit-board or arbitrary perfect street grid. Retain factual geographic relations while generating an entirely new visual surface.\nCity: Shanghai. Preserve the real Huangpu River bends and its exact north-up placement from the source: entering near upper middle-right, running down the right side then bending southwest through the middle toward the lower-middle-left. Preserve its width variations and the major bridge-crossing positions. Preserve the irregular real Puxi/Pudong road alignments and arterial network relative to that river. Do not turn the river into a straight channel or generic S, do not shift it to the edge or swap banks. Small waterways remain secondary. Use the source road and water geometry only; completely replace the printed map style with new three-dimensional dark racing-map art. Highlight one existing principal road with restrained acid yellow; other real arterial roads are thin cool white.",
+      "sourcePng": "exec-da7dbe38-b70c-4fe2-991c-43e79ca9635f.png",
+      "referenceFileAtGeneration": "public/assets/ui-racing/references/shanghai-real-map.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bytes": 833104,
+      "referenceSha256": "226279bc7b054e69ca9661766aa3be219742c9f21d4789e41b22dc1aff693fa8",
+      "geographicSource": {
+        "cityId": "shanghai",
+        "file": "shanghai-real-map.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "center": {
+          "lat": 31.23,
+          "lon": 121.49
+        },
+        "bounds": {
+          "south": 31.10701725005896,
+          "west": 121.34626955454087,
+          "north": 31.35282289903581,
+          "east": 121.63373044545914
+        },
+        "projectedBounds": {
+          "crs": "EPSG:3857",
+          "bbox": [
+            13508204.936474806,
+            3646655.1833045864,
+            13540204.936474806,
+            3678655.1833045864
+          ]
+        },
+        "scope": "上海中心城区；黄浦江两岸、浦西与浦东主要道路。",
+        "source": {
+          "name": "Esri ArcGIS World Street Map",
+          "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+          "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=13508204.936,3646655.183,13540204.936,3678655.183&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+          "accessedAt": "2026-10-31",
+          "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+          "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+          "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+          "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+        },
+        "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+        "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+        "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+        "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+        "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+        "referenceOnly": true,
+        "visualCheck": "已查看：黄浦江贯穿南北并在城区形成连续大弯，两岸主干道路清楚。"
+      },
+      "referenceRole": "GEOGRAPHIC GEOMETRY SOURCE"
+    },
+    {
+      "cityId": "chongqing",
+      "asset": "chongqing-v1.webp",
+      "prompt": "Use case: stylized-concept\nAsset type: square full-bleed geographic city-region selection artwork for a cinematic realistic arcade-racing game; an original new visual treatment of the factual geography in the supplied map.\nReference role: the attached image is the GEOGRAPHIC GEOMETRY SOURCE, not a loose moodboard. Its north-up roads, rivers, coastlines and islands define the geometry. Preserve the same camera registration, shapes, bends, relative positions, directions, topology and proportions of the major geography; do not rotate, mirror, redesign, simplify into a generic road grid, invent new loops or move water.\nStyle/medium: straight-down north-up overhead, almost orthographic photogrammetry-style three-dimensional city terrain and restrained building massing. No tilted isometric camera. New original charcoal-black and steel-blue material treatment; believable dark architectural blocks, tiny dimensional shadows, principal roads drawn as thin cool-white luminous lines, ONE restrained acid-yellow arterial highlight tracing an actual existing route, deep navy-blue water if present in source, extremely subtle cyan edge lighting. Cinematic racing-game region-map art, quiet and precise rather than science-fiction.\nConstraints: fill the entire square frame with the geographic city artwork. Source map labels, place names, text, highway shields, annotations, symbols, colors and typography are not design material: remove them all, do not copy their graphic style. No labels, no letters, no numbers, no legend, no logo, no compass, no pins, no HUD, no buttons, no circular border, no map frame, no watermarks, no cars or people. No futuristic circuit-board or arbitrary perfect street grid. Retain factual geographic relations while generating an entirely new visual surface.\nCity: Chongqing. Preserve the actual complex Yangtze and Jialing river geometry from the reference, including their precise bends, banks, confluence and the Chaotianmen peninsula immediately west-southwest of the confluence. The Jialing approaches from the west, the larger Yangtze has long irregular north/south bends and continues toward the east. Follow the source image pixel geography rather than replacing it with a generic Y junction or simplified S. Preserve the main bridges and their crossings and the existing hilly arterial-road curves. Translate the factual hilly terrain and road/water layout into the new dark photogrammetric city treatment; hills subdued steel charcoal, deep-blue water and fine cold-white arterial roads. One real existing arterial route may be picked out in restrained acid yellow. No new island, reservoir, bay, extra river or invented highway loop.",
+      "sourcePng": "exec-339138e0-d5e9-4090-8b66-9c5579ff1545.png",
+      "referenceFileAtGeneration": "public/assets/ui-racing/references/chongqing-real-map.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bytes": 750588,
+      "referenceSha256": "6baca5f7177817882e1686252f022a7cba47a3021f970a25bc007d57f0f7416c",
+      "geographicSource": {
+        "cityId": "chongqing",
+        "file": "chongqing-real-map.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "center": {
+          "lat": 29.565,
+          "lon": 106.578
+        },
+        "bounds": {
+          "south": 29.463373266431734,
+          "west": 106.46121901306446,
+          "north": 29.666524581473876,
+          "east": 106.69478098693554
+        },
+        "projectedBounds": {
+          "crs": "EPSG:3857",
+          "bbox": [
+            11851208.689765511,
+            3434756.306166465,
+            11877208.689765511,
+            3460756.306166465
+          ]
+        },
+        "scope": "重庆中心城区；长江与嘉陵江在朝天门附近交汇，包含跨江道路。",
+        "source": {
+          "name": "Esri ArcGIS World Street Map",
+          "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+          "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=11851208.690,3434756.306,11877208.690,3460756.306&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+          "accessedAt": "2026-10-31",
+          "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+          "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+          "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+          "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+        },
+        "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+        "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+        "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+        "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+        "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+        "referenceOnly": true,
+        "visualCheck": "已查看：嘉陵江与长江在朝天门汇合，渝中半岛与多条跨江道路可辨。"
+      },
+      "referenceRole": "GEOGRAPHIC GEOMETRY SOURCE"
+    },
+    {
+      "cityId": "tokyo",
+      "asset": "tokyo-v1.webp",
+      "prompt": "Use case: stylized-concept\nAsset type: square full-bleed geographic city-region selection artwork for a cinematic realistic arcade-racing game; an original new visual treatment of the factual geography in the supplied map.\nReference role: the attached image is the GEOGRAPHIC GEOMETRY SOURCE, not a loose moodboard. Its north-up roads, rivers, coastlines and islands define the geometry. Preserve the same camera registration, shapes, bends, relative positions, directions, topology and proportions of the major geography; do not rotate, mirror, redesign, simplify into a generic road grid, invent new loops or move water.\nStyle/medium: straight-down north-up overhead, almost orthographic photogrammetry-style three-dimensional city terrain and restrained building massing. No tilted isometric camera. New original charcoal-black and steel-blue material treatment; believable dark architectural blocks, tiny dimensional shadows, principal roads drawn as thin cool-white luminous lines, ONE restrained acid-yellow arterial highlight tracing an actual existing route, deep navy-blue water if present in source, extremely subtle cyan edge lighting. Cinematic racing-game region-map art, quiet and precise rather than science-fiction.\nConstraints: fill the entire square frame with the geographic city artwork. Source map labels, place names, text, highway shields, annotations, symbols, colors and typography are not design material: remove them all, do not copy their graphic style. No labels, no letters, no numbers, no legend, no logo, no compass, no pins, no HUD, no buttons, no circular border, no map frame, no watermarks, no cars or people. No futuristic circuit-board or arbitrary perfect street grid. Retain factual geographic relations while generating an entirely new visual surface.\nCity: Tokyo. Preserve the exact north-up Tokyo Bay shoreline and reclaimed-land/island geometry from the source: open bay mainly southeast/lower-right, irregular port docks and artificial shore islands, inland dense urban core mainly north and west, Imperial Palace moat/grounds inland in the upper-middle-left area and the real rivers flowing toward the bay. Keep the source's bridges, coastal arterial road orientation and major road topology; do not turn Tokyo Bay into a river, do not swap bay to southwest, do not make random islands or add water inland. Render a new dark steel-blue three-dimensional city surface on that factual geometry, fine cold-white principal roads and one restrained acid-yellow existing route. The original source's colored road shields and dense labels must disappear completely.",
+      "sourcePng": "exec-b61f8657-ab05-4f1c-aa08-48274da02cf7.png",
+      "referenceFileAtGeneration": "public/assets/ui-racing/references/tokyo-real-map.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bytes": 766152,
+      "referenceSha256": "8f63002262e8dfba2870f36e7ff7e05e6e969133a4492835e131dd6b001deb01",
+      "geographicSource": {
+        "cityId": "tokyo",
+        "file": "tokyo-real-map.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "center": {
+          "lat": 35.655,
+          "lon": 139.785
+        },
+        "bounds": {
+          "south": 35.49791343361194,
+          "west": 139.5918622139143,
+          "north": 35.8117782101756,
+          "east": 139.9781377860857
+        },
+        "projectedBounds": {
+          "crs": "EPSG:3857",
+          "bbox": [
+            15539295.020537747,
+            4231753.15584733,
+            15582295.020537747,
+            4274753.15584733
+          ]
+        },
+        "scope": "东京中心至东京湾沿岸；皇居、隅田川、湾岸填海区及首都高速公路。",
+        "source": {
+          "name": "Esri ArcGIS World Street Map",
+          "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+          "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=15539295.021,4231753.156,15582295.021,4274753.156&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+          "accessedAt": "2026-10-31",
+          "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+          "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+          "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+          "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+        },
+        "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+        "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+        "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+        "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+        "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+        "referenceOnly": true,
+        "visualCheck": "已查看：皇居位于内陆城区，东京湾位于画面东南，隅田川与港区填海岸线可辨。"
+      },
+      "referenceRole": "GEOGRAPHIC GEOMETRY SOURCE"
+    },
+    {
+      "cityId": "los-angeles",
+      "asset": "los-angeles-v1.webp",
+      "prompt": "Use case: stylized-concept\nAsset type: square full-bleed geographic city-region selection artwork for a cinematic realistic arcade-racing game; an original new visual treatment of the factual geography in the supplied map.\nReference role: the attached image is the GEOGRAPHIC GEOMETRY SOURCE, not a loose moodboard. Its north-up roads, rivers, coastlines and islands define the geometry. Preserve the same camera registration, shapes, bends, relative positions, directions, topology and proportions of the major geography; do not rotate, mirror, redesign, simplify into a generic road grid, invent new loops or move water.\nStyle/medium: straight-down north-up overhead, almost orthographic photogrammetry-style three-dimensional city terrain and restrained building massing. No tilted isometric camera. New original charcoal-black and steel-blue material treatment; believable dark architectural blocks, tiny dimensional shadows, principal roads drawn as thin cool-white luminous lines, ONE restrained acid-yellow arterial highlight tracing an actual existing route, deep navy-blue water if present in source, extremely subtle cyan edge lighting. Cinematic racing-game region-map art, quiet and precise rather than science-fiction.\nConstraints: fill the entire square frame with the geographic city artwork. Source map labels, place names, text, highway shields, annotations, symbols, colors and typography are not design material: remove them all, do not copy their graphic style. No labels, no letters, no numbers, no legend, no logo, no compass, no pins, no HUD, no buttons, no circular border, no map frame, no watermarks, no cars or people. No futuristic circuit-board or arbitrary perfect street grid. Retain factual geographic relations while generating an entirely new visual surface.\nCity: Los Angeles. Preserve the source's actual north-up Pacific coastline in the southwest/lower-left, mountain terrain in the north and upper-left, inland downtown near center, and the distinctive freeway network and real interchanges spreading through the city. The ocean should keep its large continuous lower-left area and actual coastal bends; do not move it to the right or convert it into an inland lake. Keep the actual rotated/differing district street alignments rather than generating one generic orthogonal grid. Highlight the real east-west freeway passing downtown in a single restrained acid-yellow line, with the other actual freeways in thin cool white. New charcoal/steel-blue photogrammetric city massing and muted dimensional mountain ridges, deep navy ocean. Preserve major freeway alignments and road-to-coast relations while eliminating all source symbols, typography, labels and base-map colors.",
+      "sourcePng": "exec-c36ce313-7741-4eda-aec1-03c1d1f8edb8.png",
+      "referenceFileAtGeneration": "public/assets/ui-racing/references/los-angeles-real-map.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bytes": 747036,
+      "referenceSha256": "b4c3328c40a8e5a1c0002e848a8c8f206920adebf127102f2a60f2e664af351b",
+      "geographicSource": {
+        "cityId": "los-angeles",
+        "file": "los-angeles-real-map.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "center": {
+          "lat": 34.02,
+          "lon": -118.3
+        },
+        "bounds": {
+          "south": 33.7814062246698,
+          "west": -118.58746089091824,
+          "north": 34.257924984517615,
+          "east": -118.01253910908176
+        },
+        "projectedBounds": {
+          "crs": "EPSG:3857",
+          "bbox": [
+            -13201095.760844262,
+            3999487.8537438456,
+            -13137095.760844262,
+            4063487.8537438456
+          ]
+        },
+        "scope": "洛杉矶市区高速网与西南太平洋沿岸；包含市中心及多条州际高速。",
+        "source": {
+          "name": "Esri ArcGIS World Street Map",
+          "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+          "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=-13201095.761,3999487.854,-13137095.761,4063487.854&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+          "accessedAt": "2026-10-31",
+          "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+          "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+          "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+          "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+        },
+        "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+        "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+        "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+        "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+        "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+        "referenceOnly": true,
+        "visualCheck": "已查看：洛杉矶市中心与I-5、I-10、I-110、I-405等高速格局可辨，太平洋海岸位于西南。"
+      },
+      "referenceRole": "GEOGRAPHIC GEOMETRY SOURCE"
+    }
+  ]
+}

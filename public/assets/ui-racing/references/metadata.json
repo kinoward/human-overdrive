@@ -1,0 +1,230 @@
+{
+  "purpose": "真实地图作为生成式城市关卡图的地理参考，不将示意图当作真实城市几何。",
+  "northUp": true,
+  "createdAt": "2026-10-31",
+  "maps": [
+    {
+      "cityId": "beijing",
+      "file": "beijing-real-map.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "center": {
+        "lat": 39.9075,
+        "lon": 116.3913
+      },
+      "bounds": {
+        "south": 39.8,
+        "west": 116.18,
+        "north": 40.02,
+        "east": 116.53
+      },
+      "scope": "北京完整四环主路、辅路与相接匝道；不是整个北京行政区。",
+      "sourceFiles": [
+        "public/data/beijing-map.svg",
+        "public/data/beijing-roads.json",
+        "public/data/beijing-roads.source.json"
+      ],
+      "source": {
+        "name": "OpenStreetMap / Overpass API",
+        "url": "https://overpass.private.coffee/api/interpreter",
+        "query": "[out:json][timeout:90];(way[\"highway\"][\"name\"~\"四环\"](39.8,116.18,40.02,116.53);way[\"highway\"~\"^(trunk|motorway|trunk_link|motorway_link|primary_link|secondary_link|tertiary_link)$\"](39.8,116.18,40.02,116.53););out geom;",
+        "fetchedAt": "2026-10-31T05:37:45.462Z",
+        "osmTimestamp": "2026-10-31T05:29:19Z"
+      },
+      "license": "ODbL 1.0",
+      "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+      "attribution": "© OpenStreetMap 贡献者",
+      "notes": "直接栅格化仓库内按真实 OSM 路网生成的 SVG，保持北向上；源数据未含水域，没有补画或伪造水体。",
+      "visualCheck": "已查看：北四环在上、南四环在下，真实四环闭环及主辅路连接保留；未新增源数据不存在的道路或水体。",
+      "referenceOnly": true
+    },
+    {
+      "cityId": "shanghai",
+      "file": "shanghai-real-map.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "center": {
+        "lat": 31.23,
+        "lon": 121.49
+      },
+      "bounds": {
+        "south": 31.10701725005896,
+        "west": 121.34626955454087,
+        "north": 31.35282289903581,
+        "east": 121.63373044545914
+      },
+      "projectedBounds": {
+        "crs": "EPSG:3857",
+        "bbox": [
+          13508204.936474806,
+          3646655.1833045864,
+          13540204.936474806,
+          3678655.1833045864
+        ]
+      },
+      "scope": "上海中心城区；黄浦江两岸、浦西与浦东主要道路。",
+      "source": {
+        "name": "Esri ArcGIS World Street Map",
+        "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+        "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=13508204.936,3646655.183,13540204.936,3678655.183&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+        "accessedAt": "2026-10-31",
+        "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+        "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+        "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+        "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+      },
+      "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+      "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+      "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+      "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+      "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+      "referenceOnly": true,
+      "visualCheck": "已查看：黄浦江贯穿南北并在城区形成连续大弯，两岸主干道路清楚。"
+    },
+    {
+      "cityId": "chongqing",
+      "file": "chongqing-real-map.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "center": {
+        "lat": 29.565,
+        "lon": 106.578
+      },
+      "bounds": {
+        "south": 29.463373266431734,
+        "west": 106.46121901306446,
+        "north": 29.666524581473876,
+        "east": 106.69478098693554
+      },
+      "projectedBounds": {
+        "crs": "EPSG:3857",
+        "bbox": [
+          11851208.689765511,
+          3434756.306166465,
+          11877208.689765511,
+          3460756.306166465
+        ]
+      },
+      "scope": "重庆中心城区；长江与嘉陵江在朝天门附近交汇，包含跨江道路。",
+      "source": {
+        "name": "Esri ArcGIS World Street Map",
+        "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+        "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=11851208.690,3434756.306,11877208.690,3460756.306&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+        "accessedAt": "2026-10-31",
+        "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+        "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+        "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+        "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+      },
+      "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+      "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+      "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+      "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+      "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+      "referenceOnly": true,
+      "visualCheck": "已查看：嘉陵江与长江在朝天门汇合，渝中半岛与多条跨江道路可辨。"
+    },
+    {
+      "cityId": "tokyo",
+      "file": "tokyo-real-map.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "center": {
+        "lat": 35.655,
+        "lon": 139.785
+      },
+      "bounds": {
+        "south": 35.49791343361194,
+        "west": 139.5918622139143,
+        "north": 35.8117782101756,
+        "east": 139.9781377860857
+      },
+      "projectedBounds": {
+        "crs": "EPSG:3857",
+        "bbox": [
+          15539295.020537747,
+          4231753.15584733,
+          15582295.020537747,
+          4274753.15584733
+        ]
+      },
+      "scope": "东京中心至东京湾沿岸；皇居、隅田川、湾岸填海区及首都高速公路。",
+      "source": {
+        "name": "Esri ArcGIS World Street Map",
+        "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+        "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=15539295.021,4231753.156,15582295.021,4274753.156&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+        "accessedAt": "2026-10-31",
+        "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+        "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+        "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+        "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+      },
+      "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+      "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+      "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+      "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+      "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+      "referenceOnly": true,
+      "visualCheck": "已查看：皇居位于内陆城区，东京湾位于画面东南，隅田川与港区填海岸线可辨。"
+    },
+    {
+      "cityId": "los-angeles",
+      "file": "los-angeles-real-map.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "center": {
+        "lat": 34.02,
+        "lon": -118.3
+      },
+      "bounds": {
+        "south": 33.7814062246698,
+        "west": -118.58746089091824,
+        "north": 34.257924984517615,
+        "east": -118.01253910908176
+      },
+      "projectedBounds": {
+        "crs": "EPSG:3857",
+        "bbox": [
+          -13201095.760844262,
+          3999487.8537438456,
+          -13137095.760844262,
+          4063487.8537438456
+        ]
+      },
+      "scope": "洛杉矶市区高速网与西南太平洋沿岸；包含市中心及多条州际高速。",
+      "source": {
+        "name": "Esri ArcGIS World Street Map",
+        "serviceUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+        "imageUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/export?bbox=-13201095.761,3999487.854,-13137095.761,4063487.854&bboxSR=3857&imageSR=3857&size=1024,1024&format=png&f=image",
+        "accessedAt": "2026-10-31",
+        "itemUrl": "https://www.arcgis.com/home/item.html?id=3b93337983e9436f8db950e38a8629af",
+        "itemRestUrl": "https://www.arcgis.com/sharing/rest/content/items/3b93337983e9436f8db950e38a8629af?f=pjson",
+        "copyrightText": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community",
+        "accessInformation": "Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, © OpenStreetMap contributors, and the GIS User Community"
+      },
+      "license": "Esri Master License Agreement；底图与供应商数据保留版权，不主张开放许可。",
+      "licenseUrl": "https://www.esri.com/en-us/legal/terms/master-agreement",
+      "attribution": "© Esri 及地图数据提供者，详见地图服务 copyrightText",
+      "notes": "单次静态地图导出，正北向上；未拼接或批量抓取瓦片。底部叠加中文出处。 原始底图包含供方版权制图，限地理参考；图像下方约4.6%覆盖中文来源栏。底图数据日期由供方维护，本任务未声明其为实时道路资料。",
+      "licenseStatementFromSource": "<p><img src='https://downloads.esri.com/blogs/arcgisonline/esrilogo_new.png' /> &nbsp;This work is licensed under the Esri Master License Agreement.</p><div><a target='_blank' href='https://goto.arcgis.com/termsofuse/viewsummary' rel='nofollow ugc noopener noreferrer'><strong>View Summary</strong></a> | <a target='_blank' href='https://goto.arcgis.com/termsofuse/viewtermsofuse' rel='nofollow ugc noopener noreferrer'><strong>View Terms of Use</strong></a></div><div>&nbsp;</div><div><div>Alignment of boundaries is a presentation of the feature provided by our data vendors and does not imply endorsement by Esri or any governing authority.&nbsp;</div><div>&nbsp;</div><div>The Esri vector basemaps also include a similar style,&nbsp;<a target='_blank' href='https://goto.arcgis.com/vector/World_Street_Map_with_Relief' rel='nofollow ugc noopener noreferrer'>World Street Map (with Relief)</a>&nbsp;vector tile layer or the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=00f90f3f3c9141e4bea329679b257142' rel='nofollow ugc noopener noreferrer'>Streets (with Relief)</a>&nbsp;vector web map.&nbsp;</div><div>&nbsp;</div><div><strong>Export:</strong> This layer is not intended to be used to export tiles for offline.&nbsp; If you would like to export imagery for offline use in ArcGIS applications, you may use the&nbsp;<a target='_blank' href='https://www.arcgis.com/home/item.html?id=e384f5aa4eb1433c92afff09500b073d' rel='nofollow ugc noopener noreferrer'>World Street Map (for Export)</a>&nbsp;layer, which is intended for this purpose.</div></div>",
+      "referenceOnly": true,
+      "visualCheck": "已查看：洛杉矶市中心与I-5、I-10、I-110、I-405等高速格局可辨，太平洋海岸位于西南。"
+    }
+  ],
+  "referenceOnly": true,
+  "distribution": "参考 PNG 仅用于读取地理布局，不作为网页公开资源或最终发布素材；原图由主任务在生成结束后移至本机归档。仓库保留本元数据与可复现来源 URL。",
+  "generationGuidance": "生成物属于依据真实地理格局的风格化城市图，不能声称精确导航地图。保留主要河流、海岸与高速路网的相对位置，不复制底图标注与受版权保护的制图表达。",
+  "originalImagesDistributed": false,
+  "localReferenceArchive": "2026-10-31-human-overdrive-map-references",
+  "referencePathNote": "file 字段保留生成时文件名；原始参考图片已迁往本机归档，仓库只保留元数据和生成素材。"
+}
