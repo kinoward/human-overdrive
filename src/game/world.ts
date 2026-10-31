@@ -3,6 +3,7 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { assetUrl } from '../asset-url';
 import type { RoadPath, WorldData } from '../types';
 import { sampleRoad } from './road-network';
+import { buildBeijingRoads } from './beijing-road-layout';
 import { SceneryBatch } from './scenery-batch';
 import { addRoadScenery } from './road-scenery';
 import { addCityScenery } from './city-scenery';
@@ -27,11 +28,7 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   const response = await fetch(assetUrl('data/beijing-roads.json'));
   if (!response.ok) throw new Error('北京道路加载失败，请重新进入关卡。');
   const stored = await response.json() as StoredWorld;
-  const roads: RoadPath[] = stored.roads.map(road => {
-    const cumulative = [0];
-    for (let i = 1; i < road.points.length; i++) cumulative.push(cumulative[i - 1] + Math.hypot(road.points[i].x - road.points[i - 1].x, road.points[i].z - road.points[i - 1].z));
-    return { ...road, cumulative, length: cumulative[cumulative.length - 1] };
-  });
+  const roads = buildBeijingRoads(stored.roads);
   const points = roads.flatMap(road => road.points);
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (const point of points) { bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x); bounds.minZ = Math.min(bounds.minZ, point.z); bounds.maxZ = Math.max(bounds.maxZ, point.z) }
@@ -103,8 +100,8 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   const spawn = sampleRoad(origin.road, origin.distance, origin.road.width / 8);
   await onProgress?.(1, '北京场景准备完成');
   return {
-    roads, bounds, surfaces, mainLoopLength: stored.mainLoopLength, obstacles,
-    source: `${stored.source.name} · ${stored.source.osmTimestamp.slice(0, 10)} · 1:1 米制路网`, attribution: stored.attribution,
+    roads, bounds, surfaces, mainLoopLength: mainRoads.reduce((length, road) => length + road.length, 0) / 2, obstacles,
+    source: `${stored.source.name} · ${stored.source.osmTimestamp.slice(0, 10)} · 米制改编路网`, attribution: stored.attribution,
     spawn: { position: spawn.point, heading: spawn.heading, roadId: origin.road.id, distance: origin.distance },
     dispose: () => {
       const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
