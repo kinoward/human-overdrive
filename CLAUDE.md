@@ -2,7 +2,7 @@
 
 # Claude Code 专属约束
 
-以下约束只适用于 Claude Code，与[全局约束](AGENTS.md)同时生效。
+以下约束仅在使用 Claude Code 时生效，与[全局约束](AGENTS.md)同时适用；直接使用 Codex（包括 ChatGPT 客户端）开发时不生效，Codex 只按全局约束工作。
 
 ## 职责边界
 
