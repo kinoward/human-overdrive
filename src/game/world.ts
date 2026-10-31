@@ -8,6 +8,9 @@ import { addCityScenery } from './city-scenery';
 import { createDrivingAtmosphere } from './driving-atmosphere';
 import { addRoadDetails } from './road-details';
 import { addUrbanFrontage } from './urban-frontage';
+import { addBuildingFacades } from './building-facades';
+import { addStreetFurniture } from './street-furniture';
+import { addVergeVariation } from './verge-material';
 
 export { sampleRoad, nearestRoad } from './road-network';
 
@@ -67,12 +70,14 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   grassContext.putImageData(grassPixels, 0, 0);
   const grass = new THREE.CanvasTexture(grassCanvas); grass.colorSpace = THREE.SRGBColorSpace; grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(16, 16); grass.anisotropy = 4;
   const ground = new THREE.MeshStandardMaterial({ map: grass, color: '#a9b59c', roughness: 1 });
+  addVergeVariation(ground);
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
   addRoadDetails(roads, batch);
   const frontageOccupied = addUrbanFrontage(roads, batch);
-  addCityScenery(roads, batch, frontageOccupied);
+  const city = addCityScenery(roads, batch, frontageOccupied, placement => addStreetFurniture(roads, batch, placement));
+  for (const building of city.buildings) if (building.type !== 'office-block') addBuildingFacades(batch, { ...building, type: building.type });
   const surfaces = batch.finish();
   group.add(new THREE.HemisphereLight('#e4edf5', '#7e806d', 1.8));
   scene.add(group);

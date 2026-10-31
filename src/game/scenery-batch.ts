@@ -33,7 +33,7 @@ export class SceneryBatch {
       const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
       matrices.forEach((matrix, i) => { mesh.setMatrixAt(i, matrix); mesh.setColorAt(i, colors[i]) });
       mesh.receiveShadow = true;
-      mesh.castShadow = material instanceof THREE.MeshStandardMaterial;
+      mesh.castShadow = material instanceof THREE.MeshStandardMaterial && material.userData.sceneryShadow !== false;
       mesh.computeBoundingSphere();
       if (farGeometry) {
         const far = new THREE.InstancedMesh(farGeometry, material, matrices.length);
@@ -42,7 +42,7 @@ export class SceneryBatch {
         const center = mesh.boundingSphere!.center.clone();
         const levels = new THREE.LOD(); levels.position.copy(center);
         mesh.position.copy(center).negate(); far.position.copy(center).negate();
-        levels.addLevel(mesh, 0); levels.addLevel(far, 120, 0.15); this.group.add(levels);
+        levels.addLevel(mesh, 0); levels.addLevel(far, 100, 0.15); this.group.add(levels);
       } else this.group.add(mesh);
     }
     const collisionSurfaces: { vertices: Float32Array; indices: Uint32Array }[] = [];

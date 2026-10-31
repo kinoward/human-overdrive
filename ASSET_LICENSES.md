@@ -95,3 +95,9 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 `public/assets/ui-racing/globe/earth-blue-marble.jpg` 为 NASA Goddard Space Flight Center 的 Blue Marble 2002 全球合成影像，原文件 `land_ocean_ice_2048.jpg`，2048×1024，266599 字节。直接从 [NASA 官方影像地址](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.jpg)保存，未修改像素；来源、下载地址和使用说明见同目录 `SOURCES.json`。
 
 使用遵循 [NASA 图片与媒体规范](https://www.nasa.gov/nasa-brand-center/images-and-media/)，界面署名 NASA Goddard Space Flight Center / Blue Marble，不使用 NASA 标识或暗示其对游戏背书。地球影像为历史全球合成，不代表实时卫星画面；城市标记采用真实城市中心经纬度，不等同于比赛起跑点。运行时从本地离线加载，与其余关卡封面生成素材分别记录来源。
+
+## 路侧自然绿化与候车设施
+
+2026 年 10 月 31 日继续通过主办方 Tripo Studio H3.1，并行生成 `lush-shrub.glb` 自然灌木和 `bus-shelter.glb` 通用候车亭。两项在生成时启用2K纹理与PBR，实际导出均包含底色、粗糙金属与法线贴图；处理后灌木贴图为1K、候车亭为2K，运行文件共约1.09 MB。平台任务、实际尺寸、贴图用途和面数保存在 `public/assets/generated/ROADSIDES_SOURCES.json`，沿用 Tripo 条款，不宣称 CC0 或真实公交站复原。
+
+整理脚本 `scripts/prepare-roadside-models.mjs` 保持等比、居中落地与开敞面朝向，灌木提供2908面近景及440面远景，减面时保护外轮廓并保留对应UV与法线。住宅侧墙窗框、窗台、空调、落水管与勒脚为原创几何，按实际模型墙面射线定位；站牌仅标“公交候车”，不包含虚构线路或真实站名。草地色差、平台、垃圾桶和界桩同样由本项目构造。

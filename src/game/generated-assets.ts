@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree';
+export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree' | 'lush-shrub' | 'bus-shelter';
 interface AssetMesh { geometry: THREE.BufferGeometry; material: THREE.Material }
 const models = new Map<GeneratedAsset, THREE.Group>();
 const meshCache = new Map<string, AssetMesh[]>();
@@ -22,7 +22,7 @@ function floatGeometry(source: THREE.BufferGeometry) {
 
 export async function loadGeneratedAssets() {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  await Promise.all((['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree'] as const).map(async name => {
+  await Promise.all((['electric-suv', 'adventure-motorcycle', 'residential-block', 'roadside-tree', 'brick-apartment', 'office-block', 'slender-tree', 'lush-shrub', 'bus-shelter'] as const).map(async name => {
     const asset = await loader.loadAsync(`/assets/generated/${name}.glb`);
     asset.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
