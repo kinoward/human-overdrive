@@ -5,6 +5,7 @@ export interface Controls {
   throttle: number;
   steer: number;
   brake: boolean;
+  drift?: boolean;
 }
 
 export interface ArcadeDriveState {
@@ -33,6 +34,7 @@ export class ArcadeDriving {
   private leanAngle = 0;
   private pitchAngle = 0;
   private slide = 0;
+  private drift = 0;
 
   constructor(readonly config: VehicleConfig) {}
 
@@ -53,6 +55,7 @@ export class ArcadeDriving {
     const visualSpeed = THREE.MathUtils.clamp((speed - 1.5) / 18, 0, 1);
 
     if (!active) {
+      this.drift = 0;
       this.steeringAngle = THREE.MathUtils.damp(this.steeringAngle, 0, motorcycle ? 12 : 9, dt);
       this.leanAngle = THREE.MathUtils.damp(this.leanAngle, 0, 12, dt);
       this.pitchAngle = THREE.MathUtils.damp(this.pitchAngle, 0, 10, dt);
@@ -64,6 +67,11 @@ export class ArcadeDriving {
     const reverseSpeed = state.onRoad ? 8 : 4;
     const controlWeight = state.controlWeight;
     const responseWeight = THREE.MathUtils.smoothstep(controlWeight, 0.8, 1);
+    const driftTarget = input.drift && input.steer !== 0 && !braking && state.onRoad
+      ? THREE.MathUtils.smoothstep(state.forwardSpeed, 8, 16) * responseWeight
+      : 0;
+    this.drift = THREE.MathUtils.damp(this.drift, driftTarget, driftTarget > this.drift ? 7 : 10, dt);
+    const drift = this.drift * responseWeight;
     const powerWeight = (0.2 + controlWeight * 0.8) * (state.onRoad ? 1 : 0.35);
     let forwardDelta = 0;
 
@@ -90,6 +98,7 @@ export class ArcadeDriving {
       forwardDelta = this.approach(state.forwardSpeed, 0, (motorcycle ? 0.9 : 1.25) * dt);
     }
 
+    if (drift > 0) forwardDelta += this.approach(state.forwardSpeed + forwardDelta, 0, (motorcycle ? 2 : 3) * drift * dt);
     if (!state.onRoad) forwardDelta += this.approach(state.forwardSpeed + forwardDelta, 0, 2.6 * dt);
 
     const steerSpeed = THREE.MathUtils.clamp(speed / 45, 0, 1);
@@ -106,7 +115,7 @@ export class ArcadeDriving {
     this.slide = THREE.MathUtils.damp(this.slide, slideTarget, slideResponse, dt);
 
     const yawActivation = THREE.MathUtils.clamp((speed - 0.4) / THREE.MathUtils.lerp(4, 2.5, responseWeight), 0, 1);
-    const yawLimit = this.yawLimit(speed);
+    const yawLimit = this.yawLimit(speed) * (1 + drift * (motorcycle ? 0.18 : 0.3));
     const direction = state.forwardSpeed < -0.5 ? -1 : 1;
     const desiredYaw = -input.steer * direction * yawLimit * yawActivation * (motorcycle ? 1 : 1 + this.slide * 0.15);
     const correctingYaw = input.steer === 0 || desiredYaw * state.yawRate < 0;
@@ -117,8 +126,9 @@ export class ArcadeDriving {
 
     const roadGrip = motorcycle ? 24 : THREE.MathUtils.lerp(18, 5, this.slide);
     const recoveringGrip = motorcycle ? 10.5 : THREE.MathUtils.lerp(8.5, 2.4, this.slide);
-    const grip = state.onRoad ? THREE.MathUtils.lerp(recoveringGrip, roadGrip + (correctingYaw ? 8 : 0), responseWeight) : 5;
-    const sideRequested = -state.sideSpeed * (1 - Math.exp(-grip * dt));
+    const grip = state.onRoad ? THREE.MathUtils.lerp(THREE.MathUtils.lerp(recoveringGrip, roadGrip + (correctingYaw ? 8 : 0), responseWeight), motorcycle ? 4.5 : 3.5, drift) : 5;
+    const sideTarget = input.steer * Math.max(0, state.forwardSpeed) * (motorcycle ? 0.3 : 0.4) * drift;
+    const sideRequested = (sideTarget - state.sideSpeed) * (1 - Math.exp(-grip * dt));
     const sideLimit = THREE.MathUtils.lerp(motorcycle ? 24 : 20, motorcycle ? 44 : 36, responseWeight) * dt;
     const sideDelta = THREE.MathUtils.clamp(sideRequested, -sideLimit, sideLimit) * controlWeight;
 

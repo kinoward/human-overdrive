@@ -938,7 +938,7 @@ export class GameEngine {
       else if (code === 'KeyD' || code === 'ArrowRight') steer = 1;
       else if (code === 'KeyA' || code === 'ArrowLeft') steer = -1;
     }
-    return { throttle, steer, brake: this.keys.has('Space') };
+    return { throttle, steer, brake: this.keys.has('Space'), drift: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') };
   }
 
   private keyDown = (event: KeyboardEvent) => {
@@ -950,7 +950,7 @@ export class GameEngine {
     }
     if (event.code === 'Escape' && !event.repeat) { event.preventDefault(); if (this.status === 'paused') this.resume(); else this.pause(); return }
     if (this.status !== 'running') return;
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyC'].includes(event.code)) { event.preventDefault(); this.keys.add(event.code) }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyC', 'ShiftLeft', 'ShiftRight'].includes(event.code)) { event.preventDefault(); this.keys.add(event.code) }
   };
 
   private keyUp = (event: KeyboardEvent) => { this.keys.delete(event.code) };

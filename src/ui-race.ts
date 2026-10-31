@@ -22,7 +22,7 @@ export function raceHud(muted: boolean, soundLabel: string) {
     <div class="r-alerts"><div class="r-wrong-way" data-race="wrong-way" aria-hidden="true"><span aria-hidden="true">↶</span><strong>逆向行驶</strong><span>注意迎面车流</span></div><div class="r-capture" data-race="capture" role="status" aria-hidden="true"><div class="r-capture-heading"><span aria-hidden="true">!</span><strong>冲出包围</strong><b><span data-race="capture-seconds">5.0</span><small> 秒后被捕</small></b></div><div class="r-capture-track"><i data-race="capture-bar"></i></div><span>恢复行驶，摆脱警方围堵</span></div></div>
     <section class="r-score r-enter" data-race="score-panel"><span class="r-eyebrow">车技分</span><strong class="r-score-number" data-race="score">0</strong><div class="r-score-detail"><span data-race="combo-label">干净驾驶</span><span>近失超车 <b data-race="near-miss">0</b></span></div><div class="r-combo" data-race="combo" aria-hidden="true"><span>连续成功交互</span><strong><b data-race="combo-count">1</b><small> 次</small></strong></div></section>
     <div class="r-map-frame" aria-hidden="true"><i></i><span>周边路况<small>车头朝上</small></span></div>
-    <div class="r-key-hint"><span><kbd>WASD</kbd> / 方向键 驾驶</span><span><kbd>空格</kbd> 刹车</span><span><kbd>C</kbd> 后视</span><span><kbd>Esc</kbd> 暂停</span></div>
+    <div class="r-key-hint"><span><kbd>WASD</kbd> / 方向键 驾驶</span><span><kbd>空格</kbd> 刹车</span><span><kbd>Shift</kbd> 按住漂移</span><span><kbd>C</kbd> 后视</span><span><kbd>Esc</kbd> 暂停</span></div>
   </div>`;
 }
 
