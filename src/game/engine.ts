@@ -560,8 +560,8 @@ export class GameEngine {
     const attacks = this.pursuit.activeCars.filter(actor => actor.state === 'positioning' || actor.state === 'contact');
     const loss = events.find(event => event.type === 'flipped' || event.type === 'disabled');
     if (events.some(event => event.type === 'windup')) {
-      const sides = [...new Set(attacks.map(actor => actor.role === 'left' ? '左侧' : actor.role === 'right' ? '右侧' : actor.role === 'intercept' ? '前方' : '后方'))];
-      this.message(`${sides.join('、') || '附近'}警车准备冲撞 · 变线或刹车躲开`, 'danger', 1.7);
+      const threats = [...new Set(attacks.map(actor => actor.tactic === 'pit' ? `${actor.role === 'left' ? '左' : '右'}后侧 PIT 撞击` : actor.tactic === 'brake-check' ? '前方刹停封路' : actor.tactic === 'box' ? '近距离夹堵' : '后方追撞顶推'))];
+      this.message(`${threats.join('、')} · 立即变线突围`, 'danger', 1.5);
     } else if (loss) {
       const text = loss.type === 'flipped' ? '警车翻覆' : '警车受损退出追捕';
       this.message(`${text} · ${attacks.length ? '仍有警车逼近' : '抓住突围空档'}`, attacks.length ? 'neutral' : 'good', 2.8);
@@ -649,7 +649,7 @@ export class GameEngine {
     const score = calculateScore(this.metrics);
     this.renderer.domElement.dataset.scoring = JSON.stringify({ ...score, cleanDistance: this.metrics.cleanDistance, pressureDistance: this.metrics.pressureDistance, nearMisses: this.metrics.nearMisses, evadedAttacks: this.metrics.evadedAttacks, maxPressureTime: this.metrics.maxPressureTime, maxPressureDistance: this.metrics.maxPressureDistance });
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, controls: this.readControls(), damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
-    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, tactic: actor.tactic, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, speed: actor.vehicle.speed, topSpeedKmh: actor.vehicle.config.topSpeed, attackSpeedKmh: actor.attackSpeed * 3.6 })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
       const road = nearestRoad(this.track.roads, position.x, position.z, position.y - 0.85);
