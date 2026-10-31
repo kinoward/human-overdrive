@@ -5,6 +5,9 @@ import { sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
 import { addRoadScenery } from './road-scenery';
 import { addCityScenery } from './city-scenery';
+import { createDrivingAtmosphere } from './driving-atmosphere';
+import { addRoadDetails } from './road-details';
+import { addUrbanFrontage } from './urban-frontage';
 
 export { sampleRoad, nearestRoad } from './road-network';
 
@@ -43,16 +46,8 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const font = new FontFace('Source Han Sans', 'url(/assets/art/Fonts/SourceHanSansCN-Regular.otf)');
   document.fonts.add(await font.load());
   environment.mapping = THREE.EquirectangularReflectionMapping;
-  const skyCanvas = document.createElement('canvas'); skyCanvas.width = 1024; skyCanvas.height = 512;
-  const skyContext = skyCanvas.getContext('2d')!;
-  const skyGradient = skyContext.createLinearGradient(0, 0, 0, 512);
-  skyGradient.addColorStop(0, '#4986ba'); skyGradient.addColorStop(0.48, '#bed7df'); skyGradient.addColorStop(0.6, '#d7e1dd'); skyGradient.addColorStop(1, '#a3afa5');
-  skyContext.fillStyle = skyGradient; skyContext.fillRect(0, 0, 1024, 512);
-  const skyTexture = new THREE.CanvasTexture(skyCanvas); skyTexture.mapping = THREE.EquirectangularReflectionMapping; skyTexture.colorSpace = THREE.SRGBColorSpace;
-  scene.background = skyTexture;
-  scene.fog = new THREE.FogExp2('#c1d6dc', 0.00125);
+  const skyTexture = createDrivingAtmosphere(scene);
   scene.environment = environment;
-  scene.environmentIntensity = 0.45;
   const group = new THREE.Group(); group.name = '北京四环完整路网';
   const batch = new SceneryBatch(group);
   const asphalt = new THREE.MeshStandardMaterial({ map: asphaltMap, normalMap: asphaltNormal, roughnessMap: asphaltRough, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.94, color: '#bfc4c9' });
@@ -62,7 +57,9 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
-  addCityScenery(roads, batch);
+  addRoadDetails(roads, batch);
+  const frontageOccupied = addUrbanFrontage(roads, batch);
+  addCityScenery(roads, batch, frontageOccupied);
   const surfaces = batch.finish();
   group.add(new THREE.HemisphereLight('#e4edf5', '#7e806d', 1.8));
   scene.add(group);

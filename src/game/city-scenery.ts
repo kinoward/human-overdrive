@@ -59,7 +59,7 @@ function treeGeometry() {
   [...branches, ...crown].forEach(part => part.dispose()); return result;
 }
 
-export function addCityScenery(roads: RoadPath[], batch: SceneryBatch) {
+export function addCityScenery(roads: RoadPath[], batch: SceneryBatch, frontageOccupied?: (x: number, z: number, radius: number) => boolean) {
   const index = new RoadIndex(roads), occupied = new Set<string>();
   const walls = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.88 });
   const trim = new THREE.MeshStandardMaterial({ color: '#e1d8c4', roughness: 0.8 });
@@ -79,7 +79,7 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch) {
     for (let along = 45; along < road.length; along += 88) for (const side of [-1, 1]) {
       const sample = sampleRoad(road, along, side * (road.width / 2 + 68 + random() * 75));
       const key = `${Math.floor(sample.point.x / 54)},${Math.floor(sample.point.z / 54)}`;
-      if (occupied.has(key)) continue;
+      if (occupied.has(key) || frontageOccupied?.(sample.point.x, sample.point.z, 24)) continue;
       const near = index.nearest(sample.point.x, sample.point.z);
       if (!near || Math.abs(near.offset) < near.road.width / 2 + 33) continue;
       occupied.add(key);
@@ -94,14 +94,14 @@ export function addCityScenery(roads: RoadPath[], batch: SceneryBatch) {
       const near = index.nearest(sample.point.x, sample.point.z);
       if (!near || Math.abs(near.offset) < near.road.width / 2 + 3 || Math.abs(sample.point.y) > 0.2) continue;
       const key = `tree:${Math.floor(sample.point.x / 11)},${Math.floor(sample.point.z / 11)}`;
-      if (occupied.has(key)) continue;
+      if (occupied.has(key) || frontageOccupied?.(sample.point.x, sample.point.z, 4)) continue;
       occupied.add(key);
       const color = new THREE.Color(['#64836b', '#719b7b', '#94a96f', '#c3a96c'][Math.floor(random() * 4)]);
       p.set(sample.point.x, 0, sample.point.z); const scale = 0.8 + random() * 0.3; size.set(scale, scale, scale);
       batch.instance(trunk, p, size, sample.heading, tree.trunk);
       batch.instance(foliage, p, size, sample.heading, tree.crown, color);
       const at = sampleRoad(road, along + 10, side * (road.width / 2 + 3)).point;
-      if (index.covers(at, undefined, 1.2)) continue;
+      if (index.covers(at, undefined, 1.2) || frontageOccupied?.(at.x, at.z, 2)) continue;
       batch.instance(trim, p.set(at.x, 0.22, at.z), size.set(1, 1, 1), sample.heading, planter);
       for (const shift of [-0.8, 0, 0.8]) batch.instance(foliage, p.set(at.x + Math.cos(sample.heading) * shift, 0.72, at.z - Math.sin(sample.heading) * shift), size.set(0.7, 0.5, 0.65), sample.heading, shrub, new THREE.Color('#5b7e67'));
     }
