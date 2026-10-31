@@ -1,100 +1,62 @@
-const colors = {
-  paper: '#f2efe5',
-  road: '#fffdf7',
-  park: '#dce4d2',
-  leaf: '#b7c8a9',
-  water: '#aecfd2',
-  ink: '#425f52',
-  coral: '#da7d64',
-  mustard: '#d5b45b',
-  block: '#e5decc',
-};
-
-function building(x: number, y: number, width: number, height: number, color: string, rotation = 0) {
-  return `<g transform="translate(${x} ${y}) rotate(${rotation})"><rect width="${width}" height="${height}" rx="3" fill="${color}"/><rect x="${width / 2 - 2}" y="${height / 2 - 2}" width="4" height="4" rx="1" fill="${colors.road}" opacity=".6"/></g>`;
+function trees(points: number[][], color = '#659b7e') {
+  return points.map(([x, y, size = 3]) => `<ellipse cx="${x}" cy="${y}" rx="${size}" ry="${size * 1.4}" fill="${color}" transform="rotate(-20 ${x} ${y})"/>`).join('');
 }
 
-function trees(points: number[][]) {
-  return points.map(([x, y, size = 8]) => `<circle cx="${x}" cy="${y}" r="${size}" fill="${colors.leaf}"/>`).join('');
-}
-
-function car(x: number, y: number, rotation: number, color: string) {
-  return `<g class="map-car" transform="translate(${x} ${y}) rotate(${rotation})"><rect x="-4" y="-8" width="8" height="16" rx="3" fill="${color}"/><path d="M-2-3h4M-2 4h4" stroke="${colors.road}" stroke-width="1.6" stroke-linecap="round"/></g>`;
-}
-
-function beijing(hero: boolean) {
-  return `<path d="M0 0h640v480H0z" fill="${colors.paper}"/>
-    <g fill="${colors.park}"><rect x="124" y="91" width="89" height="66" rx="19"/><rect x="435" y="266" width="77" height="104" rx="22"/><rect x="244" y="267" width="62" height="46" rx="10"/><path d="M0 360h77v120H0zM549 0h91v101h-91z"/></g>
-    <g fill="${colors.block}"><rect x="241" y="91" width="63" height="64" rx="7"/><rect x="338" y="91" width="65" height="64" rx="7"/><rect x="434" y="91" width="65" height="64" rx="7"/><rect x="125" y="185" width="85" height="43" rx="7"/><rect x="125" y="266" width="85" height="46" rx="7"/><rect x="242" y="343" width="62" height="40" rx="7"/><rect x="338" y="343" width="65" height="40" rx="7"/></g>
-    <g fill="none" stroke="${colors.road}" stroke-linecap="round" stroke-linejoin="round"><path d="M-20 171h680M-20 248h680M-20 327h680M225-20v520M322-20v520M419-20v520" stroke-width="13"/><rect x="104" y="72" width="432" height="330" rx="69" stroke-width="22"/><path d="M104 114 59 69M536 114l46-45M104 361l-45 45M536 361l46 45" stroke-width="12"/></g>
-    <path d="M263 202h37v22h-37zM341 278h43v24h-43z" fill="${colors.ink}"/>
-    ${building(350, 194, 32, 31, colors.coral)}${building(143, 343, 38, 23, colors.mustard)}${building(452, 194, 27, 31, colors.mustard)}${building(260, 104, 25, 25, colors.coral)}${building(351, 107, 33, 22, colors.ink)}
-    ${trees([[143, 112], [168, 127, 12], [189, 107, 7], [453, 289, 11], [486, 305], [463, 337, 13], [276, 291, 10], [579, 36, 12], [605, 63, 9], [32, 400, 13]])}
-    ${car(184, 72, 90, colors.coral)}${car(536, 207, 180, colors.mustard)}${car(372, 402, -90, colors.ink)}${car(225, 301, 0, colors.coral)}${car(310, 171, 90, colors.mustard)}
-    ${hero ? `${building(143, 194, 29, 22, colors.coral)}${building(185, 192, 13, 29, colors.mustard)}${building(139, 279, 25, 20, colors.ink)}${building(178, 278, 19, 20, colors.coral)}${building(350, 354, 29, 17, colors.mustard)}${building(444, 116, 21, 29, colors.coral)}${building(480, 119, 18, 23, colors.ink)}${building(263, 352, 22, 22, colors.coral)}${trees([[143, 145, 6], [191, 141, 6], [493, 354, 8], [43, 431, 10], [67, 402, 7]])}${car(104, 281, 0, colors.ink)}${car(464, 248, 90, colors.coral)}` : ''}
-    <g transform="translate(322 247)"><circle r="27" fill="${colors.paper}"/><circle r="17" fill="${colors.coral}"/><path d="M-5 0h10M0-5v10" stroke="${colors.road}" stroke-width="2.5" stroke-linecap="round"/></g>`;
-}
-
-function shanghai(hero: boolean) {
-  return `<path d="M0 0h640v480H0z" fill="${colors.paper}"/>
-    <path d="M388-20c-66 86-73 138-39 196s40 97-9 150-55 107-25 174h79c-36-59-24-103 24-157s53-115 14-175-15-111 43-188z" fill="${colors.water}"/>
-    <g fill="${colors.park}"><rect x="81" y="73" width="108" height="66" rx="20"/><rect x="455" y="273" width="117" height="99" rx="25"/><rect x="153" y="303" width="96" height="67" rx="18"/></g>
-    <g fill="none" stroke="${colors.road}" stroke-linecap="round" stroke-linejoin="round"><path d="M58-20v520M212-20v520M-20 158h310M-20 280h324M-20 394h680M458-20v520M581-20v520M438 161h222M444 250h216" stroke-width="14"/><path d="M287-20c-35 91-23 147 10 210s-9 113-28 152-15 86-2 158M489-20c-59 80-73 132-41 194s31 112-10 161-48 106-10 165" stroke-width="12"/><path d="M212 206c77-6 173 14 246 0M212 331c87 13 160 15 246-8M212 53c88 8 181 6 246-8" stroke-width="18"/></g>
-    ${building(84, 188, 33, 40, colors.ink)}${building(144, 190, 42, 26, colors.coral)}${building(91, 310, 29, 43, colors.mustard)}${building(477, 184, 31, 42, colors.coral)}${building(526, 186, 29, 41, colors.ink)}${building(88, 422, 42, 24, colors.coral)}${building(154, 421, 29, 24, colors.mustard)}
-    ${trees([[108, 100, 11], [141, 112, 9], [171, 94, 8], [478, 299, 10], [512, 324, 14], [546, 295, 8], [532, 351, 10], [179, 329, 12], [219, 345, 9]])}
-    <g transform="translate(388 112)"><circle r="14" fill="${colors.coral}"/><path d="M0-32v64" stroke="${colors.coral}" stroke-width="5"/><circle r="5" fill="${colors.road}"/></g>
-    ${car(212, 113, 0, colors.coral)}${car(334, 206, 90, colors.mustard)}${car(458, 430, 0, colors.ink)}${car(136, 280, 90, colors.coral)}
-    ${hero ? `${building(87, 26, 36, 26, colors.coral)}${building(146, 26, 35, 26, colors.ink)}${building(234, 90, 22, 42, colors.mustard)}${building(480, 73, 26, 37, colors.ink)}${building(526, 91, 27, 39, colors.mustard)}${building(475, 422, 32, 24, colors.coral)}${building(529, 422, 27, 24, colors.ink)}${car(521, 161, 90, colors.mustard)}${car(58, 350, 180, colors.ink)}` : ''}`;
-}
-
-function chongqing(hero: boolean) {
-  return `<path d="M0 0h640v480H0z" fill="${colors.paper}"/>
-    <g fill="${colors.park}"><path d="M0 0h255c-55 47-58 88-121 110S41 114 0 162z"/><path d="M640 238c-65-33-104-14-123 39s-8 100-64 137-68 35-84 66h271z"/><path d="M64 354c42-40 115-26 132 13s-2 72-18 113H0v-75z"/></g>
-    <g fill="none" stroke="${colors.leaf}" stroke-width="2" opacity=".6"><path d="M0 47c64-17 102-7 146-47M0 78c86-22 121-4 188-78M0 111c101-23 159-30 201-89M490 480c14-66 103-76 150-94M520 480c11-45 75-59 120-64"/></g>
-    <path d="M-30 140c144-11 210 17 318 77s205 63 382 12v57c-193 54-295 39-414-29S79 195-30 198z" fill="${colors.water}"/>
-    <path d="M320-20c-24 90-40 147-6 221l-46 25c-42-86-27-162-13-246z" fill="${colors.water}"/>
-    <g fill="none" stroke="${colors.road}" stroke-linecap="round" stroke-linejoin="round"><path d="M-20 90c144-28 185 1 239 44M-20 242c102-34 182-7 282 53s205 67 398 13M-20 309c103-27 182-6 276 49s245 71 404 25M347-20c-26 81-11 132 38 181s129 25 275-7" stroke-width="14"/><path d="M112 73 85 260M221 110l-64 229M405 123l-83 260M526 165l-57 254" stroke-width="19"/><path d="M85 260 46 480M322 383l-39 117M469 419l-22 81M350 67c101 47 175 45 310 19" stroke-width="12"/></g>
-    ${building(101, 105, 37, 25, colors.coral, 7)}${building(171, 114, 26, 30, colors.mustard, 14)}${building(117, 261, 31, 33, colors.ink, 15)}${building(207, 288, 37, 25, colors.coral, 28)}${building(382, 342, 34, 28, colors.mustard, 10)}${building(421, 81, 31, 29, colors.coral, 12)}${building(498, 111, 39, 24, colors.ink, -5)}
-    ${trees([[55, 41, 9], [91, 26, 12], [167, 39, 8], [546, 359, 12], [582, 338, 10], [596, 380, 13], [104, 397, 12], [136, 426, 8]])}
-    ${car(97, 180, 9, colors.ink)}${car(366, 240, 22, colors.coral)}${car(505, 238, 16, colors.mustard)}${car(267, 362, -61, colors.ink)}
-    ${hero ? `${building(52, 360, 27, 22, colors.mustard, -11)}${building(192, 362, 27, 34, colors.coral, 24)}${building(280, 305, 18, 27, colors.ink, 26)}${building(465, 32, 33, 22, colors.mustard, 13)}${building(555, 107, 30, 23, colors.coral, -7)}${trees([[551, 427, 9], [581, 450, 13], [612, 418, 8], [152, 378, 9]])}${car(563, 170, 84, colors.coral)}` : ''}`;
-}
-
-function tokyo(hero: boolean) {
-  return `<path d="M0 0h640v480H0z" fill="${colors.paper}"/>
-    <path d="M640 179c-79 2-134 33-144 88s-53 64-82 101-17 74-59 112h285z" fill="${colors.water}"/>
-    <g fill="${colors.park}"><path d="M209 128c52-34 118-9 125 38s-43 96-94 78-74-83-31-116z"/><rect x="69" y="310" width="84" height="90" rx="21"/><path d="M432 10h114v63H432z"/></g>
-    <g fill="none" stroke="${colors.road}" stroke-linecap="round" stroke-linejoin="round"><path d="M-20 89h680M-20 274h509M-20 418h436M174-20v520M359-20v520M69-20v310M449-20v238M-20 188h180M359 178h301M-20 356h174M265 259v241" stroke-width="14"/><path d="M174 70c-48 30-71 110-43 165s111 112 176 73 100-78 82-145S245 28 174 70z" stroke-width="19"/><path d="m389 281 98 70 99-86M359 418l113 55M487 351l-15 122" stroke-width="17"/></g>
-    <path d="m524 286 63 24-19 49-61-25zM444 379l38 15-14 35-36-14z" fill="${colors.paper}"/>
-    ${building(87, 111, 40, 31, colors.coral)}${building(89, 212, 36, 33, colors.mustard)}${building(197, 336, 37, 31, colors.ink)}${building(283, 342, 45, 26, colors.coral)}${building(384, 108, 35, 42, colors.mustard)}${building(477, 112, 37, 35, colors.ink)}${building(531, 304, 26, 27, colors.coral, 21)}
-    ${trees([[228, 154, 11], [268, 143, 9], [288, 177, 12], [242, 206, 10], [95, 332, 11], [127, 361, 13], [93, 383, 7], [459, 37, 11], [498, 42, 9]])}
-    ${car(174, 366, 0, colors.coral)}${car(308, 89, 90, colors.mustard)}${car(410, 178, 90, colors.ink)}${car(436, 315, 125, colors.coral)}
-    ${hero ? `${building(22, 109, 24, 37, colors.ink)}${building(26, 208, 23, 36, colors.coral)}${building(194, 444, 38, 22, colors.mustard)}${building(286, 443, 41, 23, colors.ink)}${building(477, 28, 26, 27, colors.coral)}${building(541, 114, 26, 34, colors.mustard)}${trees([[304, 213, 7], [209, 185, 8], [121, 313, 7]])}${car(58, 274, -90, colors.mustard)}` : ''}`;
-}
-
-function losAngeles(hero: boolean) {
-  return `<path d="M0 0h640v480H0z" fill="${colors.paper}"/>
-    <path d="M0 283c75 11 94 41 143 70s81 63 94 127H0z" fill="${colors.water}"/>
-    <path d="M0 257c75 12 111 52 158 76s88 77 107 147h-28c-13-64-45-98-94-127S75 294 0 283z" fill="#e6d7b5"/>
-    <g fill="${colors.park}"><path d="M291 0h349v62c-90 24-140-19-201 10S339 71 291 0z"/><rect x="443" y="222" width="127" height="70" rx="17"/><rect x="289" y="341" width="63" height="78" rx="16"/></g>
-    <g fill="none" stroke="${colors.road}" stroke-linecap="round" stroke-linejoin="round"><path d="M-20 102h680M-20 202h680M146 309h514M243 433h417M91-20v294M208-20v379M382-20v520M594-20v520M-20 26h313M288 87v222M475 79v123M477 309v191" stroke-width="12"/><path d="M-20 156c168-10 211 35 283 89s196 30 250 103 56 107 75 152M117-20c-6 127 23 169 111 225s128 150 183 295" stroke-width="22"/></g>
-    ${building(116, 48, 36, 29, colors.coral)}${building(239, 119, 26, 43, colors.mustard)}${building(312, 116, 43, 29, colors.ink)}${building(405, 121, 43, 27, colors.coral)}${building(499, 117, 37, 32, colors.mustard)}${building(400, 340, 42, 31, colors.ink)}${building(515, 393, 37, 23, colors.coral)}
-    ${trees([[469, 243, 9], [505, 261, 13], [546, 245, 10], [318, 366, 10], [327, 398, 8], [429, 31, 12], [496, 25, 9], [572, 35, 14]])}
-    <g fill="${colors.mustard}"><circle cx="549" cy="79" r="16"/><path d="M549 52v-7M549 113v-7M522 79h-7M583 79h-7" stroke="${colors.mustard}" stroke-width="3" stroke-linecap="round"/></g>
-    ${car(162, 187, 125, colors.ink)}${car(355, 274, 80, colors.coral)}${car(382, 190, 0, colors.mustard)}${car(543, 433, 90, colors.ink)}
-    ${hero ? `${building(28, 47, 35, 30, colors.mustard)}${building(242, 46, 29, 28, colors.ink)}${building(405, 226, 23, 43, colors.mustard)}${building(513, 334, 35, 25, colors.coral)}${building(275, 451, 43, 23, colors.mustard)}${building(403, 452, 43, 23, colors.coral)}${trees([[548, 278, 7], [478, 279, 6], [350, 35, 11], [606, 16, 7]])}${car(594, 251, 0, colors.coral)}` : ''}`;
-}
-
-const maps: Record<string, (hero: boolean) => string> = {
-  beijing,
-  shanghai,
-  chongqing,
-  tokyo,
-  'los-angeles': losAngeles,
+const maps: Record<string, string> = {
+  beijing: `<path d="M0 0h240v240H0z" fill="#eee9d2"/>
+    <path d="M0 60h50q17 0 17 12v6H0zM240 69h-75q-18 0-18 17 0 11 9 18l13 12q10 9 10 24v23q0 25-25 25h-20q-24 0-24-24v-33q0-25 12-40l9-12q7-8 7-19V0h19v57q0 16 12 16h71zM0 170h52q15 0 15 15v55H0z" fill="#87bfc0"/>
+    <path d="M122 88q18-10 22 10t-4 30q-13 8-19-5t1-35z" fill="#c5d7b5"/>
+    <path d="M0 164h46q9 0 9-9v-16M156 122v29q0 11-11 11h-32" fill="none" stroke="#fff7dc" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    ${trees([[124, 99, 3], [130, 104, 3], [120, 108, 2.6], [128, 113, 2.4], [136, 108, 2.7]])}`,
+  shanghai: `<path d="M0 0h240v240H0z" fill="#fbf5df"/>
+    <path d="M125-20c-34 45-25 73-7 100s30 53 3 81-33 54-15 99h43c-24-37-11-59 11-84s29-58 7-91-21-61 9-105z" fill="#86c6c4"/>
+    <path d="M154 134c17-14 44-23 86-21v16c-38-4-58 2-76 15z" fill="#86c6c4"/>
+    <path d="M0 172h65q12 0 12-12v-51M177 47v37q0 12 12 12h51" fill="none" stroke="#fffdf1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M26 42q29-17 48 8t-4 38Q37 99 24 74zM178 185q20-16 36 1t-2 35q-29 9-34-14z" fill="#dce49a"/>
+    ${trees([[42, 54, 3], [48, 64, 2.5], [189, 193, 2.7]], '#aebd65')}`,
+  chongqing: `<path d="M0 0h240v240H0z" fill="#e2e6b9"/>
+    <path d="M0 0h240v34q-51 26-91 7T65 55Q27 66 0 47zM0 194q44-35 91-11t149-10v67H0z" fill="#cad5a5"/>
+    <path d="M-20 92c70-9 89 12 135 33s87 17 145-4v32c-66 22-106 20-157-5S36 122-20 127z" fill="#83bcba"/>
+    <path d="M121-20c-19 44-17 83 8 137l-25 15C76 81 76 33 90-20z" fill="#83bcba"/>
+    <path d="M21 157q51-13 90 8t109 4M160 49q-12 33-4 57" fill="none" stroke="#fff8df" stroke-width="7" stroke-linecap="round"/>
+    ${trees([[37, 52, 3], [45, 57, 3], [52, 51, 2.5], [178, 201, 3], [188, 207, 2.7], [199, 200, 3]], '#8ba978')}`,
+  tokyo: `<path d="M0 0h240v240H0z" fill="#fff8e5"/>
+    <path d="M0 0h120q-10 20-32 35T0 83zM0 161q38-15 63 7t29 72H0z" fill="#ecc5d0"/>
+    <path d="M180-20c-23 43-19 66-24 94s-17 41-45 60-38 56-25 106h37c-16-42-11-59 17-78s43-42 44-70 6-57 31-88z" fill="#83c9c8"/>
+    <path d="M160 96q36 12 37 40t-29 40l-42 13-7-16 41-14q23-9 18-25t-24-20zM116 210h61q29 0 63 27v23H116z" fill="#83c9c8"/>
+    <path d="M164 0q-13 32-13 62t-24 49l-25 20M184 129q11 23-15 35l-22 6" fill="none" stroke="#fffdf1" stroke-width="5" stroke-linecap="round"/>
+    ${trees([[64, 48, 2.6], [69, 53, 2.5], [140, 192, 2.6]], '#c58eaa')}`,
+  'los-angeles': `<path d="M0 0h240v240H0z" fill="#fff5d6"/>
+    <path d="M0 62q15 9 36 27t12 52q-4 19 14 28t35-1 44 13 55 8q24-7 44-1v52H0z" fill="#83c6bf"/>
+    <path d="M0 73q18 11 32 23t10 43q-4 28 17 36t38-1 43 15 56 7" fill="none" stroke="#fffdf0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M153 22q23-9 32 8t18 26q7 17-9 20-19 2-29-19t-22-22q-4-8 10-13zM49 153q16-9 27 6t27 17q9 14-5 19t-27-6-23-8q-8-13 1-28z" fill="#dfe68c"/>
+    <path d="M161 91v53q0 11-11 11h-36" fill="none" stroke="#fffdf0" stroke-width="5" stroke-linecap="round"/>
+    ${trees([[159, 31, 2.7], [174, 50, 2.7], [58, 167, 2.7], [83, 181, 2.4]], '#b4c06b')}`,
 };
 
 export function cityMapArt(cityId: string, hero = false): string {
-  return `<svg class="city-map-art${hero ? ' city-map-hero' : ''}" viewBox="0 0 640 480" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${maps[cityId](hero)}<text x="24" y="458" fill="${colors.ink}" opacity=".65" font-size="10" font-family="inherit" letter-spacing="1.5">关卡风格插画</text></svg>`;
+  return `<svg class="city-map-art${hero ? ' city-map-hero' : ''}" viewBox="0 0 240 240" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${maps[cityId]}</svg>`;
+}
+
+export function menuRoadArt(): string {
+  return `<svg class="menu-road-art" viewBox="0 0 1400 800" preserveAspectRatio="none" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <path d="m590 850 327-397q33-39 33-88V-30M850 546q55 35 55 92M950 185h80V97" stroke="#fffefa" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="973" y="43" width="126" height="169" rx="23" fill="#fffefa"/>
+    <path d="m1067 65 76 77 6 37 45 46v29q0 20-20 20h-43q-12 0-23-11L992 147z" fill="#343733" opacity=".25"/>
+    <path d="m920 647 29 30v41q0 12-12 12h-31l-21-23z" fill="#343733" opacity=".25"/>
+    <path d="M990 60h76q9 0 9 9v78h-76q-9 0-9-9z" fill="#9b6257"/>
+    <path d="M987 56h75q9 0 9 9v75h-76q-8 0-8-8z" fill="#d58b55"/>
+    <path d="M984 53h72q8 0 8 8v69h-72q-8 0-8-8z" fill="#efb85d"/>
+    <path d="M982 51h68q9 0 9 9v65h-27v5h-25v-5h-16q-9 0-9-9z" fill="#ffd17b"/>
+    <path d="M1000 59a9 9 0 1 1 18 0c0 7-9 14-9 14s-9-7-9-14z" fill="#3a342c" stroke="#fff9e7" stroke-width="2.5"/>
+    <circle cx="1009" cy="59" r="3.5" fill="#786c4d"/>
+    <path d="M886 650h39v37h-39z" fill="#d97f51"/>
+    <path d="M886 649q0-5 5-5h29q5 0 5 5v18h-39z" fill="#ffd078"/>
+    <rect x="906" y="635" width="9" height="10" rx="2" fill="#efbb65"/>
+    <g transform="translate(846 548) rotate(40)"><rect x="-6" y="-10" width="12" height="20" rx="3" fill="#efbd60" stroke="#dab05c"/><path d="M-4-5h8M-4 5h8" stroke="#ffdf98" stroke-width="2"/></g>
+    <g transform="translate(950 267)"><rect x="-6" y="-10" width="12" height="20" rx="3" fill="#efbd60" stroke="#dab05c"/><path d="M-4-5h8M-4 5h8" stroke="#ffdf98" stroke-width="2"/></g>
+    <g transform="translate(906 628) rotate(-7)"><rect x="-4" y="-7" width="8" height="14" rx="2" fill="#efbd60"/><path d="M-2-3h4M-2 3h4" stroke="#ffdf98" stroke-width="1.5"/></g>
+  </svg>`;
 }
 
 const icons: Record<string, string> = {
@@ -113,6 +75,10 @@ const icons: Record<string, string> = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   restart: '<path d="M4 5v6h6M4.5 10a8 8 0 1 1 .8 8"/>',
+  options: '<path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 3v6m8 0v6M10 15v6" stroke-width="3.5"/>',
+  records: '<path d="M4 12h4v9H4zm6-8h4v17h-4zm6 12h4v5h-4z" fill="currentColor" stroke="none"/>',
+  medal: '<circle cx="12" cy="9" r="6.5"/><circle cx="12" cy="9" r="3"/><path d="m8 15-1 7 5-3 5 3-1-7" fill="currentColor" stroke="none"/>',
+  home: '<path d="m3 11 9-8 9 8M5 10v11h5v-6h4v6h5V10"/>',
 };
 
 export function uiIcon(name: string): string {
