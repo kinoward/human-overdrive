@@ -14,7 +14,7 @@ function shopSigns() {
     ctx.fillStyle = colors[i]; ctx.fillRect(x, y, 512, 128);
     ctx.strokeStyle = '#c9c6ae'; ctx.lineWidth = 3; ctx.strokeRect(x + 12, y + 12, 488, 104);
     ctx.fillStyle = '#f1ecdf'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = '500 61px "Source Han Sans", "PingFang SC", sans-serif';
+    ctx.font = '500 61px "Overdrive Scene", "PingFang SC", sans-serif';
     ctx.fillText(names[i], x + 256, y + 66);
   }
   const texture = new THREE.CanvasTexture(canvas);

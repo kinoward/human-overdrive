@@ -24,6 +24,7 @@ interface Segment { road: RoadPath; index: number; a: Point3; b: Point3; length:
 export class RoadIndex {
   private cells = new Map<string, Segment[]>();
   private segments: Segment[] = [];
+  private nearby = new Map<string, Segment[]>();
 
   constructor(readonly roads: RoadPath[]) {
     for (const road of roads) for (let index = 1; index < road.points.length; index++) {
@@ -53,25 +54,36 @@ export class RoadIndex {
 
   nearest(x: number, z: number, y?: number, roadMargin?: number): RoadPosition | null {
     const cx = Math.floor(x / 128), cz = Math.floor(z / 128);
-    const candidates = new Set<Segment>();
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const segment of this.cells.get(`${cx + dx},${cz + dz}`) ?? []) candidates.add(segment);
-    let best: RoadPosition | null = null;
-    let score = Infinity;
-    for (const segment of candidates.size ? candidates : this.segments) {
-      const projected = this.project(segment, x, z);
-      if (roadMargin !== undefined && (Math.abs(projected.offset) > segment.road.width / 2 + roadMargin || y === undefined || Math.abs(y - projected.point.y) >= 0.8)) continue;
-      const value = projected.offset ** 2 + (y === undefined ? 0 : ((y - projected.point.y) * 5) ** 2);
-      if (value < score) { best = projected; score = value }
+    const key = `${cx},${cz}`;
+    let candidates = this.nearby.get(key);
+    if (!candidates) {
+      const found = new Set<Segment>();
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const segment of this.cells.get(`${cx + dx},${cz + dz}`) ?? []) found.add(segment);
+      candidates = [...found];
+      if (candidates.length) this.nearby.set(key, candidates);
     }
-    return best;
+    let best: Segment | null = null;
+    let score = Infinity;
+    for (const segment of candidates.length ? candidates : this.segments) {
+      const { a, b, length } = segment;
+      const t = Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (z - a.z) * (b.z - a.z)) / length ** 2));
+      const offset = Math.hypot(x - (a.x + (b.x - a.x) * t), z - (a.z + (b.z - a.z) * t));
+      const height = a.y + (b.y - a.y) * t;
+      if (roadMargin !== undefined && (offset > segment.road.width / 2 + roadMargin || y === undefined || Math.abs(y - height) >= 0.8)) continue;
+      const value = offset ** 2 + (y === undefined ? 0 : ((y - height) * 5) ** 2);
+      if (value < score) { best = segment; score = value }
+    }
+    return best ? this.project(best, x, z) : null;
   }
 
   covers(point: Point3, exclude?: RoadPath, margin = 0, connectedOnly = false): boolean {
     for (const segment of this.cells.get(`${Math.floor(point.x / 128)},${Math.floor(point.z / 128)}`) ?? []) {
       if (segment.road === exclude) continue;
       if (connectedOnly && exclude && !exclude.junctions.some(junction => junction.roadId === segment.road.id && Math.hypot(junction.point.x - point.x, junction.point.z - point.z) < 80)) continue;
-      const projected = this.project(segment, point.x, point.z);
-      if (Math.abs(projected.offset) < segment.road.width / 2 + margin && Math.abs(projected.point.y - point.y) < 0.8) return true;
+      const { a, b, length } = segment;
+      const t = Math.max(0, Math.min(1, ((point.x - a.x) * (b.x - a.x) + (point.z - a.z) * (b.z - a.z)) / length ** 2));
+      const offset = Math.hypot(point.x - (a.x + (b.x - a.x) * t), point.z - (a.z + (b.z - a.z) * t));
+      if (offset < segment.road.width / 2 + margin && Math.abs(a.y + (b.y - a.y) * t - point.y) < 0.8) return true;
     }
     return false;
   }

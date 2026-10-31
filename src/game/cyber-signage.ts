@@ -17,7 +17,7 @@ function createSign(text: string, caption: string, color: string, width: number,
   ctx.shadowBlur = 10;
   if (vertical) {
     const size = Math.min(165, 700 / text.length);
-    ctx.font = `600 ${size}px "Source Han Sans", "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.font = `600 ${size}px "Overdrive Scene", "PingFang SC", "Microsoft YaHei", sans-serif`;
     const step = 760 / text.length;
     [...text].forEach((letter, index) => ctx.fillText(letter, 128, 100 + step * (index + 0.5)));
     ctx.shadowBlur = 0;
@@ -25,10 +25,10 @@ function createSign(text: string, caption: string, color: string, width: number,
     ctx.fillText(caption, 128, 936);
     ctx.fillRect(104, 962, 48, 3);
   } else {
-    ctx.font = `600 ${Math.min(176, 850 / text.length)}px "Source Han Sans", "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.font = `600 ${Math.min(176, 850 / text.length)}px "Overdrive Scene", "PingFang SC", "Microsoft YaHei", sans-serif`;
     ctx.fillText(text, 512, 165);
     ctx.shadowBlur = 0;
-    ctx.font = '500 29px "Source Han Sans", "PingFang SC", sans-serif';
+    ctx.font = '500 29px "Overdrive Scene", "PingFang SC", sans-serif';
     ctx.fillStyle = '#b9c8c7';
     ctx.fillText(caption, 512, 292);
     ctx.fillStyle = color;
@@ -64,16 +64,16 @@ function createPoster(width: number, height: number) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.quadraticCurveTo(320, y - 170 - i * 4, 768, y - 70); ctx.stroke();
   }
   ctx.fillStyle = '#d6d9c5';
-  ctx.font = '600 89px "Source Han Sans", "PingFang SC", sans-serif';
+  ctx.font = '600 89px "Overdrive Scene", "PingFang SC", sans-serif';
   ctx.textBaseline = 'middle';
   ctx.fillText('明日', 68, 124); ctx.fillText('已至', 68, 225);
-  ctx.font = '400 23px "Source Han Sans", "PingFang SC", sans-serif';
+  ctx.font = '400 23px "Overdrive Scene", "PingFang SC", sans-serif';
   ctx.fillText('新感官 · 新城市', 72, 1064);
-  ctx.font = '500 15px "Source Han Sans", "PingFang SC", sans-serif';
+  ctx.font = '500 15px "Overdrive Scene", "PingFang SC", sans-serif';
   ctx.fillText('垣城神经网络  /  第七代城市连接计划', 72, 1116);
   ctx.fillStyle = '#80bfc7'; ctx.fillRect(72, 1160, 620, 2);
   ctx.font = '500 22px sans-serif'; ctx.fillText('2077', 72, 1205);
-  ctx.font = '400 14px "Source Han Sans", "PingFang SC", sans-serif'; ctx.fillText('让每一个夜晚，超越想象。', 379, 1205);
+  ctx.font = '400 14px "Overdrive Scene", "PingFang SC", sans-serif'; ctx.fillText('让每一个夜晚，超越想象。', 379, 1205);
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   for (let y = 0; y < 1280; y += 5) ctx.fillRect(0, y, 768, 1);
   const texture = new THREE.CanvasTexture(canvas);

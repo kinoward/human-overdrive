@@ -9,7 +9,7 @@ export function styleCyberMaterials(scene:THREE.Scene) {
     if(!(object instanceof THREE.InstancedMesh))return;
     const materials=Array.isArray(object.material)?object.material:[object.material];
     if(!materials.some(material=>material.userData.airObstacle))return;
-    object.geometry.computeBoundingBox();
+    if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
     for(let i=0;i<object.count;i++){
       object.getMatrixAt(i,instance);matrix.multiplyMatrices(object.matrixWorld,instance);
       bounds.copy(object.geometry.boundingBox!).applyMatrix4(matrix);bounds.getSize(size);

@@ -31,18 +31,18 @@
 
 ## 已接入的网页美术与字体
 
-以下资源于 2026 年 10 月 31 日从原作者或官方发布地址取得，现保存于 `public/assets/art/`。完整作者、源页面、官方文件清单、下载地址、原始文件大小及字体固定提交记录在该目录的 `SOURCES.json`。这些源文件现由 Three.js 场景加载；本轮实际浏览器验证范围见执行计划。
+以下资源于 2026 年 10 月 31 日从原作者或官方发布地址取得，现保存于 `public/assets/art/`。完整作者、源页面、官方文件清单、下载地址、原始文件大小及字体固定提交记录在该目录的 `SOURCES.json`。运行时使用由这些源文件制作的贴图与字体衍生版本；本轮实际浏览器验证范围见执行计划。
 
 | 资源 | 作者与来源 | 许可 | 实际取得内容 |
 | --- | --- | --- | --- |
 | Asphalt 02 | Rob Tuytel；[Poly Haven 原页面](https://polyhaven.com/a/asphalt_02) | CC0 1.0 | `Textures/Asphalt02/`：2K 漫反射、OpenGL 法线、粗糙度；原始物理尺度约 3 米 × 3 米 |
 | Concrete Wall 006 | Charlotte Baglioni 摄影、Dario Barresi 处理；[Poly Haven 原页面](https://polyhaven.com/a/concrete_wall_006) | CC0 1.0 | `Textures/ConcreteWall006/`：2K 漫反射、OpenGL 法线、粗糙度；原始物理尺度约 2 米 × 2 米 |
 | Venice Sunset | Greg Zaal；[Poly Haven 原页面](https://polyhaven.com/a/venice_sunset) | CC0 1.0 | `Environment/venice_sunset_2k.hdr`，用于环境光与车漆反射，不表示北京实景 |
-| Source Han Sans CN Regular | Adobe Source Han Sans 项目；[官方源仓库](https://github.com/adobe-fonts/source-han-sans) | SIL Open Font License 1.1 | `Fonts/SourceHanSansCN-Regular.otf`，固定提交 `a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2`；原始字体未修改 |
+| Source Han Sans CN Regular | Adobe Source Han Sans 项目；[官方源仓库](https://github.com/adobe-fonts/source-han-sans) | SIL Open Font License 1.1 | `Fonts/SourceHanSansCN-Regular.otf`，固定提交 `a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2`；原始字体未修改；场景使用改名为 `Overdrive Scene` 的 `Fonts/OverdriveScene-Regular.woff2` 子集，保留原始版权与 OFL |
 
 Poly Haven 的模型、HDRI 与材质资源均按其[官方资产许可说明](https://polyhaven.com/license)以 CC0 提供，可用于商业项目；CC0 完整正文保存在 `public/assets/art/Licenses/CC0-1.0.txt`。字体完整许可保存在 `public/assets/art/Fonts/OFL.txt`，随字体一起分发。
 
-Three.js 已分别配置 sRGB 底色、非颜色法线与粗糙度、米制道路 UV、HDR 反射与路牌中文字体。未编辑或转换原始材质图片。
+Three.js 已分别配置 sRGB 底色、非颜色法线与粗糙度、米制道路 UV 与路牌中文字体。六张运行贴图由原图转换为 2K WebP，底色质量 90、粗糙度质量 95，法线采用不做色度抽样的 `near_lossless 60`，本批最大 8 位通道误差为 2/255；原始材质图片保留。字体按场景源码与道路中文裁剪为 WOFF2，并更改内部字体名称。处理参数、输入输出与复现入口见 `public/assets/art/README.md` 和 `SOURCES.json`；原始 HDR 保留供复用。
 
 ## 开发期生成的场景参考
 

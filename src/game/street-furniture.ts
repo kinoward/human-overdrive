@@ -11,7 +11,7 @@ function stopSignMaterial() {
   context.fillStyle = '#40645a'; context.fillRect(0, 0, 256, 384);
   context.strokeStyle = '#d8ded0'; context.lineWidth = 7; context.strokeRect(12, 12, 232, 360);
   context.fillStyle = '#f2f0df'; context.textAlign = 'center'; context.textBaseline = 'middle';
-  context.font = '600 77px "Source Han Sans", "PingFang SC", sans-serif';
+  context.font = '600 77px "Overdrive Scene", "PingFang SC", sans-serif';
   context.fillText('公交', 128, 132); context.fillText('候车', 128, 242);
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4;
   return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 });

@@ -3,14 +3,14 @@ import { assetUrl } from './asset-url';
 import { getLeaderboard, getStorageStatus, loadResults } from './game/storage';
 import type { CityConfig, GameSnapshot, RaceResult, VehicleConfig, VehicleId } from './types';
 import { cityMapArt, uiIcon } from './ui-art';
-import { CityGlobe } from './ui-globe';
+import type { CityGlobe } from './ui-globe';
 import { raceHud, RaceHudController } from './ui-race';
 import { raceCinematic, RaceCinematicController } from './ui-cinematic';
 import './style.css';
 import './ui-motion.css';
 
 interface UICallbacks {
-  onStart: (vehicleId: VehicleId, nickname: string) => void;
+  onStart: (vehicleId: VehicleId, nickname: string) => Promise<void>;
   onPause: () => void;
   onResume: () => void;
   onRestart: () => void;
@@ -157,7 +157,7 @@ export class GameUI {
     }
   }
 
-  private async transitionTo(panel: Panel, onEnter?: () => void, skipExit = false) {
+  private async transitionTo(panel: Panel, onEnter?: () => void | Promise<void>, skipExit = false) {
     if (this.pendingPanel === panel) return;
     const id = ++this.transitionId;
     this.pendingPanel = panel;
@@ -169,7 +169,7 @@ export class GameUI {
       this.panel = panel;
       this.render();
       this.root.scrollTo(0, 0);
-      onEnter?.();
+      await onEnter?.();
       if (id !== this.transitionId) return;
       await this.animateScreen(this.root.querySelector<HTMLElement>(panel === 'pause' ? '.pause-panel' : '.screen-content'), true);
     } finally {
@@ -363,7 +363,14 @@ export class GameUI {
     if (cinematicRoot && hudRoot) this.cinematic = new RaceCinematicController(cinematicRoot, hudRoot);
     if (racing && this.snapshot) this.updateHud(this.snapshot);
     const globeHost = this.root.querySelector<HTMLElement>('.globe-canvas-host');
-    if (globeHost) this.globe = new CityGlobe(globeHost, CITIES, this.cityId, cityId => this.selectCity(cityId));
+    if (globeHost && !this.error) {
+      void import('./ui-globe').then(({ CityGlobe }) => {
+        if (this.panel === 'globe' && this.root.contains(globeHost)) this.globe = new CityGlobe(globeHost, CITIES, this.cityId, cityId => this.selectCity(cityId));
+      }).catch(error => {
+        console.error('城市地球加载失败', error);
+        if (this.root.contains(globeHost)) this.showError('城市地球未能加载，请重新载入后再试。');
+      });
+    }
     if (this.panel === 'cities') {
       const deck = this.root.querySelector<HTMLElement>('.city-deck')!;
       const selected = deck.querySelector<HTMLElement>('.city-card.is-selected')!;

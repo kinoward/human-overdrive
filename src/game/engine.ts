@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { CITIES, getHelicopterTarget, getPoliceTarget, INITIAL_POLICE_COUNT, MAX_POLICE_COUNT, VEHICLES } from '../config';
 import type { GameSnapshot, Point3, RaceMetrics, RaceResult, VehicleId, WorldData } from '../types';
 import { buildWorld, nearestRoad } from './world';
+import { loadWorldAssets } from './world-assets';
 import { PhysicsVehicle } from './physics';
 import { createVehicleModel } from './models';
 import { PolicePursuit } from './police';
@@ -149,18 +150,19 @@ export class GameEngine {
   }
 
   async init(onProgress?: (progress: number, message: string) => Promise<void>) {
-    await onProgress?.(0.05, '加载车辆与场景模型');
-    let physicsReady = 0, modelsProgress = 0, trafficReady = 0;
-    const reportAssets = async () => { await onProgress?.(0.05 + (physicsReady + modelsProgress + trafficReady) / 3 * 0.4, '加载车辆与场景模型'); };
-    await Promise.all([
+    await onProgress?.(0.05, '加载道路、车辆与场景资源');
+    let physicsReady = 0, modelsProgress = 0, trafficReady = 0, worldProgress = 0;
+    const reportAssets = async () => { await onProgress?.(0.05 + (physicsReady + modelsProgress + trafficReady + worldProgress) / 4 * 0.4, '加载道路、车辆与场景资源'); };
+    const [, , , worldAssets] = await Promise.all([
       RAPIER.init().then(async () => { physicsReady = 1; await reportAssets(); }),
       loadGeneratedAssets(async (loaded, total) => { modelsProgress = loaded / total; await reportAssets(); }),
       loadTrafficModels().then(async () => { trafficReady = 1; await reportAssets(); }),
+      loadWorldAssets(async (loaded, total) => { worldProgress = loaded / total; await reportAssets(); }),
     ]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = 1 / 60;
     this.events = new RAPIER.EventQueue(true);
-    this.track = await buildWorld(this.scene, async (progress, message) => { await onProgress?.(0.45 + progress * 0.4, message); });
+    this.track = await buildWorld(this.scene, worldAssets, async (progress, message) => { await onProgress?.(0.45 + progress * 0.4, message); });
     await onProgress?.(0.87, '准备道路碰撞');
     this.minimap = new RaceMinimap(this.mapCanvas, this.track.roads);
     this.collisionSystem = new CollisionSystem(this.physics, this.events);

@@ -127,12 +127,115 @@
       "asset": "poly_haven",
       "usage": "License",
       "bytes": 7048
+    },
+    {
+      "path": "Fonts/OverdriveScene-Regular.woff2",
+      "asset": "source_han_sans",
+      "usage": "Scene font subset",
+      "derivedFrom": "Fonts/SourceHanSansCN-Regular.otf",
+      "bytes": 176656,
+      "family": "Overdrive Scene",
+      "postscriptName": "OverdriveScene-Regular",
+      "mappedCodepoints": 1021,
+      "glyphs": 1357,
+      "characterSources": [
+        "src/**/*.ts",
+        "src/**/*.css",
+        "public/data/beijing-roads.json",
+        "U+0020-007E",
+        "U+3000-303F",
+        "U+FF00-FFEF",
+        "U+2191"
+      ],
+      "processing": "fontTools 4.68.0 subset + Brotli 1.2.1 WOFF2；字体名称改为 Overdrive，保留原始版权与 OFL"
+    },
+    {
+      "path": "Textures/Asphalt02/asphalt_02_diff_2k.webp",
+      "asset": "asphalt_02",
+      "usage": "Diffuse",
+      "derivedFrom": "Textures/Asphalt02/asphalt_02_diff_2k.jpg",
+      "bytes": 2098792,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -q 90 -m 6 -sharp_yuv"
+    },
+    {
+      "path": "Textures/Asphalt02/asphalt_02_nor_gl_2k.webp",
+      "asset": "asphalt_02",
+      "usage": "OpenGL normal",
+      "derivedFrom": "Textures/Asphalt02/asphalt_02_nor_gl_2k.png",
+      "bytes": 5553818,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -near_lossless 60 -m 6"
+    },
+    {
+      "path": "Textures/Asphalt02/asphalt_02_rough_2k.webp",
+      "asset": "asphalt_02",
+      "usage": "Roughness",
+      "derivedFrom": "Textures/Asphalt02/asphalt_02_rough_2k.jpg",
+      "bytes": 1992094,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -q 95 -m 6 -sharp_yuv"
+    },
+    {
+      "path": "Textures/ConcreteWall006/concrete_wall_006_diff_2k.webp",
+      "asset": "concrete_wall_006",
+      "usage": "Diffuse",
+      "derivedFrom": "Textures/ConcreteWall006/concrete_wall_006_diff_2k.jpg",
+      "bytes": 991498,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -q 90 -m 6 -sharp_yuv"
+    },
+    {
+      "path": "Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.webp",
+      "asset": "concrete_wall_006",
+      "usage": "OpenGL normal",
+      "derivedFrom": "Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.png",
+      "bytes": 5610048,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -near_lossless 60 -m 6"
+    },
+    {
+      "path": "Textures/ConcreteWall006/concrete_wall_006_rough_2k.webp",
+      "asset": "concrete_wall_006",
+      "usage": "Roughness",
+      "derivedFrom": "Textures/ConcreteWall006/concrete_wall_006_rough_2k.jpg",
+      "bytes": 104422,
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "processing": "cwebp -q 95 -m 6 -sharp_yuv"
     }
   ],
   "notes": [
     "贴图与 HDR 均从 Poly Haven 官方文件清单选取，原始来源与许可保留。",
     "法线贴图为 OpenGL 约定，底色使用 sRGB，法线与粗糙度按非颜色数据读取。",
     "原始 Roughness 可用于 Three.js 粗糙度贴图，不按平滑度读取。",
-    "字体文件未修改，随附原项目完整许可。"
-  ]
+    "原始字体文件未修改；运行时使用按场景源码与道路中文裁剪、改名为 Overdrive Scene 的 WOFF2 衍生版本，随附原项目完整 OFL 许可。"
+  ],
+  "startupAssetOptimization": {
+    "script": "scripts/prepare-startup-assets.py",
+    "textureEncoder": "cwebp 1.6.0",
+    "fontTools": "4.68.0",
+    "brotli": "1.2.1",
+    "sourceTextureAndFontBytes": 50570943,
+    "runtimeTextureAndFontBytes": 16527328,
+    "normalMapPrecision": "2048×2048，保留 OpenGL 分量；由浏览器使用的 8 位通道生成 near_lossless 60 WebP，无色度抽样。本批最大通道误差 2/255，沥青／混凝土 RMSE 分别 1.2297／1.2311。",
+    "sourceFilesPreserved": true
+  }
 }

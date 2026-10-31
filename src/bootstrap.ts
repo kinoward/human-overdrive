@@ -21,25 +21,31 @@ async function showProgress(fraction: number, label: string) {
   if (!document.hidden) await new Promise<void>(resolve => window.setTimeout(resolve, 16));
 }
 
+function showLoading(loading: boolean) {
+  screen.hidden = !loading;
+  document.querySelector<HTMLElement>('#scene')!.inert = loading;
+  const app = document.querySelector<HTMLElement>('#app')!;
+  app.inert = loading;
+  app.setAttribute('aria-busy', String(loading));
+}
+
+function showError(error: unknown) {
+  console.error('游戏启动失败', error);
+  showLoading(true);
+  screen.classList.add('is-failed');
+  document.querySelector<HTMLElement>('#loading-title')!.textContent = '暂时无法出发';
+  message.setAttribute('role', 'alert');
+  message.textContent = '游戏准备未能完成，请重新载入后再试。';
+  retry.hidden = false;
+}
+
 async function start() {
   try {
-    await prepareResourceCache();
+    const cacheReady = prepareResourceCache();
     const { boot } = await import('./main');
-    await boot(showProgress);
-    await showProgress(1, '准备完成');
-    document.querySelector<HTMLElement>('#scene')!.inert = false;
-    const app = document.querySelector<HTMLElement>('#app')!;
-    app.inert = false;
-    app.setAttribute('aria-busy', 'false');
-    screen.remove();
+    boot({ onProgress: showProgress, onLoading: showLoading, onError: showError, cacheReady });
   } catch (error) {
-    console.error('游戏启动失败', error);
-    screen.classList.add('is-failed');
-    document.querySelector<HTMLElement>('#loading-title')!.textContent = '暂时无法出发';
-    message.setAttribute('role', 'alert');
-    message.textContent = '游戏准备未能完成，请重新载入后再试。';
-    progress.remove();
-    retry.hidden = false;
+    showError(error);
   }
 }
 

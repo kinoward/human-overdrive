@@ -1,65 +1,28 @@
 import * as THREE from 'three';
-import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import { assetUrl } from '../asset-url';
-import type { RoadPath, WorldData } from '../types';
+import type { WorldData } from '../types';
 import { sampleRoad } from './road-network';
 import { buildBeijingRoads } from './beijing-road-layout';
 import { SceneryBatch } from './scenery-batch';
 import { addRoadScenery } from './road-scenery';
 import { addCityScenery } from './city-scenery';
-import { createDrivingAtmosphere } from './driving-atmosphere';
 import { addRoadDetails } from './road-details';
 import { addUrbanFrontage } from './urban-frontage';
 import { addBuildingFacades } from './building-facades';
 import { addStreetFurniture } from './street-furniture';
 import { addVergeVariation } from './verge-material';
 import { roadCrossSection } from './road-cross-section';
+import type { loadWorldAssets } from './world-assets';
 
 export { sampleRoad, nearestRoad } from './road-network';
 
-interface StoredWorld {
-  source: { name: string; osmTimestamp: string };
-  attribution: string;
-  roads: Omit<RoadPath, 'cumulative'>[];
-  mainLoopLength: number;
-}
-
-export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: number, message: string) => Promise<void>): Promise<WorldData> {
-  await onProgress?.(0, '读取城市道路');
-  const response = await fetch(assetUrl('data/beijing-roads.json'));
-  if (!response.ok) throw new Error('道路加载失败，请重新进入关卡。');
-  const stored = await response.json() as StoredWorld;
+export async function buildWorld(scene: THREE.Scene, assets: Awaited<ReturnType<typeof loadWorldAssets>>, onProgress?: (progress: number, message: string) => Promise<void>): Promise<WorldData> {
+  await onProgress?.(0, '整理城市道路');
+  const { stored, asphaltMap, asphaltNormal, asphaltRough, concreteMap, concreteNormal, concreteRough } = assets;
   const roads = buildBeijingRoads(stored.roads);
   const points = roads.flatMap(road => road.points);
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (const point of points) { bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x); bounds.minZ = Math.min(bounds.minZ, point.z); bounds.maxZ = Math.max(bounds.maxZ, point.z) }
-  await onProgress?.(0.1, '加载道路材质与天空');
-  const loader = new THREE.TextureLoader();
-  let loadedTextures = 0;
-  const textureLoaded = async () => {
-    loadedTextures++;
-    await onProgress?.(0.1 + loadedTextures / 7 * 0.35, `加载道路材质与天空（${loadedTextures}/7）`);
-  };
-  const load = async (path: string, color = false) => {
-    const texture = await loader.loadAsync(assetUrl(`assets/art/${path}`));
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.anisotropy = 8;
-    if (color) texture.colorSpace = THREE.SRGBColorSpace;
-    await textureLoaded();
-    return texture;
-  };
-  const [asphaltMap, asphaltNormal, asphaltRough, concreteMap, concreteNormal, concreteRough, environment] = await Promise.all([
-    load('Textures/Asphalt02/asphalt_02_diff_2k.jpg', true), load('Textures/Asphalt02/asphalt_02_nor_gl_2k.png'), load('Textures/Asphalt02/asphalt_02_rough_2k.jpg'),
-    load('Textures/ConcreteWall006/concrete_wall_006_diff_2k.jpg', true), load('Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.png'), load('Textures/ConcreteWall006/concrete_wall_006_rough_2k.jpg'),
-    new HDRLoader().loadAsync(assetUrl('assets/art/Environment/venice_sunset_2k.hdr')).then(async texture => { await textureLoaded(); return texture; })
-  ]);
-  await onProgress?.(0.45, '加载中文字体');
-  const font = new FontFace('Source Han Sans', `url(${assetUrl('assets/art/Fonts/SourceHanSansCN-Regular.otf')})`);
-  document.fonts.add(await font.load());
-  await onProgress?.(0.5, '准备天空与地面');
-  environment.mapping = THREE.EquirectangularReflectionMapping;
-  const skyTexture = createDrivingAtmosphere(scene);
-  scene.environment = environment;
+  await onProgress?.(0.1, '准备地面材质');
   const group = new THREE.Group(); group.name = '北京四环完整路网';
   const batch = new SceneryBatch(group);
   const asphalt = new THREE.MeshStandardMaterial({ map: asphaltMap, normalMap: asphaltNormal, roughnessMap: asphaltRough, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.94, color: '#bfc4c9' });
@@ -82,14 +45,14 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
   addVergeVariation(ground);
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
-  await onProgress?.(0.55, '铺设城市道路');
+  await onProgress?.(0.2, '铺设城市道路');
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
   addRoadDetails(roads, batch);
-  await onProgress?.(0.65, '布置沿街场景');
+  await onProgress?.(0.4, '布置沿街场景');
   const frontageOccupied = addUrbanFrontage(roads, batch);
-  await onProgress?.(0.75, '布置楼体与绿化');
+  await onProgress?.(0.6, '布置楼体与绿化');
   const city = addCityScenery(roads, batch, frontageOccupied, placement => addStreetFurniture(roads, batch, placement));
-  await onProgress?.(0.85, '补充建筑立面');
+  await onProgress?.(0.8, '补充建筑立面');
   for (const building of city.buildings) if (building.type !== 'office-block') addBuildingFacades(batch, { ...building, type: building.type });
   await onProgress?.(0.95, '整理场景');
   const surfaces = batch.finish();
@@ -115,8 +78,8 @@ export async function buildWorld(scene: THREE.Scene, onProgress?: (progress: num
         for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
         material.dispose();
       }
-      geometries.forEach(geometry => geometry.dispose()); textures.forEach(texture => texture.dispose()); environment.dispose(); skyTexture.dispose();
-      scene.environment = null; scene.remove(group);
+      geometries.forEach(geometry => geometry.dispose()); textures.forEach(texture => texture.dispose());
+      scene.remove(group);
     }
   };
 }

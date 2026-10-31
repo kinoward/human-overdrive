@@ -31,8 +31,8 @@ function signTexture(title: string, subtitle: string) {
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#12613e'; ctx.fillRect(0, 0, 1024, 320);
   ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5; ctx.strokeRect(12, 12, 1000, 296);
-  ctx.fillStyle = 'white'; ctx.font = '600 76px "Source Han Sans", "PingFang SC", sans-serif'; ctx.fillText(title, 45, 108, 790);
-  ctx.font = '44px "Source Han Sans", "PingFang SC", sans-serif'; ctx.fillText(subtitle, 48, 198, 800);
+  ctx.fillStyle = 'white'; ctx.font = '600 76px "Overdrive Scene", "PingFang SC", sans-serif'; ctx.fillText(title, 45, 108, 790);
+  ctx.font = '44px "Overdrive Scene", "PingFang SC", sans-serif'; ctx.fillText(subtitle, 48, 198, 800);
   ctx.font = '34px sans-serif'; ctx.fillText('4th Ring Road', 48, 267);
   ctx.font = '110px sans-serif'; ctx.fillText('↑', 875, 215);
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;

@@ -6,6 +6,7 @@ body { margin: 0; height: 100dvh; overflow: hidden; display: grid; place-items: 
 .loading-screen { box-sizing: border-box; position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; overflow: auto; padding: 32px 24px; color: #edf3f5; background: radial-gradient(ellipse at 80% 10%, #19343d70, transparent 65%), #0a1016; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .loading-content { width: min(100%, 440px); }
 .loading-screen { align-items: safe center; }
+.loading-screen[hidden] { display: none; }
 .loading-logo { display: block; width: 52px; height: 40px; margin-bottom: 36px; color: #dcf45b; }
 .loading-eyebrow { margin: 0 0 12px; color: #94a3b0; font-size: 12px; letter-spacing: .16em; }
 .loading-content h1 { margin: 0 0 44px; font-size: clamp(28px, 6cqw, 38px); font-weight: 700; letter-spacing: -.04em; }

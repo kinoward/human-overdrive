@@ -98,7 +98,7 @@ export function createCyberCity(roads: RoadPath[], focus: THREE.Vector3, occupie
       }
       ctx.fillStyle = '#0d191d'; ctx.fillRect(328, 116, 72, 128);
       ctx.strokeStyle = '#727d70'; ctx.lineWidth = 2; ctx.strokeRect(328, 116, 72, 128);
-      ctx.fillStyle = warm ? '#ae9a6b' : '#71a6a8'; ctx.font = '500 15px "Source Han Sans", "PingFang SC", sans-serif';
+      ctx.fillStyle = warm ? '#ae9a6b' : '#71a6a8'; ctx.font = '500 15px "Overdrive Scene", "PingFang SC", sans-serif';
       ctx.fillText(warm ? '深夜茶事' : '维护中', 334, 142);
       for (let row = 0; row < 6; row++) {
         ctx.fillStyle = warm ? '#78715c' : '#467176'; ctx.fillRect(336, 159 + row * 12, 40 - row % 3 * 8, 2);
@@ -115,7 +115,7 @@ export function createCyberCity(roads: RoadPath[], focus: THREE.Vector3, occupie
       for (let y = 35; y < 490; y += 11) { ctx.fillStyle = y % 22 === 13 ? '#1a2b30' : '#38474a'; ctx.fillRect(5, y, 502, 2); rough.fillStyle = '#b0b0b0'; rough.fillRect(5, y, 502, 2); }
       ctx.fillStyle = '#405256'; ctx.fillRect(249, 345, 17, 7);
       ctx.fillStyle = '#ad7253'; ctx.fillRect(365, 282, 52, 87);
-      ctx.fillStyle = '#302e28'; ctx.font = '600 10px "Source Han Sans", "PingFang SC", sans-serif'; ctx.fillText('暂停营业', 370, 313); ctx.fillText('请走侧门', 370, 335);
+      ctx.fillStyle = '#302e28'; ctx.font = '600 10px "Overdrive Scene", "PingFang SC", sans-serif'; ctx.fillText('暂停营业', 370, 313); ctx.fillText('请走侧门', 370, 335);
     }
     ctx.strokeStyle = 'rgba(106,149,157,0.17)'; ctx.lineWidth = 10;
     ctx.beginPath(); ctx.moveTo(44, 0); ctx.lineTo(174, 512); ctx.stroke();
