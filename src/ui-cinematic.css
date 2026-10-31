@@ -1,0 +1,45 @@
+.race-cinematic{--cinematic-accent:#dcf45b;--cinematic-edge:clamp(20px,4cqw,72px);position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;color:#edf3f5;background:linear-gradient(0deg,#020811b8,transparent 35%,transparent 78%,#02081150);text-shadow:0 2px 14px #000b;font-variant-numeric:tabular-nums}
+.race-cinematic[hidden],.race-cinematic [hidden],.game-ui .race-hud[hidden]{display:none}
+.race-cinematic[data-kind=caught],.race-cinematic[data-kind=flipped]{--cinematic-accent:#ff8c7c}
+.cinematic-location{position:absolute;top:clamp(18px,5cqh,56px);left:var(--cinematic-edge);display:flex;align-items:center;gap:13px;font-size:clamp(9px,.85cqw,13px);letter-spacing:3px}
+.cinematic-location>i{width:27px;height:3px;background:var(--cinematic-accent);box-shadow:0 0 13px #dcf45b3b}
+.cinematic-location>b{font-weight:400;letter-spacing:2px;color:#adbfcc;border-left:1px solid #c3d9e54d;padding-left:13px}
+.cinematic-caption{position:absolute;left:var(--cinematic-edge);bottom:clamp(66px,15cqh,158px);max-width:65%}
+.cinematic-shot{display:block;color:var(--cinematic-accent);font-size:clamp(9px,.85cqw,13px);letter-spacing:4px;margin-bottom:clamp(8px,1.8cqh,18px)}
+.cinematic-caption h1{margin:0;color:#f6fafc;font-size:clamp(28px,4.8cqw,88px);font-weight:900;font-style:italic;line-height:1.1;letter-spacing:-.04em}
+.race-cinematic[data-kind=escaped] .cinematic-caption h1{color:var(--cinematic-accent)}
+.cinematic-caption p{margin:clamp(9px,2.4cqh,24px) 0 0;color:#b4c8d6;font-size:clamp(9px,.95cqw,15px);letter-spacing:3px;line-height:1.5}
+.cinematic-countdown{position:absolute;right:calc(var(--cinematic-edge) + 2cqw);bottom:clamp(64px,15cqh,150px);color:var(--cinematic-accent);font-family:Arial,sans-serif;font-size:clamp(46px,8.5cqw,156px);font-weight:900;font-style:italic;line-height:.9;letter-spacing:-.08em}
+.cinematic-countdown::before{content:'';position:absolute;height:74%;width:2px;left:-25px;top:13%;background:#dcf45b65;transform:skewX(-18deg)}
+.cinematic-footer{position:absolute;left:var(--cinematic-edge);right:var(--cinematic-edge);bottom:clamp(17px,4.3cqh,44px);display:flex;align-items:center;gap:clamp(24px,4cqw,70px)}
+.cinematic-progress{height:2px;background:#b2cfdf3b;flex:1;overflow:hidden}
+.cinematic-progress>i{display:block;height:100%;background:var(--cinematic-accent);transform:scaleX(0);transform-origin:left;transition:transform 100ms linear}
+.cinematic-skip{display:flex;align-items:center;justify-content:center;gap:13px;min-height:38px;padding:7px 0 7px 12px;color:#d4e0e9;pointer-events:auto;font-size:clamp(9px,.8cqw,12px);letter-spacing:1px;white-space:nowrap;transition:color 160ms}
+.cinematic-skip>kbd{font-size:9px;min-width:36px;height:23px;border-color:#a1bdcc70;color:#e0ebf1;background:#0a1723a6}
+.cinematic-skip>span:last-child{color:var(--cinematic-accent);font-size:20px}
+.cinematic-skip:hover{color:var(--cinematic-accent)}
+.cinematic-skip:focus-visible{outline-color:var(--cinematic-accent);outline-offset:4px}
+@container game-viewport (max-height:360px){
+  .cinematic-location{top:13px;font-size:8px;gap:9px;letter-spacing:2px}
+  .cinematic-location>b{padding-left:9px}
+  .cinematic-caption{bottom:54px}
+  .cinematic-shot{font-size:8px;letter-spacing:2px;margin-bottom:7px}
+  .cinematic-caption h1{font-size:clamp(24px,4.7cqw,43px)}
+  .cinematic-caption p{margin-top:8px;font-size:8px;letter-spacing:2px}
+  .cinematic-countdown{bottom:56px;font-size:clamp(42px,8cqw,74px)}
+  .cinematic-footer{bottom:9px;gap:20px}
+  .cinematic-skip{min-height:28px;padding:3px 0 3px 7px;gap:8px;font-size:9px}
+  .cinematic-skip>kbd{height:20px;font-size:8px}
+}
+@container game-viewport (max-width:520px){
+  .race-cinematic{--cinematic-edge:16px}
+  .cinematic-location>b{display:none}
+  .cinematic-caption{bottom:48px;max-width:72%}
+  .cinematic-caption p{letter-spacing:1px}
+  .cinematic-countdown{bottom:53px;right:22px;font-size:42px}
+  .cinematic-countdown::before{left:-15px}
+  .cinematic-skip>kbd{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .race-cinematic *{animation:none!important;transition:none!important}
+}

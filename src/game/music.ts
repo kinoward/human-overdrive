@@ -45,7 +45,10 @@ export class MusicController {
     if (snapshot.status === 'finished') return;
     if (snapshot.status === 'ready') { this.showMenu(); return }
     this.paused = snapshot.status === 'paused';
-    if (!this.paused) this.select(snapshot.elapsed >= HELICOPTER_ARRIVAL_TIMES[0] ? 'pursuit' : 'drive');
+    if (!this.paused) {
+      if (snapshot.cinematic && snapshot.cinematic.kind !== 'intro') this.finish(snapshot.cinematic.kind);
+      else this.select(snapshot.elapsed >= HELICOPTER_ARRIVAL_TIMES[0] ? 'pursuit' : 'drive');
+    }
     this.syncPlayback();
   }
 

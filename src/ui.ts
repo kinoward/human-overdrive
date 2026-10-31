@@ -5,6 +5,7 @@ import type { CityConfig, GameSnapshot, RaceResult, VehicleConfig, VehicleId } f
 import { cityMapArt, uiIcon } from './ui-art';
 import { CityGlobe } from './ui-globe';
 import { raceHud, RaceHudController } from './ui-race';
+import { raceCinematic, RaceCinematicController } from './ui-cinematic';
 import './style.css';
 import './ui-motion.css';
 
@@ -15,6 +16,7 @@ interface UICallbacks {
   onRestart: () => void;
   onLeave: () => void;
   onSound: (muted: boolean) => void;
+  onSkipCinematic: () => void;
 }
 
 type Panel = 'home' | 'cities' | 'globe' | 'garage' | 'options' | 'leaderboard' | 'rules' | 'race' | 'pause' | 'result';
@@ -54,6 +56,7 @@ export class GameUI {
   private result: RaceResult | null = null;
   private error = '';
   private raceHud: RaceHudController | null = null;
+  private cinematic: RaceCinematicController | null = null;
   private swipeStart: { x: number; y: number } | null = null;
   private swipeAt = -1000;
   private globe: CityGlobe | null = null;
@@ -112,7 +115,7 @@ export class GameUI {
     this.snapshot = snapshot;
     if (snapshot.status === 'paused' && this.panel === 'race' && this.pendingPanel !== 'pause') {
       void this.transitionTo('pause', undefined, true);
-    } else if (snapshot.status === 'running' && this.panel === 'pause' && this.pendingPanel !== 'race') {
+    } else if (['running', 'intro', 'outro'].includes(snapshot.status) && this.panel === 'pause' && this.pendingPanel !== 'race') {
       void this.transitionTo('race');
     } else if (snapshot.status === 'ready' && (this.panel === 'race' || this.panel === 'pause') && this.pendingPanel !== 'home') {
       void this.transitionTo('home', undefined, true);
@@ -309,6 +312,7 @@ export class GameUI {
       void this.transitionTo('race', () => this.callbacks.onStart(this.vehicleId, this.nickname));
     }
     if (action === 'pause') this.callbacks.onPause();
+    if (action === 'skip-cinematic') this.callbacks.onSkipCinematic();
     if (action === 'resume') this.callbacks.onResume();
     if (action === 'restart') {
       void this.transitionTo('race', () => this.callbacks.onRestart());
@@ -336,6 +340,7 @@ export class GameUI {
   private render() {
     this.raceHud?.dispose();
     this.raceHud = null;
+    this.cinematic = null;
     this.globe?.dispose();
     this.globe = null;
     cancelAnimationFrame(this.countFrame);
@@ -353,6 +358,8 @@ export class GameUI {
     this.root.querySelectorAll<HTMLElement>('main h1').forEach(heading => heading.tabIndex = -1);
     const hudRoot = this.root.querySelector<HTMLElement>('.race-hud');
     if (hudRoot) this.raceHud = new RaceHudController(hudRoot);
+    const cinematicRoot = this.root.querySelector<HTMLElement>('.race-cinematic');
+    if (cinematicRoot && hudRoot) this.cinematic = new RaceCinematicController(cinematicRoot, hudRoot);
     if (racing && this.snapshot) this.updateHud(this.snapshot);
     const globeHost = this.root.querySelector<HTMLElement>('.globe-canvas-host');
     if (globeHost) this.globe = new CityGlobe(globeHost, CITIES, this.cityId, cityId => this.selectCity(cityId));
@@ -383,7 +390,7 @@ export class GameUI {
     if (this.panel === 'leaderboard') return this.leaderboard();
     if (this.panel === 'rules') return this.rules();
     if (this.panel === 'result') return this.resultPanel();
-    return this.hud() + (this.panel === 'pause' ? this.pause() : '');
+    return this.hud() + raceCinematic() + (this.panel === 'pause' ? this.pause() : '');
   }
 
   private home() {
@@ -496,5 +503,6 @@ export class GameUI {
 
   private updateHud(snapshot: GameSnapshot) {
     this.raceHud?.update(snapshot);
+    this.cinematic?.update(snapshot);
   }
 }

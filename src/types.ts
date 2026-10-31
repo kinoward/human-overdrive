@@ -1,5 +1,13 @@
 export type VehicleId = 'model-y' | 'f850gs';
 export type Outcome = 'escaped' | 'flipped' | 'caught';
+export type CinematicKind = 'intro' | Outcome;
+
+export interface CinematicSnapshot {
+  kind: CinematicKind;
+  elapsed: number;
+  duration: number;
+  shot: string;
+}
 
 export interface VehicleConfig {
   id: VehicleId;
@@ -29,7 +37,8 @@ export interface CityConfig {
 }
 
 export interface GameSnapshot {
-  status: 'ready' | 'running' | 'paused' | 'finished';
+  status: 'ready' | 'intro' | 'running' | 'paused' | 'outro' | 'finished';
+  cinematic?: CinematicSnapshot;
   speedKmh: number;
   distance: number;
   targetDistance: number;

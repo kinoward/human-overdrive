@@ -10,7 +10,7 @@ import { Airspace } from './airspace';
 import { PursuitHelicopter } from './helicopter';
 import { CollisionSystem } from './collisions';
 import { isCaptured } from './capture';
-import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
+import { AIR_LOS_QUERY_GROUPS, BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
 import { buildResult, calculateScore } from './rules';
 import { DrivingScore } from './driving-score';
 import { GameAudio } from './audio';
@@ -28,6 +28,7 @@ import { VehicleDamage } from './vehicle-damage';
 import { DamageDebris } from './damage-debris';
 import { RaceMinimap } from './minimap';
 import { createCyberScene } from './cyber-scene';
+import { RaceCinematic } from './race-cinematic';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -60,6 +61,10 @@ export class GameEngine {
   private keys = new Set<string>();
   private audio = new GameAudio();
   private cameraMotion = new ArcadeCameraMotion();
+  private cinematic = new RaceCinematic();
+  private pendingResult?: RaceResult;
+  private pausedStatus: 'running' | 'intro' | 'outro' = 'running';
+  private presentationTime = 0;
   private accumulator = 0;
   private simulationTime = 0;
   private status: GameSnapshot['status'] = 'ready';
@@ -108,7 +113,7 @@ export class GameEngine {
 
   private get police() { return this.pursuit?.cars ?? [] }
 
-  constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void) {
+  constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void, private onResultReady: (result: RaceResult) => void) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
     this.renderer.shadowMap.enabled = true;
@@ -192,7 +197,7 @@ export class GameEngine {
     this.scene.add(this.player.model.group);
     if (this.preview) this.preview.group.visible = false;
     this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxPoliceCount: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0, cleanDistance: 0, pressureDistance: 0, evadedAttacks: 0 };
-    this.status = 'running';
+    this.status = 'intro';
     this.resetFrameStats();
     this.needsRender = true;
     this.capture = 0;
@@ -203,6 +208,7 @@ export class GameEngine {
     this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible });
     this.accumulator = 0;
     this.simulationTime = 0;
+    this.presentationTime = 0;
     this.keys.clear();
     this.lastPosition.copy(this.player.body.translation());
     this.event = '20 公里逃脱 · 警方已出动，随时间增援';
@@ -216,7 +222,11 @@ export class GameEngine {
     this.pursuit.initialize(INITIAL_POLICE_COUNT, this.player, this.trafficObstacles());
     this.metrics.maxPoliceCount = this.pursuit.activeCars.length;
     this.updateRoadColliders(this.player.body.translation());
-    this.mapCanvas.style.display = '';
+    for (let tick = 0; tick < 30; tick++) this.stepPresentation(1 / 60);
+    this.player.render(1);
+    this.pursuit.render(1);
+    this.cinematic.start('intro', this.camera, this.player.body.translation(), this.player.heading, config.kind === 'motorcycle', window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.mapCanvas.style.display = 'none';
     this.minimap!.reset();
     this.drawMap();
     this.audio.start();
@@ -225,7 +235,8 @@ export class GameEngine {
   }
 
   pause() {
-    if (this.status !== 'running') return;
+    if (this.status !== 'running' && this.status !== 'intro' && this.status !== 'outro') return;
+    this.pausedStatus = this.status;
     this.status = 'paused';
     this.needsRender = true;
     this.keys.clear();
@@ -235,7 +246,7 @@ export class GameEngine {
 
   resume() {
     if (this.status !== 'paused') return;
-    this.status = 'running';
+    this.status = this.pausedStatus;
     this.resetFrameStats();
     this.needsRender = true;
     this.accumulator = 0;
@@ -246,6 +257,35 @@ export class GameEngine {
   }
 
   restart() { if (this.metrics) this.start(this.metrics.vehicleId, this.nickname) }
+
+  skipCinematic() {
+    if (this.status !== 'intro' && this.status !== 'outro') return;
+    const opening = this.status === 'intro';
+    this.cinematic.reset();
+    this.accumulator = 0;
+    this.keys.clear();
+    this.lookBack = false;
+    this.needsRender = true;
+    if (opening) {
+      this.status = 'running';
+      this.cameraPosition.set(0, 0, 0);
+      this.cameraMotion.reset();
+      this.updateCamera(0);
+      this.camera.fov = this.player!.config.kind === 'motorcycle' ? 40 : 38;
+      this.camera.updateProjectionMatrix();
+      this.mapCanvas.style.display = '';
+      this.lastPosition.copy(this.player!.body.translation());
+      this.resetFrameStats();
+      this.renderer.domElement.focus();
+      this.emit();
+    } else {
+      this.status = 'finished';
+      const result = this.pendingResult!;
+      this.pendingResult = undefined;
+      this.emit();
+      this.onFinish(result);
+    }
+  }
 
   leave() {
     this.clearRace();
@@ -259,6 +299,8 @@ export class GameEngine {
   setMuted(muted: boolean) { this.audio.setMuted(muted) }
 
   private clearRace() {
+    this.cinematic.reset();
+    this.pendingResult = undefined;
     this.player?.dispose();
     this.player = undefined;
     for (const actor of this.traffic) { actor.damage?.dispose(); actor.model.group.removeFromParent(); actor.model.dispose(); this.physics.removeRigidBody(actor.body) }
@@ -583,14 +625,17 @@ export class GameEngine {
 
   private finish(outcome: RaceResult['outcome']) {
     if (this.status !== 'running') return;
-    this.status = 'finished';
+    this.status = 'outro';
     this.needsRender = true;
     this.keys.clear();
     this.audio.update(0, false, false);
-    const result = buildResult(this.metrics, outcome, this.nickname);
+    this.pendingResult = buildResult(this.metrics, outcome, this.nickname);
+    this.onResultReady(this.pendingResult);
+    this.lookBack = false;
+    this.player!.render(1);
+    this.cinematic.start(outcome, this.camera, this.player!.body.translation(), this.player!.heading, this.player!.config.kind === 'motorcycle', window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.mapCanvas.style.display = 'none';
     this.emit();
-    this.onFinish(result);
   }
 
   private message(text: string, tone: GameSnapshot['eventTone'], seconds: number) {
@@ -623,7 +668,7 @@ export class GameEngine {
       }
       this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types, wheels });
     }
-    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
+    this.onSnapshot({ status: this.status, cinematic: this.cinematic.snapshot, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
   private updateCamera(dt: number) {
@@ -685,6 +730,34 @@ export class GameEngine {
     this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
   }
 
+  private stepPresentation(dt: number) {
+    const input: Controls = { throttle: 0, steer: 0, brake: this.pendingResult?.outcome !== 'escaped' };
+    this.player!.drive(input, dt);
+    for (const actor of this.police) {
+      if (actor.operational) actor.vehicle.drive({ throttle: 0, steer: 0, brake: true }, dt);
+    }
+    if (this.status === 'outro') this.updateTraffic(dt);
+    this.physics.step(this.events);
+    this.events.clear();
+    const time = this.simulationTime + this.presentationTime;
+    this.player!.sync(time);
+    this.pursuit?.sync(time);
+    for (const helicopter of this.helicopters) helicopter.afterStep();
+    for (const actor of this.traffic) {
+      actor.pose.capture(actor.body.translation(), actor.body.rotation());
+      actor.damage?.update(dt);
+    }
+  }
+
+  private constrainCinematicCamera() {
+    const origin = this.player!.model.group.position.clone().add(new THREE.Vector3(0, 0.6, 0));
+    const direction = this.camera.position.clone().sub(origin);
+    const distance = direction.length();
+    direction.multiplyScalar(1 / distance);
+    const hit = this.physics.castRay(new RAPIER.Ray(origin, direction), distance, true, undefined, AIR_LOS_QUERY_GROUPS, undefined, this.player!.body, collider => !collider.parent());
+    if (hit) this.camera.position.copy(origin).addScaledVector(direction, Math.max(0.3, hit.timeOfImpact - 0.4));
+  }
+
   private frame = () => {
     this.timer.update();
     if ((this.status === 'paused' || this.status === 'finished') && !this.needsRender) return;
@@ -697,6 +770,17 @@ export class GameEngine {
       this.accumulator += dt;
       let ticks = 0;
       while (this.accumulator >= 1 / 60 && ticks++ < 5 && this.status === 'running') { this.step(1 / 60); this.accumulator -= 1 / 60 }
+      if (this.status !== 'running') this.accumulator = 0;
+    } else if (this.status === 'intro') {
+      this.presentationTime += dt;
+      for (const actor of this.police) {
+        for (let index = 0; index < actor.vehicle.model.policeLights.length; index++) actor.vehicle.model.policeLights[index].visible = Math.floor(this.presentationTime * 8 + index) % 2 === 0;
+      }
+    } else if (this.status === 'outro') {
+      this.presentationTime += dt;
+      this.accumulator += dt * 0.28;
+      let ticks = 0;
+      while (this.accumulator >= 1 / 60 && ticks++ < 5) { this.stepPresentation(1 / 60); this.accumulator -= 1 / 60 }
     } else if (this.status === 'ready') this.simulationTime += dt;
     this.physicsCost += performance.now() - physicsStarted;
     const alpha = Math.min(1, this.accumulator * 60);
@@ -711,6 +795,11 @@ export class GameEngine {
       this.updateCamera(dt);
       const { steer } = this.readControls();
       this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
+    } else if (this.status === 'intro' || this.status === 'outro') {
+      this.updateCamera(dt);
+      const completed = this.cinematic.update(dt, this.camera, this.player!.model.group.position);
+      this.constrainCinematicCamera();
+      if (completed) this.skipCinematic();
     }
     this.audio.update(this.player?.speed ?? 0, (this.pursuit?.activeCars.length ?? 0) > 0, this.status === 'running');
     if (this.timer.getElapsed() - this.hudAt > 0.08) {
@@ -719,7 +808,7 @@ export class GameEngine {
     }
     const renderStarted = performance.now();
     const focus = this.player?.model.group.position ?? this.track.spawn.position;
-    this.scenery!.render(this.camera, this.simulationTime, focus, this.player?.heading ?? this.track.spawn.heading, this.status === 'running' ? this.player!.speed : 0, this.lookBack);
+    this.scenery!.render(this.camera, this.simulationTime + this.presentationTime, focus, this.player?.heading ?? this.track.spawn.heading, this.status === 'running' ? this.player!.speed : 0, this.lookBack);
     this.renderCost += performance.now() - renderStarted;
     this.needsRender = false;
     const duration = (performance.now() - this.frameWindow) / 1000;
@@ -753,7 +842,12 @@ export class GameEngine {
 
   private keyDown = (event: KeyboardEvent) => {
     if ((event.target as HTMLElement)?.matches('input,textarea,select')) return;
-    if (event.code === 'Escape' && !event.repeat) { event.preventDefault(); if (this.status === 'running') this.pause(); else if (this.status === 'paused') this.resume(); return }
+    if ((this.status === 'intro' || this.status === 'outro') && ['Enter', 'Space'].includes(event.code)) {
+      event.preventDefault();
+      if (!event.repeat) this.skipCinematic();
+      return;
+    }
+    if (event.code === 'Escape' && !event.repeat) { event.preventDefault(); if (this.status === 'paused') this.resume(); else this.pause(); return }
     if (this.status !== 'running') return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyC'].includes(event.code)) { event.preventDefault(); this.keys.add(event.code) }
   };
