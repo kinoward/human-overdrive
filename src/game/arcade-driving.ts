@@ -76,7 +76,10 @@ export class ArcadeDriving {
       if (Math.abs(state.forwardSpeed) >= limit && Math.sign(state.forwardSpeed) === direction) {
         forwardDelta = this.approach(state.forwardSpeed, targetSpeed, 4 * dt);
       } else {
-        const speedRatio = THREE.MathUtils.clamp(Math.abs(state.forwardSpeed) / limit, 0, 1);
+        const accelerationLimit = direction > 0 ? (this.config.accelerationTopSpeed ?? this.config.topSpeed) / 3.6 * (state.onRoad ? 1 : 0.34) : reverseSpeed;
+        const matchingSpeed = Math.min(100 / 3.6 * (state.onRoad ? 1 : 0.34), accelerationLimit, limit);
+        const accelerationSpeed = speed <= matchingSpeed ? speed : matchingSpeed + (speed - matchingSpeed) * (accelerationLimit - matchingSpeed) / (limit - matchingSpeed);
+        const speedRatio = THREE.MathUtils.clamp(accelerationSpeed / accelerationLimit, 0, 1);
         const acceleration = this.config.acceleration * (direction > 0 ? 2 : 1.15) * (1 - speedRatio * speedRatio) * Math.abs(input.throttle) * powerWeight;
         const requested = direction * acceleration * dt;
         forwardDelta = direction > 0

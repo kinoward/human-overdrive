@@ -29,6 +29,7 @@ export interface VehicleConfig {
   region: string;
   topSpeed: number;
   acceleration: number;
+  accelerationTopSpeed?: number;
   mass: number;
   width: number;
   length: number;

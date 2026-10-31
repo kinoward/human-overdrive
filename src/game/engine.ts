@@ -283,6 +283,7 @@ export class GameEngine {
     this.needsRender = true;
     if (opening) {
       this.status = 'running';
+      this.pursuit!.launch();
       this.cameraPosition.set(0, 0, 0);
       this.cameraMotion.reset();
       this.updateCamera(0);

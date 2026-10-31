@@ -147,13 +147,21 @@ export class PolicePursuit {
     }
   }
 
+  launch() {
+    for (const actor of this.activeCars) {
+      const vehicle = actor.vehicle;
+      const speed = Math.min(14, vehicle.config.topSpeed / 3.6);
+      vehicle.body.setLinvel({ x: Math.sin(vehicle.heading) * speed, y: vehicle.body.linvel().y, z: Math.cos(vehicle.heading) * speed }, true);
+    }
+  }
+
   spawn(count: number, player: PhysicsVehicle, obstacles: TrafficObstacle[] = [], initial = false) {
     this.targetCount = count;
     if (!count || this.healthyCars.length >= count || !initial && this.time < this.spawnAt) return;
     if (!this.target) this.remember(player.body.translation(), player.body.linvel());
     const location = this.navigation.locate(groundPosition(player));
     if (!location) return;
-    const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: 11.5, topSpeed: player.config.topSpeed * 0.98, color: '#e4e8e5' };
+    const config = { ...VEHICLES[0], name: '北京警车', mass: 1850, acceleration: player.config.acceleration, accelerationTopSpeed: player.config.topSpeed, topSpeed: player.config.topSpeed * 1.05, color: '#e4e8e5' };
     const velocity = player.body.linvel();
     const travelHeading = Math.hypot(velocity.x, velocity.z) > 2 ? Math.atan2(velocity.x, velocity.z) : this.targetRoad ? Math.atan2(this.targetRoad.direction.x * this.targetSign, this.targetRoad.direction.z * this.targetSign) : player.heading;
     const candidates = this.spawnCandidates(location, travelHeading, initial, player.speed).flatMap(candidate =>
@@ -215,7 +223,7 @@ export class PolicePursuit {
     const sign: 1 | -1 = location.direction.x * Math.sin(travelHeading) + location.direction.z * Math.cos(travelHeading) < 0 ? -1 : 1;
     const intercept = Math.max(22, Math.min(75, playerSpeed * 1.3)) + Math.min(playerSpeed * 0.45, 26);
     const front = clamp(intercept - 12, 55, 100);
-    const rear = [-55, -70, -85, -100, -120, -150, -190];
+    const rear = initial ? [-18, -26, -36, -48, -65, -85, -110] : [-55, -70, -85, -100, -120, -150, -190];
     const forward = playerSpeed > 15 ? [front, Math.min(110, front + 20)] : [];
     const frontFirst = !initial && this.spawnAttempts % 2 === 1;
     const shift = initial ? 0 : this.spawnAttempts % rear.length;
@@ -225,7 +233,7 @@ export class PolicePursuit {
     const seen = new Set<string>();
     for (const distance of distances) {
       const point = this.navigation.advance(location, distance, sign);
-      if (Math.hypot(point.point.x - location.point.x, point.point.z - location.point.z) < 50) continue;
+      if (Math.hypot(point.point.x - location.point.x, point.point.z - location.point.z) < (initial ? 12 : 50)) continue;
       const key = `${point.road.id}:${point.distance.toFixed(1)}`;
       if (seen.has(key)) continue;
       seen.add(key);
