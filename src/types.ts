@@ -44,6 +44,7 @@ export interface GameSnapshot {
   targetDistance: number;
   elapsed: number;
   policeCount: number;
+  damagedPoliceCount: number;
   policeTarget: number;
   helicopterCount: number;
   score: number;

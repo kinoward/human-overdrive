@@ -223,7 +223,7 @@ export class GameEngine {
     this.cameraMotion.reset();
     this.updateCamera(1);
     this.pursuit.initialize(INITIAL_POLICE_COUNT, this.player, this.trafficObstacles());
-    this.metrics.maxPoliceCount = this.pursuit.activeCars.length;
+    this.metrics.maxPoliceCount = this.pursuit.healthyCars.length;
     this.updateRoadColliders(this.player.body.translation());
     for (let tick = 0; tick < 30; tick++) this.stepPresentation(1 / 60);
     this.player.render(1);
@@ -461,7 +461,7 @@ export class GameEngine {
     const target = getPoliceTarget(this.metrics.elapsed);
     if (target > previousTarget) this.message(`警方增援 · 目标警力 ${target} 辆`, 'danger', 3);
     this.spawnPolice();
-    this.metrics.maxPoliceCount = Math.max(this.metrics.maxPoliceCount, this.pursuit?.activeCars.length ?? 0);
+    this.metrics.maxPoliceCount = Math.max(this.metrics.maxPoliceCount, this.pursuit?.healthyCars.length ?? 0);
     const nearbyPolice = this.pursuit?.effective(this.player).filter(actor => {
       const p = actor.vehicle.body.translation();
       return Math.hypot(p.x - next.x, p.z - next.z) < 180;
@@ -469,7 +469,7 @@ export class GameEngine {
     const controlled = distance > 0 && contactBodies.size === 0 && this.player.upY > 0.7 && this.player.speed > 5
       && velocity.x * Math.sin(this.player.heading) + velocity.z * Math.cos(this.player.heading) > this.player.speed * 0.5;
     const evaded = this.drivingScore.update(this.metrics, { dt, distance, controlled, nearbyPolice: nearbyPolice.length,
-      fullPressure: (this.pursuit?.activeCars.length ?? 0) >= MAX_POLICE_COUNT && this.helicopters.length >= 3 && nearbyPolice.length >= 3 });
+      fullPressure: (this.pursuit?.healthyCars.length ?? 0) >= MAX_POLICE_COUNT && this.helicopters.length >= 3 && nearbyPolice.length >= 3 });
     if (evaded && !this.pursuit?.activeCars.some(actor => actor.state === 'positioning' || actor.state === 'contact')) {
       this.message('干净闪避 +2 技巧 · 继续拉开距离', 'good', 2);
     }
@@ -652,7 +652,7 @@ export class GameEngine {
     const score = calculateScore(this.metrics);
     this.renderer.domElement.dataset.scoring = JSON.stringify({ ...score, cleanDistance: this.metrics.cleanDistance, pressureDistance: this.metrics.pressureDistance, nearMisses: this.metrics.nearMisses, evadedAttacks: this.metrics.evadedAttacks, maxPressureTime: this.metrics.maxPressureTime, maxPressureDistance: this.metrics.maxPressureDistance });
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, controls: this.readControls(), damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
-    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, tactic: actor.tactic, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, speed: actor.vehicle.speed, topSpeedKmh: actor.vehicle.config.topSpeed, attackSpeedKmh: actor.attackSpeed * 3.6 })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ healthyCount: this.pursuit?.healthyCars.length ?? 0, activeCount: this.pursuit?.activeCars.length ?? 0, targetCount: getPoliceTarget(this.metrics.elapsed), police: this.police.map(actor => ({ id: actor.id, role: actor.role, tactic: actor.tactic, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, speed: actor.vehicle.speed, topSpeedKmh: actor.vehicle.config.topSpeed, attackSpeedKmh: actor.attackSpeed * 3.6 })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
       const road = nearestRoad(this.track.roads, position.x, position.z, position.y - 0.85);
@@ -671,7 +671,7 @@ export class GameEngine {
       }
       this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types, wheels });
     }
-    this.onSnapshot({ status: this.status, cinematic: this.cinematic.snapshot, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
+    this.onSnapshot({ status: this.status, cinematic: this.cinematic.snapshot, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.healthyCars.length ?? 0, damagedPoliceCount: (this.pursuit?.activeCars.length ?? 0) - (this.pursuit?.healthyCars.length ?? 0), helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
   private updateCamera(dt: number) {
