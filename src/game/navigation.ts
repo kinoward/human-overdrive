@@ -6,11 +6,15 @@ export class RoadNavigation {
   private nodes: Node[] = [];
 
   constructor(roads: RoadPath[]) {
+    const keys = new Map<string, number>();
     const findOrAdd = (point: Point3) => {
-      const existing = this.nodes.findIndex(node => Math.hypot(node.point.x - point.x, node.point.z - point.z) < 5);
-      if (existing >= 0) return existing;
+      const key = `${point.x.toFixed(2)},${point.y.toFixed(2)},${point.z.toFixed(2)}`;
+      const existing = keys.get(key);
+      if (existing !== undefined) return existing;
+      const index = this.nodes.length;
       this.nodes.push({ point: { ...point }, links: new Map() });
-      return this.nodes.length - 1;
+      keys.set(key, index);
+      return index;
     };
     for (const road of roads) {
       let previous = -1;
@@ -30,20 +34,13 @@ export class RoadNavigation {
         }
       }
     }
-    for (let i = 0; i < this.nodes.length; i++) for (let j = i + 1; j < this.nodes.length; j++) {
-      const distance = Math.hypot(this.nodes[i].point.x - this.nodes[j].point.x, this.nodes[i].point.z - this.nodes[j].point.z);
-      if (distance < 7) {
-        this.nodes[i].links.set(j, distance);
-        this.nodes[j].links.set(i, distance);
-      }
-    }
   }
 
   route(from: Point3, to: Point3): Point3[] {
     const closest = (p: Point3) => {
       let best = 0, distance = Infinity;
       for (let i = 0; i < this.nodes.length; i++) {
-        const d = Math.hypot(p.x - this.nodes[i].point.x, p.z - this.nodes[i].point.z);
+        const d = Math.hypot(p.x - this.nodes[i].point.x, (p.y - this.nodes[i].point.y) * 5, p.z - this.nodes[i].point.z);
         if (d < distance) { distance = d; best = i }
       }
       return best;
@@ -56,7 +53,7 @@ export class RoadNavigation {
     costs[start] = 0;
     while (open.size) {
       let current = -1, best = Infinity;
-      for (const index of open) if (costs[index] < best) { best = costs[index]; current = index }
+      for (const index of open) { const point = this.nodes[index].point; const estimate = costs[index] + Math.hypot(point.x - to.x, point.z - to.z); if (estimate < best) { best = estimate; current = index } }
       if (current < 0 || current === end) break;
       open.delete(current);
       for (const [next, length] of this.nodes[current].links) if (costs[current] + length < costs[next]) {

@@ -95,6 +95,9 @@ export interface RoadPath {
   length: number;
   cumulative: number[];
   oneWay: boolean;
+  lanes: number;
+  closed: boolean;
+  junctions: { roadId: string; point: Point3 }[];
 }
 
 export interface RoadPosition {
@@ -111,6 +114,8 @@ export interface WorldData {
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   source: string;
   attribution: string;
-  obstacles?: { center: Point3; halfExtents: Point3; rotation: number }[];
+  obstacles?: { center: Point3; halfExtents: Point3; rotation: number; pitch?: number }[];
+  surfaces: { vertices: Float32Array; indices: Uint32Array }[];
+  mainLoopLength: number;
   dispose: () => void;
 }
