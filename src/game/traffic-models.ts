@@ -46,7 +46,7 @@ function withAppearance(model: VehicleModel) {
 export async function loadTrafficModels() {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   await Promise.all(['delivery-van', 'box-truck', 'city-bus'].map(async name => {
-    const model = await loader.loadAsync(`/assets/generated/traffic/${name}.glb`);
+    const model = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/generated/traffic/${name}.glb`);
     model.scene.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true; object.receiveShadow = true;

@@ -22,7 +22,7 @@ interface StoredWorld {
 }
 
 export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
-  const response = await fetch('/data/beijing-roads.json');
+  const response = await fetch(`${import.meta.env.BASE_URL}data/beijing-roads.json`);
   if (!response.ok) throw new Error('北京道路加载失败，请重新进入关卡。');
   const stored = await response.json() as StoredWorld;
   const roads: RoadPath[] = stored.roads.map(road => {
@@ -35,7 +35,7 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   for (const point of points) { bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x); bounds.minZ = Math.min(bounds.minZ, point.z); bounds.maxZ = Math.max(bounds.maxZ, point.z) }
   const loader = new THREE.TextureLoader();
   const load = async (path: string, color = false) => {
-    const texture = await loader.loadAsync(`/assets/art/${path}`);
+    const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/art/${path}`);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 8;
     if (color) texture.colorSpace = THREE.SRGBColorSpace;
@@ -44,9 +44,9 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const [asphaltMap, asphaltNormal, asphaltRough, concreteMap, concreteNormal, concreteRough, environment] = await Promise.all([
     load('Textures/Asphalt02/asphalt_02_diff_2k.jpg', true), load('Textures/Asphalt02/asphalt_02_nor_gl_2k.png'), load('Textures/Asphalt02/asphalt_02_rough_2k.jpg'),
     load('Textures/ConcreteWall006/concrete_wall_006_diff_2k.jpg', true), load('Textures/ConcreteWall006/concrete_wall_006_nor_gl_2k.png'), load('Textures/ConcreteWall006/concrete_wall_006_rough_2k.jpg'),
-    new HDRLoader().loadAsync('/assets/art/Environment/venice_sunset_2k.hdr')
+    new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/art/Environment/venice_sunset_2k.hdr`)
   ]);
-  const font = new FontFace('Source Han Sans', 'url(/assets/art/Fonts/SourceHanSansCN-Regular.otf)');
+  const font = new FontFace('Source Han Sans', `url(${import.meta.env.BASE_URL}assets/art/Fonts/SourceHanSansCN-Regular.otf)`);
   document.fonts.add(await font.load());
   environment.mapping = THREE.EquirectangularReflectionMapping;
   const skyTexture = createDrivingAtmosphere(scene);

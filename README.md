@@ -2,6 +2,8 @@
 
 本项目参加 VibeHacks #06，在短开发窗口内制作城市道路警追游戏 Demo。本次项目完全使用 Three.js + Rapier + TypeScript + Vite；优先复用许可明确的成熟模型、场景与美术资产，项目独有的路网逃跑、追捕和评分逻辑由本项目实现。
 
+[在线游玩](https://kinoward.github.io/human-overdrive/) · [自动构建与发布记录](https://github.com/kinoward/human-overdrive/actions/workflows/deploy-pages.yml)
+
 选择北京和座驾，在真实比例完整四环的主路、辅路与连接匝道间自由行驶；逆行与同路往返均累计，完成 20 公里即可逃脱，单局节奏约 10 分钟。开局有 3 辆警车，随比赛时间逐步增援至最多 10 辆仍能追捕的警车；损坏退出的车辆留在路上，翻车或被围堵到无法脱困会结束挑战。
 
 ## Three.js 主线

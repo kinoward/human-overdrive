@@ -30,11 +30,11 @@ const distance = (value: number) => `${(value / 1000).toFixed(2)}`;
 const stars = (value: number) => `<span class="stars" aria-label="${value}星">${Array.from({ length: 10 }, (_, index) => `<span class="${index < value ? 'lit' : ''}" aria-hidden="true">★</span>`).join('')}</span>`;
 
 function roadMap(className = '', detailed = false) {
-  return `<img class="road-map ${className}" src="/data/beijing-map.svg" alt="北京完整四环主辅路地图${detailed ? '，北、东、南、西四环按真实线形连接' : ''}">`;
+  return `<img class="road-map ${className}" src="${import.meta.env.BASE_URL}data/beijing-map.svg" alt="北京完整四环主辅路地图${detailed ? '，北、东、南、西四环按真实线形连接' : ''}">`;
 }
 
 function vehicleArt(vehicle: VehicleConfig) {
-  return `<img class="vehicle-art vehicle-photo-${vehicle.kind}" src="/assets/ui-racing/${vehicle.kind === 'car' ? 'racing-hero-v1' : 'garage-motorcycle-v1'}.webp" alt="${vehicle.kind === 'car' ? '电动 SUV 竞速风格图' : '探险摩托竞速风格图'}"/>`;
+  return `<img class="vehicle-art vehicle-photo-${vehicle.kind}" src="${import.meta.env.BASE_URL}assets/ui-racing/${vehicle.kind === 'car' ? 'racing-hero-v1' : 'garage-motorcycle-v1'}.webp" alt="${vehicle.kind === 'car' ? '电动 SUV 竞速风格图' : '探险摩托竞速风格图'}"/>`;
 }
 
 export class GameUI {
