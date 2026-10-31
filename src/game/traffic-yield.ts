@@ -10,11 +10,20 @@ export function policeYieldOffset(agent: TrafficAgent, obstacles: TrafficObstacl
     const side = dx * Math.cos(heading) - dz * Math.sin(heading);
     const speed = Math.hypot(other.velocity.x, other.velocity.z);
     const alignment = Math.cos(other.heading - heading);
-    const reach = clamp(75 + speed * 4, 110, 240);
-    if (along < -reach || along > (alignment < 0.3 ? reach : 40 + other.length / 2)) continue;
+    const forwardSpeed = other.velocity.x * Math.sin(heading) + other.velocity.z * Math.cos(heading);
+    const sameDirection = alignment > 0.3;
+    const relativeX = other.velocity.x - Math.sin(heading) * agent.speed;
+    const relativeZ = other.velocity.z - Math.cos(heading) * agent.speed;
+    const closingSpeed = sameDirection ? forwardSpeed - agent.speed : -(dx * relativeX + dz * relativeZ) / Math.max(1, Math.hypot(dx, dz));
+    if (speed < 2 || closingSpeed < 1) continue;
+    const clearance = (agent.length + other.length) / 2 + 3;
+    const reach = clamp(35 + closingSpeed * 5, 55, 240);
+    if (sameDirection ? along < -reach || along > clearance : along < -clearance || along > reach) continue;
+    const width = Math.abs(alignment) * other.width + Math.abs(Math.sin(other.heading - heading)) * other.length;
+    if (agent.yieldOffset === undefined && Math.abs(alignment) > 0.7 && Math.abs(side) > (agent.width + width) / 2 + 1.4) continue;
     const offset = agent.offset + side * agent.leg.sign;
     if (Math.abs(offset) > agent.road.width / 2 + 2) continue;
-    police.push({ offset, width: Math.abs(alignment) * other.width + Math.abs(Math.sin(other.heading - heading)) * other.length });
+    police.push({ offset, width });
   }
   if (!police.length) return undefined;
   const margin = agent.width / 2 + 0.5;
