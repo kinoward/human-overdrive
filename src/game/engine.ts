@@ -589,14 +589,12 @@ export class GameEngine {
         this.helicopterSight.set(helicopter, inRange && this.airspace.lineOfSight(position, player, helicopter.body, this.player.body).clear);
       }
     }
-    let observation: Point3 | undefined;
     const groundObservation = this.pursuit.observation;
     for (const helicopter of this.helicopters) {
       const visible = this.helicopterSight.get(helicopter) ?? false;
       helicopter.update(dt, player, visible, groundObservation && groundObservation.age < 0.25 ? groundObservation.position : undefined);
-      if (visible) observation = helicopter.observation?.position;
     }
-    this.pursuit.update(dt, this.simulationTime, this.player, this.trafficObstacles(), observation);
+    this.pursuit.update(dt, this.simulationTime, this.player, this.trafficObstacles());
     this.showPoliceEvents();
   }
 
@@ -705,7 +703,7 @@ export class GameEngine {
     this.renderer.domElement.dataset.replay = JSON.stringify({ state: this.status, ...this.replay.buffer.stats, ...this.replay.snapshot, raceElapsed: this.metrics.elapsed, raceDistance: this.metrics.distance, resultId: this.pendingResult?.id });
     this.renderer.domElement.dataset.scoring = JSON.stringify({ ...score, cleanDistance: this.metrics.cleanDistance, pressureDistance: this.metrics.pressureDistance, nearMisses: this.metrics.nearMisses, evadedAttacks: this.metrics.evadedAttacks, maxPressureTime: this.metrics.maxPressureTime, maxPressureDistance: this.metrics.maxPressureDistance });
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, controls: this.readControls(), damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
-    this.renderer.domElement.dataset.pursuit = JSON.stringify({ healthyCount: this.pursuit?.healthyCars.length ?? 0, activeCount: this.pursuit?.activeCars.length ?? 0, targetCount: getPoliceTarget(this.metrics.elapsed), police: this.police.map(actor => ({ id: actor.id, role: actor.role, tactic: actor.tactic, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, speed: actor.vehicle.speed, topSpeedKmh: actor.vehicle.config.topSpeed, attackSpeedKmh: actor.attackSpeed * 3.6 })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ healthyCount: this.pursuit?.healthyCars.length ?? 0, activeCount: this.pursuit?.activeCars.length ?? 0, targetCount: getPoliceTarget(this.metrics.elapsed), police: this.police.map(actor => ({ id: actor.id, role: actor.role, tactic: actor.tactic, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), heading: actor.vehicle.heading, speed: actor.vehicle.speed, topSpeedKmh: actor.vehicle.config.topSpeed, attackSpeedKmh: actor.attackSpeed * 3.6, targetSpeedKmh: actor.targetSpeed * 3.6, road: actor.road?.road.id, roadOffset: actor.road?.offset, desiredOffset: actor.offset, passingOffset: actor.passingUntil > this.simulationTime ? actor.passingOffset : undefined })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
       const road = nearestRoad(this.track.roads, position.x, position.z, position.y - 0.85);
