@@ -55,7 +55,15 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
   white.userData.roadDecal = true;
   const metal = new THREE.MeshStandardMaterial({ color: '#9caaa9', metalness: 0.7, roughness: 0.45 });
   const black = new THREE.MeshStandardMaterial({ color: '#262b2c', roughness: 0.75 });
-  const lamp = new THREE.MeshBasicMaterial({ color: '#fff3cc' });
+  const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe6bc').multiplyScalar(6), toneMapped: false });
+  const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 64;
+  const glowContext = glowCanvas.getContext('2d')!;
+  const glowGradient = glowContext.createRadialGradient(32, 32, 0, 32, 32, 32);
+  glowGradient.addColorStop(0, 'rgba(255,255,255,0.38)'); glowGradient.addColorStop(0.3, 'rgba(255,255,255,0.12)'); glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
+  glowContext.fillStyle = glowGradient; glowContext.fillRect(0, 0, 64, 64);
+  const glowTexture = new THREE.CanvasTexture(glowCanvas); glowTexture.colorSpace = THREE.SRGBColorSpace;
+  const glow = new THREE.MeshBasicMaterial({ map: glowTexture, color: '#ffdfae', transparent: true, opacity: 0.65, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+  const glowGeometry = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const reflector = new THREE.MeshBasicMaterial({ color: '#f3e7b8' });
   const post = new THREE.CylinderGeometry(0.1, 0.15, 1, 6);
   const p = new THREE.Vector3(), size = new THREE.Vector3();
@@ -164,6 +172,7 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
       const head = sampleRoad(road, distance, road.width / 2 - 1).point;
       box(black, head, 1.1, 0.12, 0.45, s.heading, 8.85);
       box(lamp, head, 0.85, 0.035, 0.32, s.heading, 8.77);
+      batch.instance(glow, p.set(head.x, head.y + 8.735, head.z), size.set(3.2, 1, 1.8), s.heading, glowGeometry);
       if (s.point.y > 3) box(bridgeConcrete, s.point, 0.9, s.point.y, 1.5, s.heading, -s.point.y / 2);
     }
     if (road.kind !== 'main') continue;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { RoadPath } from '../types';
+import type { RoadPath, RoadPosition } from '../types';
 import { RoadIndex, sampleRoad } from './road-network';
 import { createCyberWetRoad } from './cyber-wet-road';
 
@@ -53,44 +53,45 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     fragmentShader:`varying vec2 vUv;varying float vAge;void main(){float d=length(vUv-.5);float ring=1.-smoothstep(.005,.02,abs(d-vAge*.46));gl_FragColor=vec4(.43,.63,.7,ring*pow(1.-vAge,2.)*.09);}`
   });
   const splashes=new THREE.InstancedMesh(splashGeometry,splashMaterial,splashCount);splashes.frustumCulled=false;group.add(splashes);
-  const roadIndex=new RoadIndex(roads),lampCells=new Map<string,THREE.Vector3[]>();
+  type LampSite={position:THREE.Vector3;road:RoadPath};
+  const roadIndex=new RoadIndex(roads),lampCells=new Map<string,LampSite[]>();
   for(const road of roads)for(let distance=40;distance<road.length-10;distance+=road.kind==='main'?48:70){
     const pole=sampleRoad(road,distance,road.width/2+1.7);
     if(roadIndex.covers(pole.point,road,.5))continue;
     const head=sampleRoad(road,distance,road.width/2-1).point;
-    const site=new THREE.Vector3(head.x,head.y+8.77,head.z),key=`${Math.floor(head.x/100)},${Math.floor(head.z/100)}`;
+    const site={position:new THREE.Vector3(head.x,head.y+8.77,head.z),road},key=`${Math.floor(head.x/100)},${Math.floor(head.z/100)}`;
     if(!lampCells.has(key))lampCells.set(key,[]);
     lampCells.get(key)!.push(site);
   }
-  const lights=Array.from({length:4},()=>{const light=new THREE.PointLight('#ffd6ad',0,44,2);group.add(light);return {light,site:null as THREE.Vector3|null};});
+  const lights=Array.from({length:4},()=>{const light=new THREE.PointLight('#ffdfb5',0,56,2);group.add(light);return {light,site:null as LampSite|null};});
   let lastTime:number|null=null;
-  const updateLights=(time:number,focus:THREE.Vector3)=>{
+  const updateLights=(time:number,focus:THREE.Vector3,nearest:RoadPosition|null)=>{
     const delta=lastTime===null?1/60:THREE.MathUtils.clamp(time-lastTime,0,.1),blend=1-Math.exp(-delta*9);
     lastTime=time;
-    const cx=Math.floor(focus.x/100),cz=Math.floor(focus.z/100),sites:THREE.Vector3[]=[];
+    const cx=Math.floor(focus.x/100),cz=Math.floor(focus.z/100),sites:LampSite[]=[];
     for(let x=cx-1;x<=cx+1;x++)for(let z=cz-1;z<=cz+1;z++)for(const site of lampCells.get(`${x},${z}`)??[]){
-      if(Math.abs(site.y-8.77-(focus.y-.85))<3&&site.distanceToSquared(focus)<10000)sites.push(site);
+      if((site.road===nearest?.road||Math.abs(site.position.y-8.77-(nearest?.point.y??focus.y))<3)&&site.position.distanceToSquared(focus)<10000)sites.push(site);
     }
-    sites.sort((a,b)=>a.distanceToSquared(focus)-b.distanceToSquared(focus));
+    sites.sort((a,b)=>a.position.distanceToSquared(focus)-b.position.distanceToSquared(focus));
     const desired=sites.slice(0,4);
     for(const slot of lights){
-      const intensity=slot.site&&desired.includes(slot.site)?92*(1-THREE.MathUtils.smoothstep(slot.site.distanceTo(focus),55,100)):0;
+      const intensity=slot.site&&desired.includes(slot.site)?400*(1-THREE.MathUtils.smoothstep(slot.site.position.distanceTo(focus),55,100)):0;
       slot.light.intensity=THREE.MathUtils.lerp(slot.light.intensity,intensity,blend);
       if(!intensity&&slot.light.intensity<.15){slot.light.intensity=0;slot.site=null;}
     }
     for(const site of desired){
       if(lights.some(slot=>slot.site===site))continue;
       const slot=lights.find(slot=>!slot.site);if(!slot)break;
-      slot.site=site;slot.light.position.copy(site);
+      slot.site=site;slot.light.position.copy(site.position);
     }
   };
   const transform=new THREE.Object3D();
   let lastX=Infinity,lastZ=Infinity,lastY=Infinity;
   const update=(time:number,focus:THREE.Vector3,heading:number)=>{
     rainMaterial.uniforms.time.value=time;steamMaterial.uniforms.time.value=time;splashMaterial.uniforms.time.value=time;
-    updateLights(time,focus);
     rainGroup.position.set(focus.x,focus.y-.85,focus.z);rainGroup.rotation.y=heading+Math.PI;
     const nearest=wetRoad.update(time,focus);
+    updateLights(time,focus,nearest);
     if(Math.hypot(focus.x-lastX,focus.z-lastZ)<18&&Math.abs(focus.y-lastY)<.2)return;
     lastX=focus.x;lastZ=focus.z;lastY=focus.y;
     if(!nearest){steams.forEach(steam=>steam.visible=false);splashes.visible=false;return;}

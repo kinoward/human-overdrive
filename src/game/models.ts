@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { VehicleConfig } from '../types';
 import { cloneGeneratedVehicle } from './generated-assets';
+import { addVehicleLamps } from './vehicle-lamps';
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
 const unitCylinder = new THREE.CylinderGeometry(1, 1, 1, 14);
@@ -224,7 +225,10 @@ export function createVehicleModel(config: VehicleConfig, police = false) {
   group.userData.damageModel = config.kind === 'motorcycle' && !police ? 'motorcycle' : 'car';
   const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
   mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);
-  return { group, ...details, wheelRadius: config.kind === 'motorcycle' && !police ? 0.36 : 0.378, dispose: details.dispose ?? createDisposer(group) };
+  const motorcycle = config.kind === 'motorcycle' && !police;
+  const dispose = details.dispose ?? createDisposer(group);
+  const disposeLamps = addVehicleLamps(group, { width: config.width, length: config.length, motorcycle, height: motorcycle ? 0.3 : 0.28, front: motorcycle ? 0.88 : 2.1 });
+  return { group, ...details, wheelRadius: motorcycle ? 0.36 : 0.378, dispose: () => { disposeLamps(); dispose() } };
 }
 
 export function createHelicopter() {

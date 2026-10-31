@@ -9,6 +9,7 @@ import type { Point3,RoadPath } from '../types';
 import { createCyberCity } from './cyber-city';
 import { createCyberAtmosphere } from './cyber-atmosphere';
 import { styleCyberMaterials } from './cyber-materials';
+import { createVehicleLighting } from './vehicle-lighting';
 
 export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,roads:RoadPath[],spawn:Point3,sun:THREE.DirectionalLight){
   const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone()};
@@ -38,6 +39,7 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   const cullingFocus=new THREE.Vector3(Infinity,0,Infinity);
   const city=createCyberCity(roads,focus,materials.occupied);scene.add(city.group);
   const atmosphere=createCyberAtmosphere(renderer,scene,roads);scene.add(atmosphere.group);
+  const vehicleLighting=createVehicleLighting(scene);
   const composer=new EffectComposer(renderer);
   const renderPass=new RenderPass(scene,new THREE.PerspectiveCamera());composer.addPass(renderPass);
   const size=renderer.getSize(new THREE.Vector2());
@@ -90,7 +92,7 @@ void main(){
   const dispose=()=>{
     if(disposed)return;disposed=true;
     window.removeEventListener('pagehide',pagehide);
-    atmosphere.dispose();city.dispose();materials.dispose();sun.color.copy(previousSun.color);sun.intensity=previousSun.intensity;sun.shadow.mapSize.copy(previousSun.mapSize);
+    vehicleLighting.dispose();atmosphere.dispose();city.dispose();materials.dispose();sun.color.copy(previousSun.color);sun.intensity=previousSun.intensity;sun.shadow.mapSize.copy(previousSun.mapSize);
     distant.forEach(({object,visible})=>{object.visible=visible;});
     originalFill.forEach(({light,color,ground,intensity})=>{light.color.copy(color);light.groundColor.copy(ground);light.intensity=intensity;});
     composer.dispose();bloom.dispose();renderPass.dispose();film.dispose();fxaa.dispose();renderer.info.autoReset=previousAutoReset;
@@ -105,7 +107,7 @@ void main(){
         cullingFocus.copy(focus);
         distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+580;});
       }
-      city.update(focus);atmosphere.update(time,focus,heading);film.uniforms.time.value=time;
+      city.update(focus);atmosphere.update(time,focus,heading);vehicleLighting.update(time,camera,focus);film.uniforms.time.value=time;
       const velocity=Math.abs(speed);
       film.uniforms.speedAmount.value=reducedMotion.matches?0:(THREE.MathUtils.smoothstep(velocity,.5,4)*.2+THREE.MathUtils.smoothstep(velocity,4,55)*.8)*(lookBack?.25:1);
       film.uniforms.grainStrength.value=reducedMotion.matches?0:.0035;

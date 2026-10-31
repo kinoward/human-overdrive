@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { assetUrl } from '../asset-url';
 import { VEHICLES } from '../config';
 import { createVehicleModel } from './models';
+import { addVehicleLamps } from './vehicle-lamps';
 import type { TrafficVehicleSpec } from './traffic-vehicles';
 
 const vehicles = new Map<string, THREE.Group>();
@@ -43,6 +44,7 @@ function withAppearance(model: VehicleModel) {
     object.material = Array.isArray(object.material) ? object.material.map(clone) : clone(object.material);
   });
   return { ...model, wheelSpecs, setOpacity: (alpha: number) => {
+    model.group.userData.headlightOpacity = alpha;
     for (const [material, original] of opacity) {
       const transparent = original.transparent || alpha < 1;
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true }
@@ -99,5 +101,6 @@ export function createTrafficVehicleModel(profile: TrafficVehicleSpec, color: st
   };
   const brakeLights = [-1, 1].map(side => lamp(brakeMaterial, side * profile.width * 0.38, 0.75, -profile.length * 0.502, 0.21));
   const turnSignals = [-1, 1].flatMap((side, index) => [-1, 1].map(end => lamp(signalMaterials[index], side * profile.width * 0.42, 0.9, end * profile.length * 0.502, 0.1)));
-  return withAppearance({ group, wheels, brakeLights, turnSignals, policeLights: [] as THREE.Mesh[], wheelRadius: profile.wheelRadius, dispose: () => { brakeMaterial.dispose(); signalMaterials.forEach(material => material.dispose()) } });
+  const disposeLamps = addVehicleLamps(group, { width: profile.width, length: profile.length, height: profile.id === 'truck' ? 0.27 : 0.08, intensity: profile.heavy ? 1000 : 800 });
+  return withAppearance({ group, wheels, brakeLights, turnSignals, policeLights: [] as THREE.Mesh[], wheelRadius: profile.wheelRadius, dispose: () => { disposeLamps(); brakeMaterial.dispose(); signalMaterials.forEach(material => material.dispose()) } });
 }
