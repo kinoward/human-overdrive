@@ -564,7 +564,7 @@ export class GameEngine {
       const threats = [...new Set(attacks.map(actor => actor.tactic === 'pit' ? `${actor.role === 'left' ? '左' : '右'}后侧 PIT 撞击` : actor.tactic === 'brake-check' ? '前方刹停封路' : actor.tactic === 'box' ? '近距离夹堵' : '后方追撞顶推'))];
       this.message(`${threats.join('、')} · 立即变线突围`, 'danger', 1.5);
     } else if (loss) {
-      const text = loss.type === 'flipped' ? '警车翻覆' : '警车受损退出追捕';
+      const text = loss.type === 'flipped' ? '警车翻覆' : '警车失去行驶能力';
       this.message(`${text} · ${attacks.length ? '仍有警车逼近' : '抓住突围空档'}`, attacks.length ? 'neutral' : 'good', 2.8);
     } else if (events.some(event => event.type === 'evaded')) {
       this.message(attacks.length ? '躲开一轮冲撞 · 仍有警车逼近' : '闪开冲撞 · 趁警车恢复拉开距离', attacks.length ? 'neutral' : 'good', 2);
@@ -601,7 +601,6 @@ export class GameEngine {
       const actor = this.police.find(car => car.vehicle.body.handle === impact.bodyHandle);
       if (!actor || !impact.feedback) continue;
       actor.vehicle.applyImpact(impact.point, impact.direction, impact.strength);
-      if (impact.otherKind !== 'traffic') actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, impact.balanceDisabled);
       this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.approachSpeed, impact.otherKind);
       if (impact.otherKind === 'traffic') this.renderer.domElement.dataset.policeTrafficImpact = JSON.stringify({ id: actor.id, time: this.simulationTime, state: actor.state, deltaV: impact.deltaV, strength: impact.strength });
     }
