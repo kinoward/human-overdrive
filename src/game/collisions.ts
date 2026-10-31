@@ -27,8 +27,14 @@ export interface ImpactEvent {
   otherKind?: Exclude<CollisionActorKind, 'player'>;
 }
 
+export interface PoliceImpactEvent extends Omit<ImpactEvent, 'otherKind'> {
+  bodyHandle: number;
+  otherKind?: CollisionActorKind;
+}
+
 export interface CollisionFrame {
   impacts: ImpactEvent[];
+  policeImpacts: PoliceImpactEvent[];
   contactBodies: Set<number>;
 }
 
@@ -53,9 +59,12 @@ interface ContactProcess {
   peak: number;
   lastSeen: number;
   incident: boolean;
+  lastFeedback: number;
+  approachSpeed: number;
 }
 
 export class CollisionSystem {
+  contactCount = 0;
   private player?: CollisionActor;
   private actors = new Map<number, CollisionActor>();
   private snapshots = new Map<number, BodySnapshot>();
@@ -68,39 +77,72 @@ export class CollisionSystem {
   beforeStep(player: CollisionActor, actors: readonly CollisionActor[], dt = 1 / 60) {
     this.player = player;
     this.actors.clear();
-    this.snapshots.clear();
     for (const actor of [player, ...actors]) {
       this.actors.set(actor.body.handle, actor);
-      this.snapshots.set(actor.body.handle, {
-        position: this.copy(actor.body.worldCom()),
-        linvel: actor.body.isKinematic() ? this.kinematicVelocity(actor.body, dt) : this.copy(actor.body.linvel()),
-        angvel: this.copy(actor.body.angvel())
-      });
+      let snapshot = this.snapshots.get(actor.body.handle);
+      if (!snapshot) {
+        snapshot = { position: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 }, angvel: { x: 0, y: 0, z: 0 } };
+        this.snapshots.set(actor.body.handle, snapshot);
+      }
+      actor.body.worldCom(snapshot.position);
+      if (actor.body.isKinematic()) this.kinematicVelocity(actor.body, dt, snapshot.linvel);
+      else actor.body.linvel(snapshot.linvel);
+      actor.body.angvel(snapshot.angvel);
     }
+    for (const handle of this.snapshots.keys()) if (!this.actors.has(handle)) this.snapshots.delete(handle);
   }
 
   afterStep(dt: number): CollisionFrame {
     this.step += dt;
     const contactBodies = new Set<number>();
     const impacts: ImpactEvent[] = [];
+    const policeImpacts: PoliceImpactEvent[] = [];
     const player = this.player;
     this.events.drainCollisionEvents(() => {});
     this.forceByKey.clear();
     this.events.drainContactForceEvents(event => {
-      if (!player) return;
       const first = this.world.getCollider(event.collider1());
       const second = this.world.getCollider(event.collider2());
       if (!first || !second) return;
-      const sample = this.resolvePair(player, first, second);
-      if (!sample) return;
-      this.forceByKey.set(sample.key, (this.forceByKey.get(sample.key) ?? 0) + event.totalForceMagnitude());
+      if (player) this.recordForce(player, first, second, event.totalForceMagnitude());
+      const firstActor = first.parent() ? this.actors.get(first.parent()!.handle) : undefined;
+      const secondActor = second.parent() ? this.actors.get(second.parent()!.handle) : undefined;
+      if (firstActor?.kind === 'police') this.recordForce(firstActor, first, second, event.totalForceMagnitude());
+      if (secondActor?.kind === 'police') this.recordForce(secondActor, second, first, event.totalForceMagnitude());
     });
-    if (!player) return { impacts, contactBodies };
+    if (!player) return { impacts, policeImpacts, contactBodies };
+    for (const sample of this.collectContacts(player, contactBodies)) {
+      const impact = this.impact(sample, player, dt);
+      if (impact) impacts.push({ ...impact, otherKind: sample.otherActor?.kind === 'player' ? undefined : sample.otherActor?.kind });
+    }
+    for (const actor of this.actors.values()) {
+      if (actor.kind !== 'police') continue;
+      for (const sample of this.collectContacts(actor)) {
+        const impact = this.impact(sample, actor, dt);
+        if (impact) policeImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
+      }
+    }
+    this.contactCount = contactBodies.size;
+    for (const [key, process] of this.processes) if (this.step - process.lastSeen > 0.25) this.processes.delete(key);
+    return { impacts, policeImpacts, contactBodies };
+  }
+
+  reset() {
+    this.contactCount = 0;
+    this.player = undefined;
+    this.actors.clear();
+    this.snapshots.clear();
+    this.processes.clear();
+    this.forceByKey.clear();
+    this.step = 0;
+  }
+
+  private collectContacts(subject: CollisionActor, contactBodies?: Set<number>) {
     const current = new Map<string, ContactSample>();
-    for (let index = 0; index < player.body.numColliders(); index++) {
-      const playerCollider = player.body.collider(index);
-      this.world.contactPairsWith(playerCollider, other => {
-        const sample = this.sampleContact(player, playerCollider, other);
+    for (let index = 0; index < subject.body.numColliders(); index++) {
+      const subjectCollider = subject.body.collider(index);
+      this.world.contactPairsWith(subjectCollider, other => {
+        const sample = this.sampleContact(subject, subjectCollider, other);
         if (!sample) return;
         const previous = current.get(sample.key);
         if (!previous) current.set(sample.key, sample);
@@ -113,61 +155,61 @@ export class CollisionSystem {
           previous.impulse += sample.impulse;
           previous.approachSpeed = Math.max(previous.approachSpeed, sample.approachSpeed);
         }
-        if (sample.otherBody && sample.otherActor) contactBodies.add(sample.otherBody.handle);
+        if (contactBodies && sample.otherBody && sample.otherActor) contactBodies.add(sample.otherBody.handle);
       });
     }
-    for (const sample of current.values()) {
-      const force = this.forceByKey.get(sample.key) ?? 0;
-      const mass = Math.max(1, player.body.mass());
-      const deltaV = Math.max(sample.impulse / mass, force * dt / mass, sample.approachSpeed * 0.22);
-      let process = this.processes.get(sample.key);
-      if (!process) {
-        process = { peak: 0, lastSeen: this.step, incident: false };
-        this.processes.set(sample.key, process);
-      }
-      process.lastSeen = this.step;
-      const qualifying = sample.approachSpeed >= 0.45 && deltaV >= 0.12;
-      const newIncident = qualifying && !process.incident;
-      const feedback = qualifying && (newIncident || deltaV > Math.max(0.8, process.peak * 1.7));
-      process.incident ||= qualifying;
-      process.peak = Math.max(process.peak, deltaV);
-      if (!newIncident && !feedback) continue;
-      const severity: ImpactSeverity = deltaV >= 1.7 || sample.approachSpeed >= 7 ? 'heavy' : deltaV >= 0.55 || sample.approachSpeed >= 2.5 ? 'medium' : 'light';
-      impacts.push({
-        point: sample.point,
-        direction: sample.direction,
-        strength: Math.min(1, Math.max(deltaV / 7, sample.approachSpeed / 24)),
-        otherBodyHandle: sample.otherBody?.handle,
-        otherColliderHandle: sample.otherCollider.handle,
-        severity,
-        deltaV,
-        approachSpeed: sample.approachSpeed,
-        balanceDisabled: severity === 'heavy' ? 1.45 : severity === 'medium' ? 0.7 : 0.08,
-        newIncident,
-        feedback,
-        otherKind: sample.otherActor?.kind === 'player' ? undefined : sample.otherActor?.kind
-      });
+    return current.values();
+  }
+
+  private impact(sample: ContactSample, subject: CollisionActor, dt: number): Omit<ImpactEvent, 'otherKind'> | undefined {
+    const force = this.forceByKey.get(sample.key) ?? 0;
+    const mass = Math.max(1, subject.body.mass());
+    const deltaV = Math.max(sample.impulse / mass, force * dt / mass, sample.approachSpeed * 0.22);
+    let process = this.processes.get(sample.key);
+    if (!process) {
+      process = { peak: 0, lastSeen: this.step, incident: false, lastFeedback: -Infinity, approachSpeed: 0 };
+      this.processes.set(sample.key, process);
     }
-    for (const [key, process] of this.processes) if (this.step - process.lastSeen > 0.25) this.processes.delete(key);
-    return { impacts, contactBodies };
+    process.peak *= Math.exp(-(this.step - process.lastSeen) * 2.5);
+    process.lastSeen = this.step;
+    const qualifying = sample.approachSpeed >= 0.45 && deltaV >= 0.12;
+    const newIncident = qualifying && !process.incident;
+    const renewed = sample.approachSpeed > process.approachSpeed + 0.6;
+    const feedback = qualifying && (newIncident || this.step - process.lastFeedback >= 0.35 && (renewed || deltaV > Math.max(0.8, process.peak * 1.5)));
+    process.incident ||= qualifying;
+    process.peak = Math.max(process.peak, deltaV);
+    process.approachSpeed = sample.approachSpeed;
+    if (feedback) process.lastFeedback = this.step;
+    if (!newIncident && !feedback) return undefined;
+    const severity: ImpactSeverity = deltaV >= 1.7 || sample.approachSpeed >= 7 ? 'heavy' : deltaV >= 0.55 || sample.approachSpeed >= 2.5 ? 'medium' : 'light';
+    return {
+      point: sample.point,
+      direction: sample.direction,
+      strength: Math.min(1, Math.max(deltaV / 7, sample.approachSpeed / 24)),
+      otherBodyHandle: sample.otherBody?.handle,
+      otherColliderHandle: sample.otherCollider.handle,
+      severity,
+      deltaV,
+      approachSpeed: sample.approachSpeed,
+      balanceDisabled: severity === 'heavy' ? 1.45 : severity === 'medium' ? 0.7 : 0.08,
+      newIncident,
+      feedback
+    };
   }
 
-  reset() {
-    this.player = undefined;
-    this.actors.clear();
-    this.snapshots.clear();
-    this.processes.clear();
-    this.forceByKey.clear();
-    this.step = 0;
+  private recordForce(subject: CollisionActor, first: RAPIER.Collider, second: RAPIER.Collider, force: number) {
+    const sample = this.resolvePair(subject, first, second);
+    if (!sample) return;
+    this.forceByKey.set(sample.key, (this.forceByKey.get(sample.key) ?? 0) + force);
   }
 
-  private sampleContact(player: CollisionActor, playerCollider: RAPIER.Collider, other: RAPIER.Collider): ContactSample | undefined {
-    const resolved = this.resolvePair(player, playerCollider, other);
+  private sampleContact(subject: CollisionActor, subjectCollider: RAPIER.Collider, other: RAPIER.Collider): ContactSample | undefined {
+    const resolved = this.resolvePair(subject, subjectCollider, other);
     if (!resolved || other.isSensor()) return undefined;
     let approachSpeed = 0;
     let impulse = 0;
     let solverContacts = 0;
-    this.world.contactPair(playerCollider, other, (manifold, flipped) => {
+    this.world.contactPair(subjectCollider, other, (manifold, flipped) => {
       if (manifold.numSolverContacts() === 0) return;
       solverContacts += manifold.numSolverContacts();
       const normal = manifold.normal();
@@ -175,12 +217,12 @@ export class CollisionSystem {
       for (let index = 0; index < manifold.numSolverContacts(); index++) {
         const point = manifold.solverContactPoint(index);
         if (!point) continue;
-        const playerVelocity = this.velocityAtPoint(player.body, point);
+        const subjectVelocity = this.velocityAtPoint(subject.body, point);
         const otherVelocity = resolved.otherBody ? this.velocityAtPoint(resolved.otherBody, point) : { x: 0, y: 0, z: 0 };
         const closing =
-          (playerVelocity.x - otherVelocity.x) * direction.x +
-          (playerVelocity.y - otherVelocity.y) * direction.y +
-          (playerVelocity.z - otherVelocity.z) * direction.z;
+          (subjectVelocity.x - otherVelocity.x) * direction.x +
+          (subjectVelocity.y - otherVelocity.y) * direction.y +
+          (subjectVelocity.z - otherVelocity.z) * direction.z;
         if (closing >= approachSpeed) {
           approachSpeed = closing;
           resolved.point = this.copy(point);
@@ -195,32 +237,35 @@ export class CollisionSystem {
     return resolved;
   }
 
-  private resolvePair(player: CollisionActor, first: RAPIER.Collider, second: RAPIER.Collider): ContactSample | undefined {
+  private resolvePair(subject: CollisionActor, first: RAPIER.Collider, second: RAPIER.Collider): ContactSample | undefined {
     const firstBody = first.parent();
     const secondBody = second.parent();
-    const firstPlayer = firstBody?.handle === player.body.handle;
-    const secondPlayer = secondBody?.handle === player.body.handle;
-    if (!firstPlayer && !secondPlayer) return undefined;
-    const otherCollider = firstPlayer ? second : first;
+    const firstSubject = firstBody?.handle === subject.body.handle;
+    const secondSubject = secondBody?.handle === subject.body.handle;
+    if (!firstSubject && !secondSubject) return undefined;
+    const otherCollider = firstSubject ? second : first;
     const otherBody = otherCollider.parent() ?? undefined;
     const otherActor = otherBody ? this.actors.get(otherBody.handle) : undefined;
     const membership = (otherCollider.collisionGroups() >>> 16) & 0xffff;
     if (membership & (AIR_ENV | AIR_BODY)) return undefined;
     if (membership & ROAD) {
-      const rotation = player.body.rotation();
+      if (subject.kind !== 'police') return undefined;
+      const rotation = subject.body.rotation();
       const up = 1 - 2 * (rotation.x * rotation.x + rotation.z * rotation.z);
-      const falling = this.snapshots.get(player.body.handle)?.linvel.y ?? 0;
+      const falling = this.snapshots.get(subject.body.handle)?.linvel.y ?? 0;
       if (up > 0.55 && falling > -5) return undefined;
     } else if (!otherActor && !(membership & BARRIER)) return undefined;
-    if (otherActor?.kind === 'player') return undefined;
     const identity = otherBody ? `body:${otherBody.handle}` : membership & ROAD ? 'road' : 'barrier';
-    return { key: identity, otherCollider, otherBody, otherActor, approachSpeed: 0, impulse: 0, point: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } };
+    const key = subject.kind === 'player' ? identity : `subject:${subject.body.handle}:${identity}`;
+    return { key, otherCollider, otherBody, otherActor, approachSpeed: 0, impulse: 0, point: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } };
   }
 
-  private kinematicVelocity(body: RAPIER.RigidBody, dt: number): Point3 {
+  private kinematicVelocity(body: RAPIER.RigidBody, dt: number, velocity: Point3) {
     const next = body.nextTranslation();
     const current = body.translation();
-    return { x: (next.x - current.x) / dt, y: (next.y - current.y) / dt, z: (next.z - current.z) / dt };
+    velocity.x = (next.x - current.x) / dt;
+    velocity.y = (next.y - current.y) / dt;
+    velocity.z = (next.z - current.z) / dt;
   }
 
   private velocityAtPoint(body: RAPIER.RigidBody, point: Point3) {

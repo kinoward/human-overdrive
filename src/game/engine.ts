@@ -375,14 +375,14 @@ export class GameEngine {
       const p = actor.vehicle.body.translation();
       return Math.hypot(p.x - next.x, p.z - next.z) < 180;
     }) ?? [];
-    if (warning === 5 && this.police.length >= 10 && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
+    if (warning === 5 && (this.pursuit?.activeCars.length ?? 0) >= 10 && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
       this.metrics.maxPressureTime += dt;
       this.metrics.maxPressureDistance += distance;
     } else if (this.metrics.maxPressureTime < 20 || this.metrics.maxPressureDistance < 500) {
       this.metrics.maxPressureTime = 0;
       this.metrics.maxPressureDistance = 0;
     }
-    const blockaded = this.player.speed < 1.8 && isCaptured(this.physics, { body: this.player.body, collider: this.player.collider, width: this.player.config.width, length: this.player.config.length }, this.police.map(actor => ({
+    const blockaded = this.player.speed < 1.8 && isCaptured(this.physics, { body: this.player.body, collider: this.player.collider, width: this.player.config.width, length: this.player.config.length }, (this.pursuit?.activeCars ?? []).map(actor => ({
       body: actor.vehicle.body, collider: actor.vehicle.collider, width: actor.vehicle.config.width, length: actor.vehicle.config.length, activePursuit: actor.activePursuit
     })), nextRoad, contactBodies);
     if (blockaded) {
@@ -468,6 +468,24 @@ export class GameEngine {
       if (visible) observation = helicopter.observation?.position;
     }
     this.pursuit.update(dt, this.simulationTime, this.player, this.trafficObstacles(), observation);
+    this.showPoliceEvents();
+  }
+
+  private showPoliceEvents() {
+    if (!this.pursuit) return;
+    const events = this.pursuit.drainEvents();
+    if (!events.length) return;
+    const attacks = this.pursuit.activeCars.filter(actor => actor.state === 'positioning' || actor.state === 'contact');
+    const loss = events.find(event => event.type === 'flipped' || event.type === 'disabled');
+    if (events.some(event => event.type === 'windup')) {
+      const sides = [...new Set(attacks.map(actor => actor.role === 'left' ? '左侧' : actor.role === 'right' ? '右侧' : actor.role === 'intercept' ? '前方' : '后方'))];
+      this.message(`${sides.join('、') || '附近'}警车准备冲撞 · 变线或刹车躲开`, 'danger', 1.7);
+    } else if (loss) {
+      const text = loss.type === 'flipped' ? '警车翻覆' : '警车受损退出追捕';
+      this.message(`${text} · ${attacks.length ? '仍有警车逼近' : '抓住突围空档'}`, attacks.length ? 'neutral' : 'good', 2.8);
+    } else if (events.some(event => event.type === 'evaded')) {
+      this.message(attacks.length ? '躲开一轮冲撞 · 仍有警车逼近' : '闪开冲撞 · 趁警车恢复拉开距离', attacks.length ? 'neutral' : 'good', 2);
+    }
   }
 
   private processCollisions(dt: number) {
@@ -486,11 +504,6 @@ export class GameEngine {
         const localDirection = new THREE.Vector3(impact.direction.x, impact.direction.y, impact.direction.z).applyQuaternion(new THREE.Quaternion().copy(this.player.body.rotation()).invert());
         this.cameraMotion.impact(impact.strength, localDirection.x);
         this.audio.impact(impact.strength);
-        const struckPolice = this.police.find(actor => actor.vehicle.body.handle === impact.otherBodyHandle);
-        if (struckPolice) {
-          struckPolice.vehicle.balanceDisabled = Math.max(struckPolice.vehicle.balanceDisabled, impact.balanceDisabled);
-          struckPolice.vehicle.applyImpact(impact.point, { x: -impact.direction.x, y: -impact.direction.y, z: -impact.direction.z }, impact.strength);
-        }
         const text = impact.severity === 'heavy' ? '猛烈撞击 · 稳住车身' : impact.severity === 'medium' ? '发生撞击 · 连续干净驾驶已中断' : '车身擦碰 · 注意保持间距';
         this.message(text, 'danger', impact.severity === 'heavy' ? 2.5 : 1.5);
       }
@@ -503,6 +516,14 @@ export class GameEngine {
         }
       }
     }
+    for (const impact of result.policeImpacts) {
+      const actor = this.police.find(car => car.vehicle.body.handle === impact.bodyHandle);
+      if (!actor || !impact.feedback) continue;
+      actor.vehicle.applyImpact(impact.point, impact.direction, impact.strength);
+      actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, impact.balanceDisabled);
+      this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.approachSpeed, impact.otherBodyHandle === this.player.body.handle);
+    }
+    this.showPoliceEvents();
     return result.contactBodies;
   }
 
@@ -548,7 +569,7 @@ export class GameEngine {
     if (!this.metrics) return;
     const score = calculateScore(this.metrics);
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
-    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), capture: this.capture, collisions: this.metrics.collisions });
+    this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
       const types: Record<string, number> = {};
@@ -563,7 +584,7 @@ export class GameEngine {
       }
       this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types });
     }
-    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, heat: this.heat, warning: getWarning(this.heat), policeCount: this.police.length, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
+    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, heat: this.heat, warning: getWarning(this.heat), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
   private updateCamera(dt: number) {
@@ -619,7 +640,7 @@ export class GameEngine {
     }
     for (const actor of this.police) {
       const point = actor.vehicle.body.translation();
-      ctx.beginPath(); ctx.arc((point.x - p.x) * scale, (point.z - p.z) * scale, 4, 0, Math.PI * 2); ctx.fillStyle = '#ef715b'; ctx.fill();
+      ctx.beginPath(); ctx.arc((point.x - p.x) * scale, (point.z - p.z) * scale, actor.operational ? 4 : 3, 0, Math.PI * 2); ctx.fillStyle = actor.operational ? '#ef715b' : '#89918c'; ctx.fill();
     }
     ctx.rotate(-this.player.heading);
     ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-7, -7); ctx.lineTo(7, -7); ctx.closePath(); ctx.fillStyle = '#dcfa73'; ctx.fill();
