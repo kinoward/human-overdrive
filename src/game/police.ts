@@ -105,10 +105,10 @@ export class PolicePursuit {
     return this.cars.filter(actor => actor.operational && actor.damage === 0);
   }
 
-  registerImpact(bodyHandle: number, strength: number, deltaV: number, approachSpeed: number, otherKind?: CollisionActorKind) {
+  registerImpact(bodyHandle: number, strength: number, deltaV: number, otherKind?: CollisionActorKind) {
     const actor = this.cars.find(candidate => candidate.vehicle.body.handle === bodyHandle);
     if (!actor || !actor.operational) return;
-    const impact = clamp(Math.max(strength * 0.42, deltaV * 0.12, approachSpeed * 0.018), 0, 0.48);
+    const impact = clamp(Math.max(strength * 0.42, deltaV * 0.12), 0, 0.48);
     const damage = this.time - actor.impactAt < 0.4 ? Math.max(0, impact - actor.impactPeak) * 0.55 : impact;
     actor.damage = clamp(actor.damage + damage, 0, 1);
     actor.impactPeak = this.time - actor.impactAt < 0.4 ? Math.max(actor.impactPeak, impact) : impact;
@@ -123,7 +123,7 @@ export class PolicePursuit {
       actor.routeAt = -Infinity;
       actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, 0.25);
     } else {
-      actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, 0.12);
+      actor.vehicle.balanceDisabled = Math.max(actor.vehicle.balanceDisabled, Math.min(0.7, deltaV * 0.18));
     }
   }
 

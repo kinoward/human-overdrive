@@ -27,14 +27,15 @@ export interface ImpactEvent {
   otherKind?: Exclude<CollisionActorKind, 'player'>;
 }
 
-export interface PoliceImpactEvent extends Omit<ImpactEvent, 'otherKind'> {
+export interface VehicleImpactEvent extends Omit<ImpactEvent, 'otherKind'> {
   bodyHandle: number;
   otherKind?: CollisionActorKind;
 }
 
 export interface CollisionFrame {
   impacts: ImpactEvent[];
-  policeImpacts: PoliceImpactEvent[];
+  policeImpacts: VehicleImpactEvent[];
+  trafficImpacts: VehicleImpactEvent[];
   contactBodies: Set<number>;
 }
 
@@ -98,7 +99,8 @@ export class CollisionSystem {
     this.step += dt;
     const contactBodies = new Set<number>();
     const impacts: ImpactEvent[] = [];
-    const policeImpacts: PoliceImpactEvent[] = [];
+    const policeImpacts: VehicleImpactEvent[] = [];
+    const trafficImpacts: VehicleImpactEvent[] = [];
     const player = this.player;
     this.events.drainCollisionEvents(() => {});
     this.forceByKey.clear();
@@ -106,29 +108,28 @@ export class CollisionSystem {
       const first = this.world.getCollider(event.collider1());
       const second = this.world.getCollider(event.collider2());
       if (!first || !second) return;
-      if (player) this.recordForce(player, first, second, event.totalForceMagnitude());
       const firstActor = first.parent() ? this.actors.get(first.parent()!.handle) : undefined;
       const secondActor = second.parent() ? this.actors.get(second.parent()!.handle) : undefined;
-      if (firstActor?.kind === 'police') this.recordForce(firstActor, first, second, event.totalForceMagnitude());
-      if (secondActor?.kind === 'police') this.recordForce(secondActor, second, first, event.totalForceMagnitude());
+      if (firstActor) this.recordForce(firstActor, first, second, event.totalForceMagnitude());
+      if (secondActor) this.recordForce(secondActor, second, first, event.totalForceMagnitude());
     });
-    if (!player) return { impacts, policeImpacts, contactBodies };
+    if (!player) return { impacts, policeImpacts, trafficImpacts, contactBodies };
     for (const actor of this.actors.values()) {
       if (actor.kind === 'traffic' && !actor.body.isDynamic()) continue;
       for (const sample of this.collectContacts(actor, actor.kind === 'player' ? contactBodies : undefined)) {
         this.launchVehicles(actor, sample);
-        if (actor.kind === 'traffic') continue;
         const impact = this.impact(sample, actor, dt);
         if (!impact) continue;
         if (actor.kind === 'player') impacts.push({ ...impact, otherKind: sample.otherActor?.kind === 'player' ? undefined : sample.otherActor?.kind });
-        else policeImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
+        else if (actor.kind === 'police') policeImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
+        else trafficImpacts.push({ ...impact, bodyHandle: actor.body.handle, otherKind: sample.otherActor?.kind });
       }
     }
     this.contactCount = contactBodies.size;
     this.peakContacts = Math.max(this.peakContacts, this.contactCount);
     for (const [key, process] of this.processes) if (this.step - process.lastSeen > 0.25) this.processes.delete(key);
     for (const [key, contact] of this.vehicleContacts) if (this.step - contact.lastSeen > 0.25) this.vehicleContacts.delete(key);
-    return { impacts, policeImpacts, contactBodies };
+    return { impacts, policeImpacts, trafficImpacts, contactBodies };
   }
 
   reset() {
@@ -170,7 +171,9 @@ export class CollisionSystem {
   private impact(sample: ContactSample, subject: CollisionActor, dt: number): Omit<ImpactEvent, 'otherKind'> | undefined {
     const force = this.forceByKey.get(sample.key) ?? 0;
     const mass = Math.max(1, subject.body.mass());
-    const deltaV = Math.max(sample.impulse / mass, force * dt / mass, sample.approachSpeed * 0.22);
+    const otherMass = sample.otherActor?.body.mass();
+    const massShare = otherMass === undefined ? 0.5 : otherMass / (mass + otherMass);
+    const deltaV = Math.max(sample.impulse / mass, force * dt / mass, sample.approachSpeed * 0.44 * massShare);
     let process = this.processes.get(sample.key);
     if (!process) {
       process = { peak: 0, lastSeen: this.step, incident: false, lastFeedback: -Infinity, approachSpeed: 0 };
@@ -187,17 +190,17 @@ export class CollisionSystem {
     process.approachSpeed = sample.approachSpeed;
     if (feedback) process.lastFeedback = this.step;
     if (!newIncident && !feedback) return undefined;
-    const severity: ImpactSeverity = deltaV >= 1.7 || sample.approachSpeed >= 7 ? 'heavy' : deltaV >= 0.55 || sample.approachSpeed >= 2.5 ? 'medium' : 'light';
+    const severity: ImpactSeverity = deltaV >= 4 ? 'heavy' : deltaV >= 1.2 ? 'medium' : 'light';
     return {
       point: sample.point,
       direction: sample.direction,
-      strength: Math.min(1, Math.max(deltaV / 7, sample.approachSpeed / 24)),
+      strength: Math.min(1, deltaV / 7),
       otherBodyHandle: sample.otherBody?.handle,
       otherColliderHandle: sample.otherCollider.handle,
       severity,
       deltaV,
       approachSpeed: sample.approachSpeed,
-      balanceDisabled: severity === 'heavy' ? 1.45 : severity === 'medium' ? 0.7 : 0.08,
+      balanceDisabled: Math.min(1.45, deltaV * 0.18),
       newIncident,
       feedback
     };
@@ -221,7 +224,10 @@ export class CollisionSystem {
     const reducedMass = firstMass * secondMass / (firstMass + secondMass);
     const lift = Math.min(reducedMass * (sample.approachSpeed - 7) * 0.36, Math.min(firstMass, secondMass) * 5.5);
     for (const body of [subject.body, other.body]) {
-      const impulse = Math.min(lift, body.mass() * Math.max(0, 5.5 - body.linvel().y));
+      const mass = body.mass();
+      if (sample.impulse / mass < 4) continue;
+      const otherMass = body === subject.body ? secondMass : firstMass;
+      const impulse = Math.min(lift * Math.min(1, otherMass / mass), mass * Math.max(0, 5.5 - body.linvel().y));
       if (impulse > 0) body.applyImpulseAtPoint({ x: 0, y: impulse, z: 0 }, sample.point, true);
     }
   }

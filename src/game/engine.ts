@@ -642,19 +642,19 @@ export class GameEngine {
         const text = impact.severity === 'heavy' ? '猛烈撞击 · 稳住车身' : impact.severity === 'medium' ? '发生撞击 · 连续干净驾驶已中断' : '车身擦碰 · 注意保持间距';
         this.message(text, 'danger', impact.severity === 'heavy' ? 2.5 : 1.5);
       }
-      for (const actor of this.traffic) if (actor.body.handle === impact.otherBodyHandle) {
-        if (impact.feedback && actor.model.group.userData.damageModel) {
-          const base = VEHICLES.find(vehicle => vehicle.kind === actor.model.group.userData.damageModel)!;
-          actor.damage ??= new VehicleDamage(actor.model.group, { ...base, width: actor.driver.width, length: actor.driver.length }, actor.body, this.physics);
-          actor.damage.impact(new THREE.Vector3(impact.point.x, impact.point.y, impact.point.z), new THREE.Vector3(-impact.direction.x, -impact.direction.y, -impact.direction.z), impact.strength);
-        }
-      }
+    }
+    for (const impact of result.trafficImpacts) {
+      const actor = this.traffic.find(car => car.body.handle === impact.bodyHandle);
+      if (!actor || !impact.feedback || !actor.model.group.userData.damageModel) continue;
+      const base = VEHICLES.find(vehicle => vehicle.kind === actor.model.group.userData.damageModel)!;
+      actor.damage ??= new VehicleDamage(actor.model.group, { ...base, width: actor.driver.width, length: actor.driver.length, mass: actor.driver.profile.mass }, actor.body, this.physics);
+      actor.damage.impact(new THREE.Vector3(impact.point.x, impact.point.y, impact.point.z), new THREE.Vector3(impact.direction.x, impact.direction.y, impact.direction.z), impact.strength);
     }
     for (const impact of result.policeImpacts) {
       const actor = this.police.find(car => car.vehicle.body.handle === impact.bodyHandle);
       if (!actor || !impact.feedback) continue;
       actor.vehicle.applyImpact(impact.point, impact.direction, impact.strength);
-      this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.approachSpeed, impact.otherKind);
+      this.pursuit?.registerImpact(impact.bodyHandle, impact.strength, impact.deltaV, impact.otherKind);
       if (impact.otherKind === 'traffic') this.renderer.domElement.dataset.policeTrafficImpact = JSON.stringify({ id: actor.id, time: this.simulationTime, state: actor.state, deltaV: impact.deltaV, strength: impact.strength });
     }
     this.showPoliceEvents();
