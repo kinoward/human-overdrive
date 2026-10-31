@@ -1,5 +1,6 @@
 .race-cinematic{--cinematic-accent:#dcf45b;--cinematic-edge:clamp(20px,4cqw,72px);position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;color:#edf3f5;background:linear-gradient(0deg,#020811b8,transparent 35%,transparent 78%,#02081150);text-shadow:0 2px 14px #000b;font-variant-numeric:tabular-nums}
 .race-cinematic[hidden],.race-cinematic [hidden],.game-ui .race-hud[hidden]{display:none}
+.race-cinematic[data-kind=replay]{--cinematic-accent:#80e1ef}
 .race-cinematic[data-kind=caught],.race-cinematic[data-kind=flipped]{--cinematic-accent:#ff8c7c}
 .cinematic-location{position:absolute;top:clamp(18px,5cqh,56px);left:var(--cinematic-edge);display:flex;align-items:center;gap:13px;font-size:clamp(9px,.85cqw,13px);letter-spacing:3px}
 .cinematic-location>i{width:27px;height:3px;background:var(--cinematic-accent);box-shadow:0 0 13px #dcf45b3b}

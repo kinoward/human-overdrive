@@ -1,13 +1,25 @@
 import * as THREE from 'three';
 
+const damageMaterials = new WeakMap<THREE.Material, DamageMaterial>();
+
+export function cloneReplayMaterial(source: THREE.Material): THREE.Material {
+  const damage = damageMaterials.get(source);
+  if (damage) return damage.cloneForReplay();
+  const material = source.clone();
+  material.onBeforeCompile = source.onBeforeCompile;
+  material.customProgramCacheKey = source.customProgramCacheKey;
+  return material;
+}
+
 export class DamageMaterial {
   readonly material: THREE.MeshStandardMaterial;
   private points = Array.from({ length: 6 }, () => new THREE.Vector4());
   private directions = Array.from({ length: 6 }, () => new THREE.Vector4());
   private count = { value: 0 };
 
-  constructor(source: THREE.Material, glass = false) {
+  constructor(private source: THREE.Material, private glass = false) {
     this.material = (source as THREE.MeshStandardMaterial).clone();
+    damageMaterials.set(this.material, this);
     this.material.transparent = false;
     this.material.opacity = 1;
     this.material.depthWrite = true;
@@ -80,6 +92,14 @@ for (int damageIndex = 0; damageIndex < 6; damageIndex++) {
     normal.normalize();
     this.points[index].set(point.x, point.y, point.z, radius);
     this.directions[index].set(normal.x, normal.y, normal.z, Math.min(1, strength));
+  }
+
+  cloneForReplay() {
+    const clone = new DamageMaterial(this.source, this.glass);
+    clone.count.value = this.count.value;
+    this.points.forEach((point, index) => clone.points[index].copy(point));
+    this.directions.forEach((direction, index) => clone.directions[index].copy(direction));
+    return clone.material;
   }
 
   dispose() { this.material.dispose() }

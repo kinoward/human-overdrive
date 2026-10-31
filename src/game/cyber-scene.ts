@@ -113,6 +113,7 @@ void main(){
   };
   return {
     resize,dispose,
+    resetTimeline:()=>{cullingFocus.set(Infinity,0,Infinity);atmosphere.resetTimeline();},
     prepare:async(camera:THREE.Camera,time:number,position:Readonly<Point3>,heading:number)=>{
       update(camera,time,position,heading);
       await renderer.compileAsync(scene,camera);

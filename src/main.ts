@@ -21,7 +21,7 @@ export function boot({ onProgress, onLoading, onError, cacheReady }: BootOptions
     await cacheReady;
     await onProgress(0.02, '准备驾驶环境');
     const { GameEngine } = await import('./game/engine');
-    engine = new GameEngine(snapshot => { music.update(snapshot); ui.update(snapshot) }, result => ui.showResult(result), result => saveResult(result));
+    engine = new GameEngine(snapshot => { music.update(snapshot); ui.update(snapshot) }, result => { music.finish(result.outcome); ui.showResult(result) }, result => saveResult(result));
     await engine.init(onProgress);
     engine.setMuted(muted);
     ready = true;

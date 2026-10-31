@@ -115,5 +115,9 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     if(scene.environment===environmentTarget.texture){scene.environment=previous.environment;scene.environmentIntensity=previous.environmentIntensity;}
     environmentTarget.dispose();group.removeFromParent();group.clear();
   };
-  return {group,update,dispose};
+  const resetTimeline=()=>{
+    lastTime=null;lastX=Infinity;lastY=Infinity;lastZ=Infinity;
+    for(const slot of lights){slot.site=null;slot.light.intensity=0;}
+  };
+  return {group,update,dispose,resetTimeline};
 }

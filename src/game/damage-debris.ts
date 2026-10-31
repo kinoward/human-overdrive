@@ -11,6 +11,7 @@ interface DebrisPiece {
 }
 
 const budgets = new WeakMap<RAPIER.World, { active: number }>();
+const replayPieces = new WeakMap<RAPIER.World, Set<THREE.Mesh>>();
 
 export class DamageDebris {
   private pieces: DebrisPiece[] = [];
@@ -23,6 +24,7 @@ export class DamageDebris {
   }
 
   static activeCount(world: RAPIER.World) { return budgets.get(world)?.active ?? 0 }
+  static replayMeshes(world: RAPIER.World) { return replayPieces.get(world) ?? [] }
 
   get available() { return Math.min(this.limit - this.pieces.length, 48 - this.budget.active) }
 
@@ -67,6 +69,9 @@ export class DamageDebris {
     while (root.parent) root = root.parent;
     root.add(mesh);
     this.pieces.push({ mesh, body, age: 0, material: ownedMaterial, lifetime: glass ? 2.5 : 7 });
+    let recorded = replayPieces.get(this.world);
+    if (!recorded) { recorded = new Set(); replayPieces.set(this.world, recorded) }
+    recorded.add(mesh);
     this.budget.active++;
     return true;
   }
@@ -90,6 +95,7 @@ export class DamageDebris {
 
   private remove(index: number) {
     const piece = this.pieces[index];
+    replayPieces.get(this.world)?.delete(piece.mesh);
     piece.mesh.removeFromParent();
     piece.mesh.geometry.dispose();
     piece.material?.dispose();

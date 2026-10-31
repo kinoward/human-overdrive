@@ -116,7 +116,7 @@ export class GameUI {
     this.snapshot = snapshot;
     if (snapshot.status === 'paused' && this.panel === 'race' && this.pendingPanel !== 'pause') {
       void this.transitionTo('pause', undefined, true);
-    } else if (['running', 'intro', 'outro'].includes(snapshot.status) && this.panel === 'pause' && this.pendingPanel !== 'race') {
+    } else if (['running', 'intro', 'outro', 'replay'].includes(snapshot.status) && this.panel === 'pause' && this.pendingPanel !== 'race') {
       void this.transitionTo('race');
     } else if (snapshot.status === 'ready' && (this.panel === 'race' || this.panel === 'pause') && this.pendingPanel !== 'home') {
       void this.transitionTo('home', undefined, true);

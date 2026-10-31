@@ -9,6 +9,16 @@ export interface CinematicSnapshot {
   shot: string;
 }
 
+export interface ReplaySnapshot {
+  title: string;
+  clip: number;
+  clips: number;
+  elapsed: number;
+  duration: number;
+  raceTime: number;
+  slowMotion: boolean;
+}
+
 export interface VehicleConfig {
   id: VehicleId;
   name: string;
@@ -37,8 +47,9 @@ export interface CityConfig {
 }
 
 export interface GameSnapshot {
-  status: 'ready' | 'intro' | 'running' | 'paused' | 'outro' | 'finished';
+  status: 'ready' | 'intro' | 'running' | 'paused' | 'outro' | 'replay' | 'finished';
   cinematic?: CinematicSnapshot;
+  replay?: ReplaySnapshot;
   speedKmh: number;
   distance: number;
   targetDistance: number;

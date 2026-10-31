@@ -170,6 +170,7 @@ function damageTopology(source: THREE.BufferGeometry, kind: VehicleConfig['kind'
 }
 
 export class VehicleDamage {
+  revision = 0;
   readonly summary = { dents: 0, brokenGlass: 0, detachedParts: 0 };
   readonly performance = { geometryPasses: 0, vertexVisits: 0, normalUpdates: 0 };
   private mesh: THREE.Mesh<THREE.BufferGeometry, THREE.Material>;
@@ -233,6 +234,7 @@ export class VehicleDamage {
     }
     this.pending.clear();
     if (changed.size) this.refreshNormals(changed);
+    this.revision++;
   }
 
   dispose() {

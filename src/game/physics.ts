@@ -26,7 +26,7 @@ export class PhysicsVehicle {
   private previousWheels: THREE.Vector3[] = [];
   private currentWheels: THREE.Vector3[] = [];
   private driving: ArcadeDriving;
-  private visualPivot = new THREE.Group();
+  readonly visualPivot = new THREE.Group();
   private previousLean = 0;
   private currentLean = 0;
   private previousPitch = 0;

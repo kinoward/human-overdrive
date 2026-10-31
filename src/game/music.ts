@@ -46,7 +46,8 @@ export class MusicController {
     if (snapshot.status === 'ready') { this.showMenu(); return }
     this.paused = snapshot.status === 'paused';
     if (!this.paused) {
-      if (snapshot.cinematic && snapshot.cinematic.kind !== 'intro') this.finish(snapshot.cinematic.kind);
+      if (snapshot.replay) this.select('pursuit');
+      else if (snapshot.cinematic && snapshot.cinematic.kind !== 'intro') this.finish(snapshot.cinematic.kind);
       else this.select(snapshot.elapsed >= HELICOPTER_ARRIVAL_TIMES[0] ? 'pursuit' : 'drive');
     }
     this.syncPlayback();
