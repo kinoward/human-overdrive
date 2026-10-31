@@ -10,6 +10,8 @@ import { buildResult, calculateScore, getWarning } from './rules';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
 import { ArcadeCameraMotion } from './camera-motion';
+import { RenderPose } from './render-pose';
+import { loadGeneratedAssets } from './generated-assets';
 
 interface TrafficCar {
   body: RAPIER.RigidBody;
@@ -18,6 +20,7 @@ interface TrafficCar {
   driver: TrafficAgent;
   encounter: number;
   collided: boolean;
+  pose: RenderPose;
 }
 
 interface PoliceCar { vehicle: PhysicsVehicle; route: Point3[]; routeAt: number; role: number }
@@ -25,7 +28,7 @@ interface PoliceCar { vehicle: PhysicsVehicle; route: Point3[]; routeAt: number;
 export class GameEngine {
   readonly scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
-  private camera = new THREE.PerspectiveCamera(58, 1, 0.15, 1800);
+  private camera = new THREE.PerspectiveCamera(58, 1, 0.5, 1400);
   private timer = new THREE.Timer();
   private physics!: RAPIER.World;
   private events!: RAPIER.EventQueue;
@@ -64,6 +67,17 @@ export class GameEngine {
   private mapContext: CanvasRenderingContext2D;
   private lookBack = false;
   private ready = false;
+  private cameraHeading = 0;
+  private cameraAnchor = new THREE.Vector3();
+  private frameCount = 0;
+  private frameWindow = performance.now();
+  private longestFrame = 0;
+  private physicsCost = 0;
+  private renderCost = 0;
+  private needsRender = true;
+  private shadowRight = new THREE.Vector3(45, 0, -55).normalize();
+  private shadowUp = new THREE.Vector3().crossVectors(new THREE.Vector3(55, -90, 45).normalize(), this.shadowRight).normalize();
+  private shadowCenter = new THREE.Vector3();
   private barrierCells = new Map<string, NonNullable<WorldData['obstacles']>>();
   private activeBarriers = new Map<string, RAPIER.Collider[]>();
   private barrierCell = '';
@@ -72,7 +86,7 @@ export class GameEngine {
 
   constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -107,13 +121,13 @@ export class GameEngine {
   }
 
   async init() {
-    await RAPIER.init();
+    await Promise.all([RAPIER.init(), loadGeneratedAssets()]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = 1 / 60;
     this.events = new RAPIER.EventQueue(true);
     this.track = await buildWorld(this.scene);
     this.navigation = new RoadNavigation(this.track.roads);
-    for (const surface of this.track.surfaces) this.physics.createCollider(RAPIER.ColliderDesc.trimesh(surface.vertices, surface.indices).setFriction(0.9));
+    for (const surface of this.track.surfaces) this.physics.createCollider(RAPIER.ColliderDesc.trimesh(surface.vertices, surface.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.9));
     for (const obstacle of this.track.obstacles ?? []) {
       const key = `${Math.floor(obstacle.center.x / 500)},${Math.floor(obstacle.center.z / 500)}`;
       if (!this.barrierCells.has(key)) this.barrierCells.set(key, []);
@@ -127,6 +141,7 @@ export class GameEngine {
     this.preview.group.rotation.y = this.track.spawn.heading;
     this.scene.add(this.preview.group);
     this.ready = true;
+    this.frameWindow = performance.now();
     this.timer.connect(document);
     this.renderer.setAnimationLoop(this.frame);
   }
@@ -141,6 +156,8 @@ export class GameEngine {
     if (this.preview) this.preview.group.visible = false;
     this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxWarning: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0 };
     this.status = 'running';
+    this.resetFrameStats();
+    this.needsRender = true;
     this.heat = 0;
     this.capture = 0;
     this.flippedTime = 0;
@@ -167,6 +184,7 @@ export class GameEngine {
   pause() {
     if (this.status !== 'running') return;
     this.status = 'paused';
+    this.needsRender = true;
     this.keys.clear();
     this.audio.update(0, 0, false);
     this.emit();
@@ -175,6 +193,8 @@ export class GameEngine {
   resume() {
     if (this.status !== 'paused') return;
     this.status = 'running';
+    this.resetFrameStats();
+    this.needsRender = true;
     this.accumulator = 0;
     this.keys.clear();
     this.audio.start();
@@ -231,7 +251,7 @@ export class GameEngine {
     const palette = ['#d6d8ce', '#7f9a98', '#374550', '#c6aa84', '#8a929a', '#c1b5a7'];
     this.trafficSimulation = new TrafficSimulation(this.track.roads);
     for (let i = 0; i < 34; i++) {
-      const config: VehicleConfig = { ...VEHICLES[0], color: palette[i % palette.length], name: '城市交通', mass: 1550, length: i % 7 === 0 ? 5.5 : 4.5 };
+      const config: VehicleConfig = { ...VEHICLES[0], color: palette[i % palette.length], name: '城市交通', mass: 1550, length: VEHICLES[0].length };
       const driver = this.trafficSimulation.addCar(i, config.length, config.width, this.player!.body.translation());
       if (!driver) continue;
       const model = createVehicleModel(config);
@@ -242,7 +262,7 @@ export class GameEngine {
       const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(config.width * 0.5, 0.42, config.length * 0.5).setFriction(0.3).setRestitution(0.08), body);
       this.scene.add(model.group);
       model.group.position.copy(position); model.group.quaternion.copy(rotation);
-      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false });
+      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false, pose: new RenderPose(model.group) });
     }
   }
 
@@ -286,6 +306,9 @@ export class GameEngine {
     this.updateTraffic(dt);
     this.updatePolice(dt);
     this.physics.step(this.events);
+    this.player.sync(this.simulationTime);
+    for (const actor of this.police) actor.vehicle.sync(this.simulationTime);
+    for (const actor of this.traffic) actor.pose.capture(actor.body.translation(), actor.body.rotation());
     this.processCollisions();
     const next = this.player.body.translation();
     const nextRoad = nearestRoad(this.track.roads, next.x, next.z, next.y - 0.85);
@@ -333,7 +356,6 @@ export class GameEngine {
     if (this.capture >= 1) { this.finish('caught'); return }
     if (this.metrics.distance >= this.metrics.targetDistance) { this.finish('escaped'); return }
     if (!roadValid && this.simulationTime > this.eventUntil) this.message('驶回公路 · 路外不累计里程', 'danger', 1);
-    this.player.sync(this.simulationTime);
   }
 
   private advanceWarning(dt: number) {
@@ -365,6 +387,7 @@ export class GameEngine {
       if (driver.relocated) {
         actor.body.setTranslation(translation, true);
         actor.body.setRotation(rotation, true);
+        actor.pose.snap(translation, rotation);
         actor.encounter = Infinity; actor.collided = false;
       }
       actor.body.setNextKinematicTranslation(translation);
@@ -375,8 +398,6 @@ export class GameEngine {
         const active = blink && driver.indicator === Math.sign(light.position.x);
         (light.material as THREE.MeshStandardMaterial).emissiveIntensity = active ? 3 : 0;
       }
-      actor.model.group.position.copy(translation); actor.model.group.quaternion.copy(rotation);
-      for (const wheel of actor.model.wheels) wheel.rotation.x = driver.wheelDistance / 0.36;
     }
   }
 
@@ -402,7 +423,7 @@ export class GameEngine {
       const steering = THREE.MathUtils.clamp(-angle * 2.5, -1, 1);
       const targetSpeed = Math.max(12, Math.min(53, this.player.speed * 1.13 + 5)) * Math.max(0.3, 1 - Math.abs(angle) * 0.7);
       actor.vehicle.drive({ throttle: actor.vehicle.speed < targetSpeed ? 1 : 0, steer: steering, brake: actor.vehicle.speed > targetSpeed + 3 }, dt);
-      actor.vehicle.sync(this.simulationTime);
+
     }
     for (let i = 0; i < this.helicopters.length; i++) {
       const actor = this.helicopters[i];
@@ -459,6 +480,7 @@ export class GameEngine {
   private finish(outcome: RaceResult['outcome']) {
     if (this.status !== 'running') return;
     this.status = 'finished';
+    this.needsRender = true;
     this.keys.clear();
     this.audio.update(0, 0, false);
     const result = buildResult(this.metrics, outcome, this.nickname);
@@ -481,10 +503,18 @@ export class GameEngine {
   }
 
   private updateCamera(dt: number) {
-    const target = this.player?.body.translation() ?? this.track.spawn.position;
-    const heading = this.player?.heading ?? this.track.spawn.heading;
-    this.sun.position.set(target.x - 55, target.y + 90, target.z - 45);
-    this.sun.target.position.set(target.x, target.y, target.z);
+    const target = this.player?.model.group.position ?? this.track.spawn.position;
+    const rotation = this.player?.model.group.quaternion;
+    const forward = rotation ? new THREE.Vector3(0, 0, 1).applyQuaternion(rotation) : undefined;
+    const heading = forward ? Math.atan2(forward.x, forward.z) : this.track.spawn.heading;
+    const texel = 130 / this.sun.shadow.mapSize.x;
+    this.shadowCenter.copy(target);
+    for (const axis of [this.shadowRight, this.shadowUp]) {
+      const value = this.shadowCenter.dot(axis);
+      this.shadowCenter.addScaledVector(axis, Math.round(value / texel) * texel - value);
+    }
+    this.sun.position.copy(this.shadowCenter).add(new THREE.Vector3(-55, 90, -45));
+    this.sun.target.position.copy(this.shadowCenter);
     if (this.status === 'ready') {
       const angle = this.simulationTime * 0.05 + heading + 0.6;
       this.cameraPosition.set(target.x + Math.sin(angle) * 25, target.y + 14, target.z + Math.cos(angle) * 25);
@@ -492,15 +522,18 @@ export class GameEngine {
       this.camera.lookAt(target.x, target.y + 1, target.z);
       this.camera.fov = 52;
     } else {
+      const desiredHeading = heading + (this.lookBack ? Math.PI : 0);
+      if (this.cameraPosition.lengthSq() === 0) { this.cameraHeading = desiredHeading; this.cameraAnchor.copy(target) }
+      const turn = Math.atan2(Math.sin(desiredHeading - this.cameraHeading), Math.cos(desiredHeading - this.cameraHeading));
+      this.cameraHeading += turn * (1 - Math.exp(-dt * 7));
+      this.cameraAnchor.set(target.x, THREE.MathUtils.damp(this.cameraAnchor.y, target.y, 6, dt), target.z);
       const speed = this.player?.speed ?? 0;
-      const sign = this.lookBack ? 1 : -1;
-      const follow = new THREE.Vector3(target.x + Math.sin(heading) * (8 + speed * 0.04) * sign, target.y + 4.2 + speed * 0.012, target.z + Math.cos(heading) * (8 + speed * 0.04) * sign);
-      if (this.cameraPosition.lengthSq() === 0) this.cameraPosition.copy(follow);
-      this.cameraPosition.lerp(follow, 1 - Math.exp(-dt * 7));
+      const distance = 8.5 + speed * 0.035;
+      this.cameraPosition.set(this.cameraAnchor.x - Math.sin(this.cameraHeading) * distance, this.cameraAnchor.y + 3.4 + speed * 0.008, this.cameraAnchor.z - Math.cos(this.cameraHeading) * distance);
       this.camera.position.copy(this.cameraPosition);
-      this.cameraTarget.set(target.x + Math.sin(heading) * (this.lookBack ? -6 : 12), target.y + 0.8, target.z + Math.cos(heading) * (this.lookBack ? -6 : 12));
+      this.cameraTarget.set(this.cameraAnchor.x + Math.sin(this.cameraHeading) * 12, this.cameraAnchor.y + 0.8, this.cameraAnchor.z + Math.cos(this.cameraHeading) * 12);
       this.camera.lookAt(this.cameraTarget);
-      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, 57 + Math.min(14, speed * 0.25), 3, dt);
+      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, 56 + Math.min(7, speed * 0.12), 3, dt);
     }
     this.camera.updateProjectionMatrix();
   }
@@ -531,14 +564,31 @@ export class GameEngine {
     ctx.fillStyle = '#92a18e'; ctx.font = '15px system-ui'; ctx.fillText('© OpenStreetMap', 18, 264);
   }
 
+  private resetFrameStats() {
+    this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
+  }
+
   private frame = () => {
     this.timer.update();
-    const dt = Math.min(0.08, this.timer.getDelta());
+    if ((this.status === 'paused' || this.status === 'finished') && !this.needsRender) return;
+    const delta = this.timer.getDelta();
+    const dt = Math.min(0.08, delta);
+    this.frameCount++;
+    this.longestFrame = Math.max(this.longestFrame, delta);
+    const physicsStarted = performance.now();
     if (this.status === 'running') {
       this.accumulator += dt;
       let ticks = 0;
       while (this.accumulator >= 1 / 60 && ticks++ < 5 && this.status === 'running') { this.step(1 / 60); this.accumulator -= 1 / 60 }
     } else if (this.status === 'ready') this.simulationTime += dt;
+    this.physicsCost += performance.now() - physicsStarted;
+    const alpha = Math.min(1, this.accumulator * 60);
+    this.player?.render(alpha);
+    for (const actor of this.police) actor.vehicle.render(alpha);
+    for (const actor of this.traffic) {
+      actor.pose.render(alpha);
+      for (const wheel of actor.model.wheels) wheel.rotation.x = (actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed) / actor.model.wheelRadius;
+    }
     if (this.ready) {
       this.updateCamera(dt);
       const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
@@ -549,10 +599,19 @@ export class GameEngine {
       this.hudAt = this.timer.getElapsed();
       if (this.status !== 'ready') { this.emit(); this.drawMap() }
     }
+    const renderStarted = performance.now();
     this.renderer.render(this.scene, this.camera);
+    this.renderCost += performance.now() - renderStarted;
+    this.needsRender = false;
+    const duration = (performance.now() - this.frameWindow) / 1000;
+    if (duration >= 1) {
+      this.renderer.domElement.dataset.performance = JSON.stringify({ fps: Math.round(this.frameCount / duration), physicsMs: Math.round(this.physicsCost / this.frameCount * 10) / 10, renderMs: Math.round(this.renderCost / this.frameCount * 10) / 10, longestFrameMs: Math.round(this.longestFrame * 1000), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles });
+      this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
+    }
   };
 
   private resize = () => {
+    this.needsRender = true;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
@@ -567,5 +626,5 @@ export class GameEngine {
 
   private keyUp = (event: KeyboardEvent) => { this.keys.delete(event.code) };
   private blur = () => { this.keys.clear(); this.pause() };
-  private visibility = () => { if (document.hidden) this.pause() };
+  private visibility = () => { this.resetFrameStats(); this.needsRender = true; if (document.hidden) this.pause() };
 }

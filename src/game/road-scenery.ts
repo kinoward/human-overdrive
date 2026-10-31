@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { RoadPath, WorldData, Point3 } from '../types';
 import { RoadIndex, sampleRoad } from './road-network';
 import { SceneryBatch } from './scenery-batch';
+import { roadRibbon } from './road-ribbon';
 
 export interface RoadMaterials { asphalt: THREE.MeshStandardMaterial; concrete: THREE.MeshStandardMaterial; ground: THREE.MeshStandardMaterial }
 
@@ -39,8 +40,14 @@ function signTexture(title: string, subtitle: string) {
 
 export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials: RoadMaterials, batch: SceneryBatch) {
   const index = new RoadIndex(roads);
+  const asphalts = new Map<RoadPath['kind'], THREE.MeshStandardMaterial>();
+  for (const [kind, priority] of [['main', 2], ['service', 3], ['ramp', 4]] as const) {
+    const material = materials.asphalt.clone();
+    material.polygonOffset = true; material.polygonOffsetFactor = -priority; material.polygonOffsetUnits = -priority;
+    asphalts.set(kind, material);
+  }
   const obstacles: NonNullable<WorldData['obstacles']> = [];
-  const white = new THREE.MeshStandardMaterial({ color: '#f5f3df', roughness: 0.8 });
+  const white = new THREE.MeshStandardMaterial({ color: '#f5f3df', roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
   const metal = new THREE.MeshStandardMaterial({ color: '#9caaa9', metalness: 0.7, roughness: 0.45 });
   const black = new THREE.MeshStandardMaterial({ color: '#262b2c', roughness: 0.75 });
   const lamp = new THREE.MeshBasicMaterial({ color: '#fff3cc' });
@@ -66,14 +73,14 @@ export function addRoadScenery(group: THREE.Group, roads: RoadPath[], materials:
       const a = road.points[i - 1], b = road.points[i];
       const d = road.cumulative[i - 1], length = road.cumulative[i] - d;
       if (length < 0.01) continue;
-      batch.surface(materials.asphalt, strip(a, b, road.width + 0.12, 0, 0.035, d, 3), a.x, a.z);
-      batch.surface(materials.concrete, strip(a, b, road.width + 1.1, 0, 0.015, d, 2), a.x, a.z);
+      batch.surface(asphalts.get(road.kind)!, roadRibbon(road, i, road.width + 0.12, 0, 0.035, 3), a.x, a.z);
+      batch.surface(materials.concrete, roadRibbon(road, i, road.width + 1.1, 0, 0.015, 2), a.x, a.z);
 
       if (Math.min(a.y, b.y) > 1) {
         const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
         box(materials.concrete, middle, road.width, 0.65, length + 0.15, Math.atan2(b.x - a.x, b.z - a.z), -0.34, -Math.atan2(b.y - a.y, length));
       }
-      for (const side of [-1, 1]) batch.surface(white, strip(a, b, 0.16, side * (road.width / 2 - 0.35), 0.047, d, 1), a.x, a.z);
+      for (const side of [-1, 1]) batch.surface(white, roadRibbon(road, i, 0.16, side * (road.width / 2 - 0.35), 0.047, 1), a.x, a.z);
     }
     for (let distance = 6; distance < road.length - 3; distance += 15) {
       const a = sampleRoad(road, distance), b = sampleRoad(road, Math.min(distance + 6, road.length));

@@ -2,6 +2,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 import type { Point3, VehicleConfig } from '../types';
 import { createVehicleModel } from './models';
+import { RenderPose } from './render-pose';
 
 export interface Controls { throttle: number; steer: number; brake: boolean }
 
@@ -16,6 +17,9 @@ export class PhysicsVehicle {
   private forward = new THREE.Vector3();
   private up = new THREE.Vector3();
   private rotation = new THREE.Quaternion();
+  private pose: RenderPose;
+  private previousWheels: THREE.Vector3[] = [];
+  private currentWheels: THREE.Vector3[] = [];
 
   constructor(readonly world: RAPIER.World, readonly config: VehicleConfig, position: Point3, heading: number, police = false) {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
@@ -26,11 +30,12 @@ export class PhysicsVehicle {
     this.collider = world.createCollider(shape, this.body);
     world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25), this.body);
     this.model = createVehicleModel(config, police);
+    this.pose = new RenderPose(this.model.group);
     this.controller = world.createVehicleController(this.body);
     this.controller.indexUpAxis = 1;
     this.controller.setIndexForwardAxis = 2;
     for (const wheel of this.model.wheels) {
-      this.controller.addWheel({ x: wheel.position.x, y: -0.14, z: wheel.position.z }, { x: 0, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, 0.3, motorcycle ? 0.34 : 0.36);
+      this.controller.addWheel({ x: wheel.position.x, y: -0.14, z: wheel.position.z }, { x: 0, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, 0.3, this.model.wheelRadius);
       const index = this.controller.numWheels() - 1;
       this.controller.setWheelSuspensionStiffness(index, motorcycle ? 42 : 30);
       this.controller.setWheelSuspensionCompression(index, 4.8);
@@ -39,6 +44,8 @@ export class PhysicsVehicle {
       this.controller.setWheelMaxSuspensionTravel(index, 0.22);
       this.controller.setWheelFrictionSlip(index, 1.8);
       this.controller.setWheelSideFrictionStiffness(index, motorcycle ? 1.8 : 1.4);
+      this.previousWheels.push(new THREE.Vector3(-0.44, 0, 0));
+      this.currentWheels.push(new THREE.Vector3(-0.44, 0, 0));
     }
     this.sync(0);
   }
@@ -96,18 +103,25 @@ export class PhysicsVehicle {
   }
 
   sync(time: number) {
-    this.model.group.position.copy(this.body.translation());
-    this.model.group.quaternion.copy(this.body.rotation());
+    this.pose.capture(this.body.translation(), this.body.rotation());
     for (let i = 0; i < this.model.wheels.length; i++) {
-      const wheel = this.model.wheels[i];
-      wheel.position.y = -0.14 - (this.controller.wheelSuspensionLength(i) ?? 0.3);
-      wheel.rotation.set(this.controller.wheelRotation(i) ?? 0, this.controller.wheelSteering(i) ?? 0, 0, 'YXZ');
+      this.previousWheels[i].copy(this.currentWheels[i]);
+      this.currentWheels[i].set(-0.14 - (this.controller.wheelSuspensionLength(i) ?? 0.3), this.controller.wheelRotation(i) ?? 0, this.controller.wheelSteering(i) ?? 0);
     }
     for (const lamp of this.model.brakeLights) {
       const material = lamp.material as THREE.MeshStandardMaterial;
       material.emissiveIntensity = this.braking ? 3 : 0.5;
     }
     for (let i = 0; i < this.model.policeLights.length; i++) this.model.policeLights[i].visible = Math.floor(time * 8 + i) % 2 === 0;
+  }
+
+  render(alpha: number) {
+    this.pose.render(alpha);
+    for (let i = 0; i < this.model.wheels.length; i++) {
+      const previous = this.previousWheels[i], current = this.currentWheels[i];
+      this.model.wheels[i].position.y = THREE.MathUtils.lerp(previous.x, current.x, alpha);
+      this.model.wheels[i].rotation.set(THREE.MathUtils.lerp(previous.y, current.y, alpha), THREE.MathUtils.lerp(previous.z, current.z, alpha), 0, 'YXZ');
+    }
   }
 
   dispose() {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { VehicleConfig } from '../types';
+import { cloneGeneratedVehicle } from './generated-assets';
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
 const unitCylinder = new THREE.CylinderGeometry(1, 1, 1, 14);
@@ -175,113 +176,54 @@ function policeTextMaterial() {
   return policeLabel;
 }
 
+const vehiclePaints = new Map<string, THREE.MeshStandardMaterial>();
+
 function addCar(group: THREE.Group, config: VehicleConfig, police: boolean) {
-  const bodyPaint = police ? white : paint(config.color);
-  const w = config.width;
-  const l = config.length;
-  loft(group, bodyPaint, [
-    [-l * 0.49, w * 0.80, w * 0.80, -0.16, 0.22],
-    [-l * 0.38, w, w * 0.94, -0.18, 0.34],
-    [l * 0.31, w, w * 0.92, -0.18, 0.25],
-    [l * 0.49, w * 0.82, w * 0.80, -0.12, 0.12],
-  ]);
-  loft(group, glass, [
-    [-l * 0.35, w * 0.86, w * 0.80, 0.26, 0.32],
-    [-l * 0.18, w * 0.90, w * 0.72, 0.27, 0.86],
-    [l * 0.10, w * 0.88, w * 0.70, 0.26, 0.83],
-    [l * 0.31, w * 0.82, w * 0.78, 0.24, 0.28],
-  ]);
-  box(group, police ? dark : bodyPaint, [w * 0.71, 0.055, l * 0.29], [0, 0.86, -l * 0.04]);
-  box(group, dark, [w * 0.88, 0.12, l * 0.92], [0, -0.18, 0]);
-  box(group, dark, [w * 0.70, 0.10, 0.06], [0, -0.055, l * 0.49]);
-  for (const side of [-1, 1]) {
-    box(group, bodyPaint, [0.20, 0.12, 0.27], [side * w * 0.53, 0.42, l * 0.16]);
-    box(group, dark, [0.03, 0.51, 0.06], [side * w * 0.409, 0.51, -l * 0.04]);
-    box(group, headlight, [w * 0.25, 0.065, 0.045], [side * w * 0.28, 0.13, l * 0.493]);
-    box(group, metal, [0.025, 0.035, 0.17], [side * w * 0.488, 0.22, -l * 0.11]);
+  const asset = cloneGeneratedVehicle('electric-suv');
+  group.add(asset);
+  const body = asset.getObjectByName('body') as THREE.Mesh;
+  const tint = police ? '#ffffff' : config.color;
+  if (!vehiclePaints.has(tint)) {
+    const material = (body.material as THREE.MeshStandardMaterial).clone();
+    material.color.set(tint); vehiclePaints.set(tint, material);
   }
-  const brakeMaterial = new THREE.MeshStandardMaterial({ color: '#9c2420', emissive: '#ff2415', emissiveIntensity: 0.7 });
-  const brakeLights = [-1, 1].map((side) => box(group, brakeMaterial, [w * 0.27, 0.075, 0.045], [side * w * 0.28, 0.18, -l * 0.493]));
+  body.material = vehiclePaints.get(tint)!;
+  const wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map(name => asset.getObjectByName(name) as THREE.Group);
+  const owned = new THREE.Group(); group.add(owned);
+  const brakeMaterial = new THREE.MeshStandardMaterial({ color: '#8b1812', emissive: '#ff2415', emissiveIntensity: 0.4 });
+  const brakeLights = [-1, 1].map(side => box(owned, brakeMaterial, [0.16, 0.025, 0.018], [side * 0.78, 0.32, -2.26]));
   const turnSignals = [-1, 1].flatMap(side => {
     const material = new THREE.MeshStandardMaterial({ color: '#b47722', emissive: '#ff9e19', emissiveIntensity: 0 });
-    return [-1, 1].map(end => box(group, material, [w * 0.09, 0.07, 0.05], [side * w * 0.43, 0.18, end * l * 0.493]));
+    return [-1, 1].map(end => box(owned, material, [0.10, 0.025, 0.018], [side * 0.75, end > 0 ? 0.06 : 0.31, end * 2.29]));
   });
   const policeLights: THREE.Mesh[] = [];
   if (police) {
-    box(group, dark, [w * 1.005, 0.14, l * 0.51], [0, 0.12, -l * 0.02]);
-    box(group, dark, [w * 0.67, 0.08, 0.28], [0, 0.94, 0]);
+    box(owned, dark, [1.25, 0.08, 0.28], [0, 0.94, -0.05]);
     for (const side of [-1, 1]) {
       const color = side < 0 ? '#ef3e37' : '#3988ff';
       const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 });
-      policeLights.push(box(group, material, [w * 0.27, 0.12, 0.24], [side * w * 0.19, 1.03, 0]));
-      const label = new THREE.Mesh(new THREE.PlaneGeometry(l * 0.26, 0.35), policeTextMaterial());
-      label.position.set(side * w * 0.504, 0.10, -l * 0.01);
-      label.rotation.y = side * Math.PI / 2;
-      group.add(label);
+      policeLights.push(box(owned, material, [0.52, 0.12, 0.24], [side * 0.32, 1.04, -0.05]));
+      const label = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.32), policeTextMaterial());
+      label.position.set(side * 1.005, 0.08, -0.15); label.rotation.y = side * Math.PI / 2; owned.add(label);
     }
   }
-  const wheels = [
-    [-w * 0.43, -0.25, l * 0.32],
-    [w * 0.43, -0.25, l * 0.32],
-    [-w * 0.43, -0.25, -l * 0.32],
-    [w * 0.43, -0.25, -l * 0.32],
-  ].map((position) => {
-    const item = wheel(0.36, 0.23);
-    item.position.set(position[0], position[1], position[2]);
-    group.add(item);
-    return item;
-  });
-  return { wheels, brakeLights, policeLights, turnSignals };
+  return { wheels, brakeLights, policeLights, turnSignals, dispose: createDisposer(owned) };
 }
 
-function addMotorcycle(group: THREE.Group, config: VehicleConfig) {
-  const bodyPaint = paint(config.color);
-  const l = config.length;
-  box(group, dark, [0.34, 0.30, l * 0.55], [0, -0.02, -0.06]);
-  sphere(group, bodyPaint, [0.28, 0.25, 0.43], [0, 0.31, 0.10]);
-  box(group, dark, [0.39, 0.10, 0.55], [0, 0.34, -0.42]);
-  box(group, metal, [0.38, 0.30, 0.34], [0, -0.08, 0.04]);
-  box(group, dark, [0.44, 0.14, 0.22], [0, -0.23, 0.09]);
-  for (const side of [-1, 1]) {
-    pipe(group, metal, [side * 0.13, -0.22, l * 0.34], [side * 0.13, 0.45, l * 0.24], 0.035);
-    pipe(group, dark, [side * 0.11, -0.23, -l * 0.34], [side * 0.13, 0.05, -0.12], 0.04);
-    box(group, bodyPaint, [0.17, 0.34, 0.44], [side * 0.30, 0.10, -0.67]);
-    pipe(group, metal, [side * 0.26, 0.13, -0.48], [side * 0.18, 0.42, -0.07], 0.035);
-  }
-  const windshield = box(group, glass, [0.38, 0.42, 0.035], [0, 0.66, l * 0.25]);
-  windshield.rotation.x = -0.18;
-  box(group, bodyPaint, [0.38, 0.14, 0.31], [0, 0.34, l * 0.29]);
-  box(group, headlight, [0.26, 0.12, 0.04], [0, 0.43, l * 0.33]);
-  pipe(group, dark, [-0.39, 0.51, 0.31], [0.39, 0.51, 0.31], 0.035);
-  const brakeMaterial = new THREE.MeshStandardMaterial({ color: '#a21c18', emissive: '#ff2415', emissiveIntensity: 0.7 });
-  const brakeLights = [box(group, brakeMaterial, [0.22, 0.065, 0.04], [0, 0.30, -l * 0.42])];
-  const rider = paint('#2b3836');
-  const helmet = paint('#dce5d1');
-  const torso = box(group, rider, [0.40, 0.48, 0.27], [0, 0.76, -0.19]);
-  torso.rotation.x = 0.18;
-  sphere(group, helmet, [0.21, 0.23, 0.22], [0, 1.13, -0.11]);
-  sphere(group, glass, [0.18, 0.09, 0.07], [0, 1.14, 0.075]);
-  for (const side of [-1, 1]) {
-    pipe(group, rider, [side * 0.17, 0.91, -0.17], [side * 0.25, 0.69, 0.08], 0.075);
-    pipe(group, rider, [side * 0.25, 0.69, 0.08], [side * 0.33, 0.51, 0.31], 0.055);
-    pipe(group, rider, [side * 0.14, 0.48, -0.39], [side * 0.25, 0.20, -0.14], 0.09);
-    pipe(group, rider, [side * 0.25, 0.20, -0.14], [side * 0.25, -0.12, -0.37], 0.065);
-    box(group, dark, [0.15, 0.10, 0.25], [side * 0.25, -0.17, -0.32]);
-  }
-  const wheels = [l * 0.34, -l * 0.34].map((z) => {
-    const item = wheel(0.34, 0.15);
-    item.position.set(0, -0.25, z);
-    group.add(item);
-    return item;
-  });
-  return { wheels, brakeLights, policeLights: [] as THREE.Mesh[], turnSignals: [] as THREE.Mesh[] };
+function addMotorcycle(group: THREE.Group, _config: VehicleConfig) {
+  const asset = cloneGeneratedVehicle('adventure-motorcycle'); group.add(asset);
+  const wheels = ['wheel_front', 'wheel_rear'].map(name => asset.getObjectByName(name) as THREE.Group);
+  const owned = new THREE.Group(); group.add(owned);
+  const material = new THREE.MeshStandardMaterial({ color: '#8d1713', emissive: '#ff2415', emissiveIntensity: 0.4 });
+  const brakeLights = [box(owned, material, [0.12, 0.035, 0.025], [0, 0.28, -0.93])];
+  return { wheels, brakeLights, policeLights: [] as THREE.Mesh[], turnSignals: [] as THREE.Mesh[], dispose: createDisposer(owned) };
 }
 
 export function createVehicleModel(config: VehicleConfig, police = false) {
   const group = new THREE.Group();
-  const details = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
+  const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
   mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);
-  return { group, ...details, dispose: createDisposer(group) };
+  return { group, ...details, wheelRadius: config.kind === 'motorcycle' && !police ? 0.36 : 0.378, dispose: details.dispose ?? createDisposer(group) };
 }
 
 export function createHelicopter() {

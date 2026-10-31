@@ -1,0 +1,51 @@
+{
+  "platform": "Tripo Studio",
+  "date": "2026-10-31",
+  "model": "H3.1",
+  "sourceUrls": {
+    "electric-suv": "https://studio.tripo3d.ai/zh/workspace/generate/9ac1bd6b-2e7d-430f-bf67-7ce26b443dee",
+    "adventure-motorcycle": "https://studio.tripo3d.ai/zh/workspace/generate/515ae50d-0a3b-437c-9cf6-fcc6b31d84f5",
+    "residential-block": "https://studio.tripo3d.ai/zh/workspace/generate/147554eb-8dac-4326-ac2e-76a062ec8e11",
+    "roadside-tree": "https://studio.tripo3d.ai/zh/workspace/generate/2b89b4ea-2869-4ed9-961d-a78eb5b02996"
+  },
+  "terms": "https://www.tripo3d.ai/terms",
+  "attribution": "本项目通过主办方提供的 Tripo 资源生成；保留平台来源，不宣称 CC0 或指定现实车型的精确模型。",
+  "preparation": [
+    "汽车与摩托分件并生成纹理，整理独立轮轴，每种车型共享一套底色和材质参数贴图。",
+    "统一米制、Y 向上与车辆 Z 向前；建筑与树木减面，材质和网格仅加载一次供重复实例使用。",
+    "贴图转 WebP，几何使用 Meshopt 压缩。"
+  ],
+  "tools": {
+    "gltfTransform": "4.5.1"
+  },
+  "assets": [
+    {
+      "file": "electric-suv.glb",
+      "bytes": 782192,
+      "triangles": 28007,
+      "materials": 1,
+      "textures": 2
+    },
+    {
+      "file": "adventure-motorcycle.glb",
+      "bytes": 777512,
+      "triangles": 17298,
+      "materials": 1,
+      "textures": 2
+    },
+    {
+      "file": "residential-block.glb",
+      "bytes": 830624,
+      "triangles": 6931,
+      "materials": 1,
+      "textures": 3
+    },
+    {
+      "file": "roadside-tree.glb",
+      "bytes": 1071092,
+      "triangles": 14578,
+      "materials": 1,
+      "textures": 3
+    }
+  ]
+}

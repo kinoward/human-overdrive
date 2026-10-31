@@ -52,8 +52,21 @@ export async function buildWorld(scene: THREE.Scene): Promise<WorldData> {
   const batch = new SceneryBatch(group);
   const asphalt = new THREE.MeshStandardMaterial({ map: asphaltMap, normalMap: asphaltNormal, roughnessMap: asphaltRough, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.94, color: '#bfc4c9' });
   asphalt.userData.roadSurface = true;
-  const concrete = new THREE.MeshStandardMaterial({ map: concreteMap, normalMap: concreteNormal, roughnessMap: concreteRough, roughness: 0.95, color: '#c9c8bd' });
-  const ground = new THREE.MeshStandardMaterial({ color: '#819478', roughness: 1 });
+  const concrete = new THREE.MeshStandardMaterial({ map: concreteMap, normalMap: concreteNormal, roughnessMap: concreteRough, roughness: 0.95, color: '#dadeda' });
+  concrete.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722))), 0.85);');
+  };
+  const grassCanvas = document.createElement('canvas'); grassCanvas.width = grassCanvas.height = 256;
+  const grassContext = grassCanvas.getContext('2d')!; const grassPixels = grassContext.createImageData(256, 256);
+  let seed = 261031;
+  for (let i = 0; i < grassPixels.data.length; i += 4) {
+    seed = Math.imul(seed, 1664525) + 1013904223 | 0;
+    const variation = (seed >>> 24) / 255;
+    grassPixels.data[i] = 66 + variation * 42; grassPixels.data[i + 1] = 81 + variation * 46; grassPixels.data[i + 2] = 47 + variation * 28; grassPixels.data[i + 3] = 255;
+  }
+  grassContext.putImageData(grassPixels, 0, 0);
+  const grass = new THREE.CanvasTexture(grassCanvas); grass.colorSpace = THREE.SRGBColorSpace; grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(16, 16); grass.anisotropy = 4;
+  const ground = new THREE.MeshStandardMaterial({ map: grass, color: '#a9b59c', roughness: 1 });
   const terrain = new THREE.Mesh(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 4000, bounds.maxZ - bounds.minZ + 4000), ground);
   terrain.rotation.x = -Math.PI / 2; terrain.position.set((bounds.minX + bounds.maxX) / 2, -12, (bounds.minZ + bounds.maxZ) / 2); group.add(terrain);
   const obstacles = addRoadScenery(group, roads, { asphalt, concrete, ground }, batch);
