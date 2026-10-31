@@ -2,12 +2,13 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 import type { Point3, VehicleConfig } from '../types';
 import { createVehicleModel } from './models';
+import { ArcadeDriving, type Controls } from './arcade-driving';
 import { RenderPose } from './render-pose';
 import { VehicleStability } from './vehicle-stability';
 import { VehicleDamage } from './vehicle-damage';
 import { GROUND_BODY, GROUND_BODY_GROUPS, ROAD, packCollisionGroups } from './collision-groups';
 
-export interface Controls { throttle: number; steer: number; brake: boolean }
+export type { Controls } from './arcade-driving';
 
 export class PhysicsVehicle {
   readonly body: RAPIER.RigidBody;
@@ -24,6 +25,19 @@ export class PhysicsVehicle {
   private pose: RenderPose;
   private previousWheels: THREE.Vector3[] = [];
   private currentWheels: THREE.Vector3[] = [];
+  private driving: ArcadeDriving;
+  private visualPivot = new THREE.Group();
+  private previousLean = 0;
+  private currentLean = 0;
+  private previousPitch = 0;
+  private currentPitch = 0;
+  private normal = new THREE.Vector3(0, 1, 0);
+  private right = new THREE.Vector3();
+  private velocity = new THREE.Vector3();
+  private angular = new THREE.Vector3();
+  private impulse = new THREE.Vector3();
+  private angularDelta = new THREE.Vector3();
+  private inertia = new THREE.Matrix3();
   private stability = new VehicleStability();
 
   constructor(readonly world: RAPIER.World, readonly config: VehicleConfig, position: Point3, heading: number, police = false) {
@@ -40,6 +54,7 @@ export class PhysicsVehicle {
     world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25)
       .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
     this.model = createVehicleModel(config, police);
+    this.driving = new ArcadeDriving(config);
     this.damage = new VehicleDamage(this.model.group, config, this.body, world);
     this.pose = new RenderPose(this.model.group);
     this.controller = world.createVehicleController(this.body);
@@ -54,10 +69,16 @@ export class PhysicsVehicle {
       this.controller.setWheelMaxSuspensionForce(index, config.mass * 15);
       this.controller.setWheelMaxSuspensionTravel(index, 0.22);
       this.controller.setWheelFrictionSlip(index, 1.8);
-      this.controller.setWheelSideFrictionStiffness(index, motorcycle ? 1.8 : 1.4);
+      this.controller.setWheelSideFrictionStiffness(index, 0);
       this.previousWheels.push(new THREE.Vector3(-0.44, 0, 0));
       this.currentWheels.push(new THREE.Vector3(-0.44, 0, 0));
     }
+    const contents = new THREE.Group();
+    this.visualPivot.position.y = -0.44 - this.model.wheelRadius;
+    contents.position.y = -this.visualPivot.position.y;
+    contents.add(...this.model.group.children);
+    this.visualPivot.add(contents);
+    this.model.group.add(this.visualPivot);
     this.sync(0);
   }
 
@@ -77,34 +98,65 @@ export class PhysicsVehicle {
     return this.up.y;
   }
 
+  get leanAngle(): number {
+    return this.currentLean;
+  }
+
+  yawLimit(speed = this.speed): number {
+    return this.driving.yawLimit(speed);
+  }
+
   drive(input: Controls, dt: number, onRoad = true) {
-    const speed = this.speed;
     const motorcycle = this.config.kind === 'motorcycle';
-    const maxSteer = THREE.MathUtils.lerp(0.48, motorcycle ? 0.14 : 0.115, Math.min(1, speed / 48));
-    const desired = -input.steer * maxSteer;
-    this.steering = THREE.MathUtils.damp(this.steering, desired, 9, dt);
-    this.braking = input.brake;
-    const frontCount = motorcycle ? 1 : 2;
-    const wheels = this.controller.numWheels();
-    const driven = motorcycle ? 1 : 2;
-    const q = this.body.rotation();
-    this.forward.set(0, 0, 1).applyQuaternion(q);
-    const velocity = this.body.linvel();
-    const forwardSpeed = this.forward.x * velocity.x + this.forward.z * velocity.z;
-    const reversingBrake = input.throttle < 0 && forwardSpeed > 1.5;
-    const throttle = reversingBrake ? 0 : input.throttle;
-    const maxSpeed = this.config.topSpeed / 3.6 * (onRoad ? 1 : 0.3);
-    const speedFactor = throttle > 0 ? Math.max(0, 1 - (speed / maxSpeed) ** 3) : speed < 11 ? 0.45 : 0;
-    const force = this.config.mass * this.config.acceleration * throttle * speedFactor / driven;
-    for (let i = 0; i < wheels; i++) {
-      this.controller.setWheelSteering(i, i < frontCount ? this.steering : 0);
-      this.controller.setWheelEngineForce(i, i >= wheels - driven ? force : 0);
-      this.controller.setWheelBrake(i, input.brake || reversingBrake ? this.config.mass * 0.022 : input.throttle === 0 ? this.config.mass * 0.00035 : 0);
+    for (let i = 0; i < this.controller.numWheels(); i++) {
+      this.controller.setWheelEngineForce(i, 0);
+      this.controller.setWheelBrake(i, 0);
     }
     this.controller.updateVehicle(dt, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, packCollisionGroups(GROUND_BODY, ROAD), collider => collider.parent()?.handle !== this.body.handle);
-    if (!onRoad) this.body.applyImpulse({ x: -velocity.x * this.config.mass * dt * 0.55, y: 0, z: -velocity.z * this.config.mass * dt * 0.55 }, true);
+    this.normal.set(0, 0, 0);
+    let contacts = 0;
+    for (let i = 0; i < this.controller.numWheels(); i++) {
+      if (!this.controller.wheelIsInContact(i)) continue;
+      const normal = this.controller.wheelContactNormal(i);
+      if (normal && normal.y > 0.35) {
+        this.normal.add(normal);
+        contacts++;
+      }
+    }
+    const grounded = contacts >= (motorcycle ? 1 : 2);
+    if (grounded) this.normal.normalize();
+    else this.normal.set(0, 1, 0);
+    this.rotation.copy(this.body.rotation());
+    this.up.set(0, 1, 0).applyQuaternion(this.rotation);
+    this.forward.set(0, 0, 1).applyQuaternion(this.rotation);
+    this.forward.addScaledVector(this.normal, -this.forward.dot(this.normal)).normalize();
+    this.right.crossVectors(this.forward, this.normal).normalize();
+    this.velocity.copy(this.body.linvel());
+    this.angular.copy(this.body.angvel());
     this.balanceDisabled = Math.max(0, this.balanceDisabled - dt);
+    const result = this.driving.update(input, {
+      forwardSpeed: this.velocity.dot(this.forward),
+      sideSpeed: this.velocity.dot(this.right),
+      yawRate: this.angular.dot(this.normal),
+      grounded,
+      upright: this.up.dot(this.normal),
+      onRoad,
+      controlWeight: 1 - THREE.MathUtils.clamp(this.balanceDisabled / 1.2, 0, 1),
+    }, dt);
+    this.steering = result.steeringAngle;
+    this.braking = result.braking;
+    for (let i = 0; i < this.controller.numWheels(); i++) this.controller.setWheelSteering(i, i < (motorcycle ? 1 : 2) ? this.steering : 0);
+    this.impulse.copy(this.forward).multiplyScalar(result.forwardDelta).addScaledVector(this.right, result.sideDelta).multiplyScalar(this.body.mass());
+    this.body.applyImpulse(this.impulse, true);
+    const inertia = this.body.effectiveAngularInertia();
+    this.inertia.set(inertia.m11, inertia.m12, inertia.m13, inertia.m21, inertia.m22, inertia.m23, inertia.m31, inertia.m32, inertia.m33);
+    this.angularDelta.copy(this.normal).multiplyScalar(result.yawDelta).applyMatrix3(this.inertia);
+    this.body.applyTorqueImpulse(this.angularDelta, true);
     this.stability.update(this.body, this.controller, motorcycle, this.balanceDisabled, dt);
+    this.previousLean = this.currentLean;
+    this.currentLean = result.leanAngle;
+    this.previousPitch = this.currentPitch;
+    this.currentPitch = result.pitchAngle;
   }
 
   applyImpact(point: Point3, direction: Point3, strength: number) {
@@ -132,6 +184,7 @@ export class PhysicsVehicle {
       this.model.wheels[i].position.y = THREE.MathUtils.lerp(previous.x, current.x, alpha);
       this.model.wheels[i].rotation.set(THREE.MathUtils.lerp(previous.y, current.y, alpha), THREE.MathUtils.lerp(previous.z, current.z, alpha), 0, 'YXZ');
     }
+    this.visualPivot.rotation.set(THREE.MathUtils.lerp(this.previousPitch, this.currentPitch, alpha), 0, THREE.MathUtils.lerp(this.previousLean, this.currentLean, alpha));
   }
 
   dispose() {
