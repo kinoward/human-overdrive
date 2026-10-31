@@ -65,7 +65,11 @@ export interface RaceResult {
   nearMisses: number;
   collisions: number;
   topSpeed: number;
-  speedScore: number;
+  cleanDistance: number;
+  pressureDistance: number;
+  evadedAttacks: number;
+  fullPressureEscape: boolean;
+  techniqueScore: number;
   controlScore: number;
   pressureScore: number;
 }
@@ -81,6 +85,9 @@ export interface RaceMetrics {
   maxPressureTime: number;
   maxPressureDistance: number;
   topSpeed: number;
+  cleanDistance: number;
+  pressureDistance: number;
+  evadedAttacks: number;
 }
 
 export interface Point3 { x: number; y: number; z: number }

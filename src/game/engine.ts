@@ -12,6 +12,7 @@ import { CollisionSystem } from './collisions';
 import { isCaptured } from './capture';
 import { BARRIER_GROUPS, GROUND_BODY_GROUPS, ROAD_GROUPS } from './collision-groups';
 import { buildResult, calculateScore } from './rules';
+import { DrivingScore } from './driving-score';
 import { GameAudio } from './audio';
 import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './traffic';
 import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
@@ -27,8 +28,6 @@ interface TrafficCar {
   collider: RAPIER.Collider;
   model: ReturnType<typeof createTrafficVehicleModel>;
   driver: TrafficAgent;
-  encounter: number;
-  collided: boolean;
   appearance: number;
   pose: RenderPose;
   damage?: VehicleDamage;
@@ -64,7 +63,7 @@ export class GameEngine {
   private captureOrigin = new THREE.Vector3();
   private escapeTime = 0;
   private flippedTime = 0;
-  private combo = 0;
+  private drivingScore = new DrivingScore();
   private lastPosition = new THREE.Vector3();
   private event = '沿四环自由驾驶，累计 20 公里即可逃脱';
   private eventTone: GameSnapshot['eventTone'] = 'neutral';
@@ -171,13 +170,13 @@ export class GameEngine {
     this.player = new PhysicsVehicle(this.physics, config, this.track.spawn.position, this.track.spawn.heading);
     this.scene.add(this.player.model.group);
     if (this.preview) this.preview.group.visible = false;
-    this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxPoliceCount: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0 };
+    this.metrics = { vehicleId, elapsed: 0, distance: 0, targetDistance: CITIES[0].targetDistance, nearMisses: 0, collisions: 0, maxPoliceCount: 0, maxPressureTime: 0, maxPressureDistance: 0, topSpeed: 0, cleanDistance: 0, pressureDistance: 0, evadedAttacks: 0 };
     this.status = 'running';
     this.resetFrameStats();
     this.needsRender = true;
     this.capture = 0;
     this.flippedTime = 0;
-    this.combo = 0;
+    this.drivingScore = new DrivingScore();
     this.collisionSystem.reset();
     this.nextSight = 0;
     this.pursuit = new PolicePursuit(this.physics, this.scene, this.track.roads, { isVisible: this.isVisible });
@@ -297,7 +296,7 @@ export class GameEngine {
       const collider = this.physics.createCollider(RAPIER.ColliderDesc.cuboid(profile.width * 0.5, Math.max(0.25, (profile.height - 0.32) * 0.5), profile.length * 0.5).setTranslation(0, profile.height * 0.5 - 0.79, 0).setFriction(0.3).setRestitution(0.08).setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(profile.mass * 0.4), body);
       this.scene.add(model.group);
       model.group.position.copy(position); model.group.quaternion.copy(rotation);
-      this.traffic.push({ body, collider, model, driver, encounter: Infinity, collided: false, appearance: 1, pose: new RenderPose(model.group) });
+      this.traffic.push({ body, collider, model, driver, appearance: 1, pose: new RenderPose(model.group) });
     }
   }
 
@@ -369,12 +368,12 @@ export class GameEngine {
     let distance = 0;
     const grounded = this.player.model.wheels.some((_, index) => this.player!.controller.wheelIsInContact(index));
     if (roadValid && grounded && this.player.speed > 0.75 && this.player.upY > 0.35 && nextRoad && Math.abs(next.y - nextRoad.point.y) < 2 && moved.length() < 5) distance = Math.abs(moved.x * nextRoad.direction.x + moved.z * nextRoad.direction.z);
-    this.metrics.distance = Math.min(this.metrics.targetDistance, this.metrics.distance + distance);
+    distance = Math.min(distance, this.metrics.targetDistance - this.metrics.distance);
+    this.metrics.distance += distance;
     this.metrics.topSpeed = Math.max(this.metrics.topSpeed, this.player.speed * 3.6);
     this.lastPosition.set(next.x, next.y, next.z);
     const velocity = this.player.body.linvel();
     this.wrongWay = !!nextRoad && nextRoad.road.oneWay && this.player.speed > 3 && (velocity.x * nextRoad.direction.x + velocity.z * nextRoad.direction.z) < -this.player.speed * 0.35;
-    this.checkNearMisses();
     const previousTarget = getPoliceTarget(Math.max(0, this.metrics.elapsed - dt));
     const target = getPoliceTarget(this.metrics.elapsed);
     if (target > previousTarget) this.message(`警方增援 · 目标警力 ${target} 辆`, 'danger', 3);
@@ -384,13 +383,14 @@ export class GameEngine {
       const p = actor.vehicle.body.translation();
       return Math.hypot(p.x - next.x, p.z - next.z) < 180;
     }) ?? [];
-    if ((this.pursuit?.activeCars.length ?? 0) >= MAX_POLICE_COUNT && this.helicopters.length >= 3 && nearbyPolice.length >= 3 && this.player.speed > 5 && distance > 0) {
-      this.metrics.maxPressureTime += dt;
-      this.metrics.maxPressureDistance += distance;
-    } else if (this.metrics.maxPressureTime < 20 || this.metrics.maxPressureDistance < 500) {
-      this.metrics.maxPressureTime = 0;
-      this.metrics.maxPressureDistance = 0;
+    const controlled = distance > 0 && contactBodies.size === 0 && this.player.upY > 0.7 && this.player.speed > 5
+      && velocity.x * Math.sin(this.player.heading) + velocity.z * Math.cos(this.player.heading) > this.player.speed * 0.5;
+    const evaded = this.drivingScore.update(this.metrics, { dt, distance, controlled, nearbyPolice: nearbyPolice.length,
+      fullPressure: (this.pursuit?.activeCars.length ?? 0) >= MAX_POLICE_COUNT && this.helicopters.length >= 3 && nearbyPolice.length >= 3 });
+    if (evaded && !this.pursuit?.activeCars.some(actor => actor.state === 'positioning' || actor.state === 'contact')) {
+      this.message('干净闪避 +2 技巧 · 继续拉开距离', 'good', 2);
     }
+    this.checkNearMisses();
     const blockaded = this.player.speed < 1.8 && isCaptured(this.physics, { body: this.player.body, collider: this.player.collider, width: this.player.config.width, length: this.player.config.length }, (this.pursuit?.activeCars ?? []).map(actor => ({
       body: actor.vehicle.body, collider: actor.vehicle.collider, width: actor.vehicle.config.width, length: actor.vehicle.config.length, activePursuit: actor.activePursuit
     })), nextRoad, contactBodies);
@@ -427,7 +427,7 @@ export class GameEngine {
         actor.body.setTranslation(translation, true);
         actor.body.setRotation(rotation, true);
         actor.pose.snap(translation, rotation);
-        actor.encounter = Infinity; actor.collided = false;
+        this.drivingScore.resetTraffic(actor.driver.id);
       }
       actor.appearance = Math.min(1, actor.appearance + dt / 1.5);
       actor.model.setOpacity(actor.appearance);
@@ -469,6 +469,7 @@ export class GameEngine {
     if (!this.pursuit) return;
     const events = this.pursuit.drainEvents();
     if (!events.length) return;
+    for (const event of events) if (event.type === 'evaded') this.drivingScore.evade(event.id);
     const attacks = this.pursuit.activeCars.filter(actor => actor.state === 'positioning' || actor.state === 'contact');
     const loss = events.find(event => event.type === 'flipped' || event.type === 'disabled');
     if (events.some(event => event.type === 'windup')) {
@@ -488,8 +489,8 @@ export class GameEngine {
     for (const impact of result.impacts) {
       if (impact.newIncident) {
         this.metrics.collisions++;
-        this.combo = 0;
       }
+      if (impact.newIncident || impact.feedback) this.drivingScore.impact(impact.severity);
       if (impact.feedback) {
         this.renderer.domElement.dataset.impact = JSON.stringify({ severity: impact.severity, deltaV: impact.deltaV, approachSpeed: impact.approachSpeed, strength: impact.strength });
         this.player.balanceDisabled = Math.max(this.player.balanceDisabled, impact.balanceDisabled);
@@ -501,7 +502,6 @@ export class GameEngine {
         this.message(text, 'danger', impact.severity === 'heavy' ? 2.5 : 1.5);
       }
       for (const actor of this.traffic) if (actor.body.handle === impact.otherBodyHandle) {
-        actor.collided = true;
         if (impact.feedback && actor.model.group.userData.damageModel) {
           const base = VEHICLES.find(vehicle => vehicle.kind === actor.model.group.userData.damageModel)!;
           actor.damage ??= new VehicleDamage(actor.model.group, { ...base, width: actor.driver.width, length: actor.driver.length }, actor.body, this.physics);
@@ -522,20 +522,16 @@ export class GameEngine {
 
   private checkNearMisses() {
     if (!this.player) return;
-    const position = this.player.body.translation();
+    const player = { position: this.player.body.translation(), heading: this.player.heading, speed: this.player.speed,
+      width: this.player.config.width, length: this.player.config.length };
     for (const actor of this.traffic) {
-      const p = actor.body.translation();
-      const distance = Math.hypot(position.x - p.x, position.z - p.z);
-      if (Math.abs(position.y - p.y) > 2) { actor.encounter = Infinity; if (distance > 10) actor.collided = false; continue }
-      if (distance < 9 && this.player.speed > actor.driver.speed + 4) actor.encounter = Math.min(actor.encounter, distance);
-      if (distance > 10) {
-        if (!actor.collided && actor.encounter > (this.player.config.width + actor.driver.width) * 0.5 + 0.1 && actor.encounter < (this.player.config.width + actor.driver.width) * 0.5 + 1.6) {
-          this.metrics.nearMisses++;
-          this.combo++;
-          this.message(`干净擦身 +1 · ${this.combo > 1 ? `${this.combo} 连击` : '漂亮的超越'}`, 'good', 2.5);
+      if (actor.appearance < 1) continue;
+      if (this.drivingScore.nearMiss(this.metrics, player, { id: actor.driver.id, position: actor.body.translation(),
+        heading: actor.driver.heading, speed: actor.driver.speed, width: actor.driver.width, length: actor.driver.length })) {
+        if (!this.pursuit?.activeCars.some(actor => actor.state === 'positioning' || actor.state === 'contact')
+          && (this.eventTone !== 'danger' || this.simulationTime >= this.eventUntil)) {
+          this.message(`干净超车 +1 技巧 · ${this.drivingScore.combo > 1 ? `${this.drivingScore.combo} 次连续交互` : '漂亮的擦身'}`, 'good', 2.5);
         }
-        actor.encounter = Infinity;
-        actor.collided = false;
       }
     }
   }
@@ -561,6 +557,7 @@ export class GameEngine {
   private emit() {
     if (!this.metrics) return;
     const score = calculateScore(this.metrics);
+    this.renderer.domElement.dataset.scoring = JSON.stringify({ ...score, cleanDistance: this.metrics.cleanDistance, pressureDistance: this.metrics.pressureDistance, nearMisses: this.metrics.nearMisses, evadedAttacks: this.metrics.evadedAttacks, maxPressureTime: this.metrics.maxPressureTime, maxPressureDistance: this.metrics.maxPressureDistance });
     if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
     this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
@@ -577,7 +574,7 @@ export class GameEngine {
       }
       this.renderer.domElement.dataset.traffic = JSON.stringify({ total: this.traffic.length, nearby, ahead, types });
     }
-    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
+    this.onSnapshot({ status: this.status, speedKmh: this.player ? this.player.speed * 3.6 : 0, distance: this.metrics.distance, targetDistance: this.metrics.targetDistance, elapsed: this.metrics.elapsed, policeTarget: getPoliceTarget(this.metrics.elapsed), policeCount: this.pursuit?.activeCars.length ?? 0, helicopterCount: this.helicopters.length, score: score.score, stars: score.stars, combo: this.drivingScore.combo, nearMisses: this.metrics.nearMisses, collisions: this.metrics.collisions, wrongWay: this.wrongWay, captureProgress: this.capture, event: this.simulationTime < this.eventUntil ? this.event : '', eventTone: this.eventTone, vehicleId: this.metrics.vehicleId });
   }
 
   private updateCamera(dt: number) {

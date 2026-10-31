@@ -1,20 +1,40 @@
+import { MAX_POLICE_COUNT } from '../config';
 import type { RaceResult, VehicleId } from '../types';
 
-const STORAGE_KEY = 'human-overdrive.results.v2';
+const STORAGE_KEY = 'human-overdrive.results.v3';
 let storageMessage = '';
 let memoryResults: RaceResult[] = [];
 
 function isRaceResult(value: unknown): value is RaceResult {
   if (!value || typeof value !== 'object') return false;
   const result = value as Record<string, unknown>;
-  return typeof result.id === 'string'
+  const validShape = typeof result.id === 'string'
     && typeof result.createdAt === 'string'
     && typeof result.nickname === 'string'
     && typeof result.cityId === 'string'
     && (result.vehicleId === 'model-y' || result.vehicleId === 'f850gs')
     && (result.outcome === 'escaped' || result.outcome === 'flipped' || result.outcome === 'caught')
-    && ['score', 'stars', 'duration', 'distance', 'targetDistance', 'maxPoliceCount', 'nearMisses', 'collisions', 'topSpeed', 'speedScore', 'controlScore', 'pressureScore']
-      .every((key) => typeof result[key] === 'number' && Number.isFinite(result[key]));
+    && typeof result.fullPressureEscape === 'boolean'
+    && ['score', 'stars', 'duration', 'distance', 'targetDistance', 'maxPoliceCount', 'nearMisses', 'collisions', 'topSpeed', 'cleanDistance', 'pressureDistance', 'evadedAttacks', 'techniqueScore', 'controlScore', 'pressureScore']
+      .every((key) => typeof result[key] === 'number' && Number.isFinite(result[key]) && result[key] >= 0);
+  if (!validShape) return false;
+  const entry = value as RaceResult;
+  const stars = entry.outcome === 'escaped'
+    ? (entry.score >= 9500 ? 10 : Math.min(9, Math.floor(entry.score / 1000)))
+    : Math.min(8, Math.floor(entry.score / 1000));
+  return entry.targetDistance > 0
+    && [entry.score, entry.stars, entry.maxPoliceCount, entry.nearMisses, entry.collisions, entry.evadedAttacks, entry.controlScore, entry.techniqueScore, entry.pressureScore].every(Number.isInteger)
+    && entry.score <= 10000
+    && entry.stars <= 10
+    && entry.controlScore <= 5000
+    && entry.techniqueScore <= 3500
+    && entry.pressureScore <= 1500
+    && entry.score === entry.controlScore + entry.techniqueScore + entry.pressureScore
+    && entry.distance <= entry.targetDistance
+    && entry.cleanDistance <= entry.distance + 0.11
+    && entry.pressureDistance <= entry.cleanDistance + 0.11
+    && entry.stars === stars
+    && (!entry.fullPressureEscape || (entry.outcome === 'escaped' && entry.maxPoliceCount >= MAX_POLICE_COUNT));
 }
 
 export function loadResults(): RaceResult[] {
@@ -77,7 +97,8 @@ export function getLeaderboard(
     && (filter.mode !== 'time' || result.outcome === 'escaped'));
   return matches.sort((first, second) => {
     if (filter.mode === 'time') return first.duration - second.duration || second.score - first.score;
-    return second.score - first.score
+    return second.stars - first.stars
+      || second.score - first.score
       || Number(second.outcome === 'escaped') - Number(first.outcome === 'escaped')
       || first.duration - second.duration;
   });
