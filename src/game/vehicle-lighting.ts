@@ -20,21 +20,34 @@ function lowBeamTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
-export function createVehicleLighting(scene: THREE.Scene) {
-  const policeLighting = createPoliceLighting(scene);
+export function createVehicleHeadlights() {
   const group = new THREE.Group();
-  group.name = '车辆道路照明';
-  scene.add(group);
   const beamTexture = lowBeamTexture();
-  const slots = Array.from({ length: 2 }, () => {
+  const lights = Array.from({ length: 4 }, () => {
     const light = new THREE.SpotLight('#fff2dc', 0, 65, 0.38, 0.65, 2);
     light.castShadow = false;
     light.map = beamTexture;
     light.shadow.camera.near = 0.1;
     light.shadow.camera.updateProjectionMatrix();
     group.add(light, light.target);
-    return { light, source: null as VehicleLampSource | null };
+    return light;
   });
+  return {
+    group, lights,
+    dispose: () => {
+      group.removeFromParent();
+      for (const light of lights) light.dispose();
+      beamTexture.dispose();
+    },
+  };
+}
+
+export function createVehicleLighting(scene: THREE.Scene) {
+  const policeLighting = createPoliceLighting(scene);
+  const headlights = createVehicleHeadlights();
+  headlights.group.name = '车辆道路照明';
+  scene.add(headlights.group);
+  const slots = headlights.lights.map(light => ({ light, source: null as VehicleLampSource | null }));
   const cameraPosition = new THREE.Vector3(), target = new THREE.Vector3(), origin = new THREE.Vector3();
   const viewProjection = new THREE.Matrix4(), frustum = new THREE.Frustum(), beam = new THREE.Sphere();
   let previousTime: number | null = null;
@@ -101,9 +114,7 @@ export function createVehicleLighting(scene: THREE.Scene) {
     },
     dispose: () => {
       policeLighting.dispose();
-      group.removeFromParent();
-      for (const { light } of slots) light.dispose();
-      beamTexture.dispose();
+      headlights.dispose();
     }
   };
 }

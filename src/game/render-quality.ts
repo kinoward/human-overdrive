@@ -1,12 +1,8 @@
 import * as THREE from 'three';
 
 export class RenderQuality {
-  private level = 0;
-  private width = 1;
-  private height = 1;
   private frames: number[] = [];
   private work = 0;
-  private steadyTime = 0;
   private warmup = 2;
   private gl: WebGL2RenderingContext;
   private timer: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
@@ -40,19 +36,16 @@ export class RenderQuality {
   }
 
   resize(width: number, height: number) {
-    this.width = width;
-    this.height = height;
     const base = Math.min(window.devicePixelRatio, 1, 1600 / width, 900 / height);
-    this.renderer.setPixelRatio(base * [1, 0.85, 0.7, 0.6, 0.5][this.level]);
+    this.renderer.setPixelRatio(base);
     this.renderer.setSize(width, height);
-    this.onResize(width, height, this.level);
-    this.renderer.domElement.dataset.quality = JSON.stringify({ targetFps: 60, level: this.level, width: this.renderer.domElement.width, height: this.renderer.domElement.height });
+    this.onResize(width, height, 0);
+    this.renderer.domElement.dataset.quality = JSON.stringify({ targetFps: 60, level: 0, width: this.renderer.domElement.width, height: this.renderer.domElement.height });
   }
 
   reset() {
     this.frames.length = 0;
     this.work = 0;
-    this.steadyTime = 0;
     this.warmup = 2;
   }
 
@@ -66,19 +59,7 @@ export class RenderQuality {
     const average = elapsed / this.frames.length;
     this.frames.sort((a, b) => a - b);
     const p95 = this.frames[Math.floor((this.frames.length - 1) * 0.95)];
-    const overloaded = average > 17.8 || p95 > 23;
-    const spare = average < 16.95 && p95 < 18.5 && this.work / this.frames.length < 10 && this.gpuMs < 10;
-    this.renderer.domElement.dataset.frameBudget = JSON.stringify({ fps: Math.round(1000 / average), p95Ms: Math.round(p95 * 10) / 10, gpuMs: this.timer ? Math.round(this.gpuMs * 10) / 10 : null });
-    this.steadyTime = spare ? this.steadyTime + elapsed / 1000 : 0;
-    let next = this.level;
-    if (overloaded) next = Math.min(4, this.level + 1);
-    else if (this.steadyTime >= 10) next = Math.max(0, this.level - 1);
-    if (next !== this.level) {
-      this.level = next;
-      this.resize(this.width, this.height);
-      this.steadyTime = 0;
-      this.warmup = 1;
-    }
+    this.renderer.domElement.dataset.frameBudget = JSON.stringify({ fps: Math.round(1000 / average), p95Ms: Math.round(p95 * 10) / 10, workMs: Math.round(this.work / this.frames.length * 10) / 10, gpuMs: this.timer ? Math.round(this.gpuMs * 10) / 10 : null });
     this.frames.length = 0;
     this.work = 0;
   }

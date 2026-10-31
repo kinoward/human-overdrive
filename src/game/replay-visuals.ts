@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { cloneReplayMaterial } from './damage-materials';
+import { createVehicleHeadlights } from './vehicle-lighting';
+import { vehicleLampSources } from './vehicle-lamps';
 
 export type ReplayProperty = 'position' | 'rotation' | 'visible' | 'emissive' | 'wheel' | 'target';
 export interface ReplayChannel {
@@ -32,6 +34,7 @@ export interface ReplayAppearance {
   template: THREE.Object3D;
   geometry: { index: number; state: GeometryState }[];
   channels: RecordedChannel[];
+  headlamp?: { target: THREE.Vector3; intensity: number; distance: number; angle: number };
 }
 
 const nodesOf = (root: THREE.Object3D) => {
@@ -77,9 +80,11 @@ export class ReplayVisualCache {
       copy.material = Array.isArray(node.material) ? node.material.map(material) : material(node.material);
       geometry.push({ index, state });
     });
+    const headlamp = source.root instanceof THREE.Group ? vehicleLampSources.get(source.root) : undefined;
     const appearance: ReplayAppearance = {
       template, geometry,
       channels: source.channels.map(({ node, read, ...channel }) => ({ ...channel, index: original.indexOf(node) })),
+      headlamp: headlamp ? { target: headlamp.target.clone(), intensity: headlamp.intensity, distance: headlamp.distance, angle: headlamp.angle } : undefined,
     };
     this.appearances.set(source.root, { key: source.key, revision, appearance });
     return appearance;
@@ -143,10 +148,10 @@ export class ReplayVisuals {
   private rotationA = new THREE.Quaternion();
   private rotationB = new THREE.Quaternion();
   private wheelRotation = new THREE.Quaternion();
-  private headlamps = Array.from({ length: 4 }, () => new THREE.SpotLight('#fff2dc', 0, 65, 0.36, 0.65, 2));
+  private headlights = createVehicleHeadlights();
 
   constructor(private scene: THREE.Scene) {
-    for (const light of this.headlamps) scene.add(light, light.target);
+    scene.add(this.headlights.group);
   }
 
   beginFrame() { for (const instance of this.instances.values()) instance.root.visible = false }
@@ -198,26 +203,30 @@ export class ReplayVisuals {
   }
 
   endFrame(focus: THREE.Vector3) {
-    const lamps: { mount: THREE.Object3D; distance: number }[] = [];
+    const lamps: { instance: ReplayInstance; mount: THREE.Object3D; distance: number }[] = [];
     for (const [id, instance] of this.instances) {
       if (!instance.root.visible) { this.remove(id); continue }
-      const mount = instance.root.getObjectByName('车辆前灯挂点');
-      if (mount) lamps.push({ mount, distance: instance.root.position.distanceToSquared(focus) });
+      const mount = instance.appearance.headlamp && instance.root.getObjectByName('车辆前灯挂点');
+      if (mount) lamps.push({ instance, mount, distance: instance.root.position.distanceToSquared(focus) });
     }
     lamps.sort((a, b) => a.distance - b.distance);
-    this.headlamps.forEach((light, index) => {
-      const mount = lamps[index]?.mount;
-      light.intensity = mount ? 700 : 0;
-      if (!mount) return;
+    this.headlights.lights.forEach((light, index) => {
+      const source = lamps[index];
+      light.intensity = source ? source.instance.appearance.headlamp!.intensity * source.instance.root.userData.headlightOpacity : 0;
+      if (!source) return;
+      const { mount, instance } = source;
+      const headlamp = instance.appearance.headlamp!;
       mount.updateWorldMatrix(true, false);
       light.position.setFromMatrixPosition(mount.matrixWorld);
-      light.target.position.set(0, -0.8, 30).applyMatrix4(mount.matrixWorld);
+      light.target.position.copy(headlamp.target).applyMatrix4(mount.matrixWorld);
+      light.distance = headlamp.distance;
+      light.angle = headlamp.angle;
     });
   }
 
   dispose() {
     for (const id of this.instances.keys()) this.remove(id);
-    for (const light of this.headlamps) { light.removeFromParent(); light.target.removeFromParent(); light.dispose() }
+    this.headlights.dispose();
   }
 
   private create(appearance: ReplayAppearance): ReplayInstance {

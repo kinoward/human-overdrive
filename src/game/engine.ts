@@ -24,8 +24,8 @@ import { ArcadeCameraMotion } from './camera-motion';
 import type { Controls } from './arcade-driving';
 import { roadAt } from './road-network';
 import { RenderPose } from './render-pose';
-import { loadGeneratedAssets } from './generated-assets';
-import { VehicleDamage } from './vehicle-damage';
+import { cloneGeneratedVehicle, loadGeneratedAssets } from './generated-assets';
+import { createDamageMaterialWarmup, VehicleDamage } from './vehicle-damage';
 import { DamageDebris } from './damage-debris';
 import { RaceMinimap } from './minimap';
 import { createCyberScene } from './cyber-scene';
@@ -56,6 +56,7 @@ export class GameEngine {
   private events!: RAPIER.EventQueue;
   private track!: WorldData;
   private scenery?: ReturnType<typeof createCyberScene>;
+  private damageWarmup?: ReturnType<typeof createDamageMaterialWarmup>;
   private airspace!: Airspace;
   private collisionSystem!: CollisionSystem;
   private pursuit?: PolicePursuit;
@@ -154,6 +155,7 @@ export class GameEngine {
     window.addEventListener('keydown', this.keyDown);
     window.addEventListener('keyup', this.keyUp);
     window.addEventListener('blur', this.blur);
+    window.addEventListener('pagehide', this.pagehide);
     document.addEventListener('visibilitychange', this.visibility);
     this.resize();
   }
@@ -244,6 +246,19 @@ export class GameEngine {
     this.renderer.setAnimationLoop(null);
     await onProgress(0.98, '准备画面与车辆');
     await this.scenery!.prepare(this.camera, this.presentationTime, this.player!.model.group.position, this.player!.heading);
+    await onProgress(0.99, '准备碰撞材质');
+    this.damageWarmup ??= createDamageMaterialWarmup((['electric-suv', 'adventure-motorcycle'] as const).flatMap(name => [cloneGeneratedVehicle(name, true), cloneGeneratedVehicle(name)]));
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+    const previousTarget = this.renderer.getRenderTarget();
+    const previousCubeFace = this.renderer.getActiveCubeFace();
+    const previousMipmapLevel = this.renderer.getActiveMipmapLevel();
+    this.renderer.setRenderTarget(target);
+    try {
+      await this.renderer.compileAsync(this.damageWarmup.group, this.camera, this.scene);
+    } finally {
+      this.renderer.setRenderTarget(previousTarget, previousCubeFace, previousMipmapLevel);
+      target.dispose();
+    }
     this.timer.reset();
     this.resetFrameStats();
     this.renderer.setAnimationLoop(this.frame);
@@ -928,6 +943,13 @@ export class GameEngine {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.drawMap();
+  };
+
+  private pagehide = (event: PageTransitionEvent) => {
+    if (event.persisted) return;
+    this.damageWarmup?.dispose();
+    this.damageWarmup = undefined;
+    window.removeEventListener('pagehide', this.pagehide);
   };
 
   private readControls(): Controls {

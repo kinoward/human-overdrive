@@ -64,8 +64,54 @@ interface DamageTopology {
 
 const topologyCache = new WeakMap<THREE.BufferGeometry, DamageTopology>();
 
+function uploadDamagePages(attribute: THREE.BufferAttribute, pages: Set<number>, pageSize: number) {
+  if (!pages.size) return;
+  const components = pageSize * attribute.itemSize;
+  for (const range of attribute.updateRanges) {
+    const end = Math.floor((range.start + range.count - 1) / components);
+    for (let page = Math.floor(range.start / components); page <= end; page++) pages.add(page);
+  }
+  attribute.clearUpdateRanges();
+  const ordered = [...pages].sort((a, b) => a - b);
+  let start = ordered[0], end = start + 1;
+  const append = () => attribute.addUpdateRange(start * components, Math.min(end * components, attribute.array.length) - start * components);
+  for (let index = 1; index < ordered.length; index++) {
+    if (ordered[index] === end) end++;
+    else { append(); start = ordered[index]; end = start + 1 }
+  }
+  append();
+  attribute.needsUpdate = true;
+}
+
 export function prepareDamageTopology(group: THREE.Group, kind: VehicleConfig['kind']) {
   damageTopology((group.getObjectByName('body') as THREE.Mesh).geometry, kind);
+}
+
+export function createDamageMaterialWarmup(sources: THREE.Group[]) {
+  const group = new THREE.Group();
+  const materials: DamageMaterial[] = [];
+  for (const source of sources) {
+    const body = source.getObjectByName('body') as THREE.Mesh<THREE.BufferGeometry, THREE.Material>;
+    for (const glass of [false, true]) for (const transparent of [false, true]) {
+      const damage = new DamageMaterial(body.material, glass);
+      damage.material.transparent = transparent;
+      damage.material.opacity = transparent ? 0.5 : 1;
+      damage.material.depthWrite = !transparent;
+      damage.add(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0.5, 1);
+      const mesh = new THREE.Mesh(body.geometry, damage.material);
+      mesh.receiveShadow = body.receiveShadow;
+      group.add(mesh);
+      materials.push(damage);
+    }
+  }
+  return {
+    group,
+    dispose: () => {
+      group.removeFromParent();
+      group.clear();
+      for (const material of materials.splice(0)) material.dispose();
+    },
+  };
 }
 
 function cellKey(x: number, y: number, z: number) { return `${Math.floor(x / 0.35)}:${Math.floor(y / 0.35)}:${Math.floor(z / 0.35)}` }
@@ -291,6 +337,7 @@ export class VehicleDamage {
     topology.users++;
     const geometry = this.source.clone();
     const position = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const normal = geometry.getAttribute('normal') as THREE.BufferAttribute;
     for (const { tile, kind, geometry: partGeometry } of topology.parts) {
       const mesh = new THREE.Mesh(partGeometry, this.sourceMaterial);
       mesh.name = `damage_part_${tile}`;
@@ -301,6 +348,9 @@ export class VehicleDamage {
     }
     geometry.setIndex(topology.shell);
     position.setUsage(THREE.DynamicDrawUsage);
+    normal.setUsage(THREE.DynamicDrawUsage);
+    position.onUpload(() => position.clearUpdateRanges());
+    normal.onUpload(() => normal.clearUpdateRanges());
     geometry.boundingBox = topology.bounds.clone();
     geometry.boundingSphere = topology.sphere.clone();
     this.geometry = geometry;
@@ -315,7 +365,9 @@ export class VehicleDamage {
   }
 
   private dent(hit: PendingImpact, changed: Set<number>) {
-    const position = this.geometry!.getAttribute('position');
+    const position = this.geometry!.getAttribute('position') as THREE.BufferAttribute;
+    const pageSize = Math.ceil(position.count / 64);
+    const pages = new Set<number>();
     const radius = this.config.kind === 'car' ? 0.4 + hit.severity * 0.65 : 0.25 + hit.severity * 0.4;
     const depth = hit.amount * (this.config.kind === 'car' ? 0.12 : 0.06);
     const maximum = this.config.kind === 'car' ? 0.12 : 0.055;
@@ -338,19 +390,22 @@ export class VehicleDamage {
             vertex.copy(original).add(displacement);
             if (Math.abs(vertex.x - position.getX(index)) + Math.abs(vertex.y - position.getY(index)) + Math.abs(vertex.z - position.getZ(index)) < 0.00001) continue;
             position.setXYZ(index, vertex.x, vertex.y, vertex.z);
+            pages.add(Math.floor(index / pageSize));
             for (const offset of this.adjacency[index]) changed.add(offset);
             modified = true;
           }
         }
       }
     }
-    if (modified) position.needsUpdate = true;
+    uploadDamagePages(position, pages, pageSize);
     return modified;
   }
 
   private refreshNormals(changed: Set<number>) {
     const position = this.geometry!.getAttribute('position');
-    const normal = this.geometry!.getAttribute('normal');
+    const normal = this.geometry!.getAttribute('normal') as THREE.BufferAttribute;
+    const pageSize = Math.ceil(normal.count / 64);
+    const pages = new Set<number>();
     const index = this.geometry!.getIndex()!;
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
     const oldNormal = new THREE.Vector3(), newNormal = new THREE.Vector3(), value = new THREE.Vector3();
@@ -366,9 +421,10 @@ export class VehicleDamage {
       for (const vertex of vertices) {
         value.fromArray(this.restNormals!, vertex * 3).applyQuaternion(rotation);
         normal.setXYZ(vertex, value.x, value.y, value.z);
+        pages.add(Math.floor(vertex / pageSize));
       }
     }
-    normal.needsUpdate = true;
+    uploadDamagePages(normal, pages, pageSize);
     this.performance.geometryPasses++;
     this.performance.normalUpdates += changed.size;
   }

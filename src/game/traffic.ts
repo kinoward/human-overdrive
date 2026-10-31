@@ -184,10 +184,13 @@ export class TrafficSimulation {
     for (const agent of ongoing) if (agent.changeReturning) for (const other of continuing) {
       if (this.reservationConflict({ ...agent, changePaused: false }, { ...other, changePaused: false })) waitingForReturn.add(other.id);
     }
-    const waitingPlans = plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-agent.profile.comfortableBrake, agent.acceleration) } : agent);
-    const retreatSeen = this.observe(waitingPlans, obstacles);
-    const retreatPauses = plans.filter(agent => agent.changeReturning).map(agent => ({ agent, paused: !this.sweepClear(agent, retreatSeen) }));
-    for (const pause of retreatPauses) pause.agent.changePaused = pause.paused;
+    const returning = plans.filter(agent => agent.changeReturning);
+    if (returning.length) {
+      const waitingPlans = plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-agent.profile.comfortableBrake, agent.acceleration) } : agent);
+      const retreatSeen = this.observe(waitingPlans, obstacles);
+      const retreatPauses = returning.map(agent => ({ agent, paused: !this.sweepClear(agent, retreatSeen) }));
+      for (const pause of retreatPauses) pause.agent.changePaused = pause.paused;
+    }
     const motionSeen = this.observe(plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-agent.profile.comfortableBrake, agent.acceleration) } : agent), obstacles);
     const motions = plans.map(agent => {
       const destinationLane = agent.changeReturning ? agent.lane : agent.targetLane;
@@ -321,8 +324,12 @@ export class TrafficSimulation {
   private observe(cars: TrafficAgent[], obstacles: TrafficObstacle[]): SeenVehicle[] {
     const seen: SeenVehicle[] = cars.map(agent => ({ agent, position: bodyPosition(agent), velocity: { x: Math.sin(agent.heading) * agent.speed, y: 0, z: Math.cos(agent.heading) * agent.speed }, heading: agent.heading, length: agent.length, width: agent.width, trajectory: [] }));
     seen.push(...obstacles.map(other => ({ ...other, position: { ...other.position }, velocity: { ...other.velocity }, trajectory: [] })));
-    for (const other of seen) for (let step = 0; step <= 7; step++) other.trajectory.push(this.predictOther(other, step * 0.4));
     return seen;
+  }
+
+  private trajectory(other: SeenVehicle, count: number) {
+    for (let step = other.trajectory.length; step < count; step++) other.trajectory.push(this.predictOther(other, step * 0.4));
+    return other.trajectory;
   }
 
   private predictOther(other: SeenVehicle, time: number): TrafficPose {
@@ -362,11 +369,13 @@ export class TrafficSimulation {
 
   private sweepClear(agent: TrafficAgent, seen: SeenVehicle[]) {
     const shifting = { ...agent, changePaused: false };
-    const future = Array.from({ length: 4 }, (_, step) => this.predict(shifting, step * 0.4));
+    let future: TrafficPose[] | undefined;
     for (const other of seen) {
       if (other.agent?.id === agent.id || Math.hypot(other.position.x - agent.position.x, other.position.z - agent.position.z) > 90) continue;
-      if (this.overlap(future[0], agent.length, agent.width, other.trajectory[0], other.length, other.width, 0.35)) return false;
-      for (let step = 1; step < future.length; step++) if (this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, other.trajectory[step - 1], other.trajectory[step], other.length, other.width, 0.35) !== undefined) return false;
+      future ??= Array.from({ length: 4 }, (_, step) => this.predict(shifting, step * 0.4));
+      const trajectory = this.trajectory(other, future.length);
+      if (this.overlap(future[0], agent.length, agent.width, trajectory[0], other.length, other.width, 0.35)) return false;
+      for (let step = 1; step < future.length; step++) if (this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, trajectory[step - 1], trajectory[step], other.length, other.width, 0.35) !== undefined) return false;
     }
     return true;
   }
@@ -515,7 +524,7 @@ export class TrafficSimulation {
       const sample = this.sample(agent, along, offset);
       path.push({ point: sample.point, heading: sample.heading, along });
     }
-    const future = Array.from({ length: 8 }, (_, step) => this.predict(agent, step * 0.4, offset));
+    let future: TrafficPose[] | undefined;
     let gap = Infinity, leaderSpeed = agent.desiredSpeed, safe = true, rearBrake = 0;
     const origin = this.network.sample(agent.leg, agent.along, offset);
     for (const other of seen) {
@@ -563,8 +572,10 @@ export class TrafficSimulation {
       if (stableFront || (other.agent && this.hasMergePriority(agent, other.agent))) continue;
       const followingBehind = alongNow < -(agent.length / 2 + halfLength) && Math.abs(angle) < 0.25 && lateralNow < agent.width / 2 + halfWidth + 0.3;
       if (followingBehind && agent.changeTime >= 3 && Math.abs(offset - agent.offset) < 0.1) continue;
+      future ??= Array.from({ length: 8 }, (_, step) => this.predict(agent, step * 0.4, offset));
+      const trajectory = this.trajectory(other, future.length);
       for (let step = 1; step < future.length; step++) {
-        const fraction = this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, other.trajectory[step - 1], other.trajectory[step], other.length, other.width, 0.35);
+        const fraction = this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, trajectory[step - 1], trajectory[step], other.length, other.width, 0.35);
         if (fraction === undefined) continue;
         safe = false;
         const distance = this.integrate(agent.speed, agent.acceleration, (step - 1 + fraction) * 0.4).advance;
