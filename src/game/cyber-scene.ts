@@ -44,23 +44,32 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   const bloom=new UnrealBloomPass(size,.25,.57,1.28);composer.addPass(bloom);composer.addPass(new OutputPass());
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const film=new ShaderPass({
-    uniforms:{tDiffuse:{value:null},time:{value:0},speedAmount:{value:0},grainStrength:{value:.0035}},
+    uniforms:{tDiffuse:{value:null},time:{value:0},speedAmount:{value:0},grainStrength:{value:.0035},resolution:{value:new THREE.Vector2()}},
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader:`
 uniform sampler2D tDiffuse;
 uniform float time;
 uniform float speedAmount;
 uniform float grainStrength;
+uniform vec2 resolution;
 varying vec2 vUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
 void main(){
   vec2 p=vUv*2.-1.;
-  float edge=smoothstep(.42,.96,abs(p.x));
-  vec2 trail=(vUv-vec2(.5,.56))*speedAmount*edge*.014;
   vec3 c=texture2D(tDiffuse,vUv).rgb;
-  if(speedAmount>.001&&edge>.001){
-    c*=.4;
-    for(int i=1;i<=4;i++)c+=texture2D(tDiffuse,clamp(vUv-trail*float(i)*.25,vec2(.001),vec2(.999))).rgb*.15;
+  if(speedAmount>.001){
+    vec2 radial=vUv-vec2(.5,.56);
+    float radialDistance=length(radial*vec2(resolution.x/resolution.y,1.));
+    float ground=1.-smoothstep(.16,.48,vUv.y);
+    float player=smoothstep(.8,1.35,length((vUv-vec2(.5,.32))/vec2(.14,.22)));
+    float scene=max(smoothstep(.15,.8,radialDistance),ground*.7)*player;
+    float pixels=min(32.,speedAmount*32.)*scene;
+    if(pixels>.01){
+      vec2 direction=radial*resolution;
+      vec2 trail=direction/max(length(direction),1.)*pixels/resolution;
+      c*=.4;
+      for(int i=1;i<=6;i++)c+=texture2D(tDiffuse,clamp(vUv-trail*float(i)/6.,vec2(.001),vec2(.999))).rgb*.1;
+    }
   }
   float l=dot(c,vec3(.2126,.7152,.0722));
   c=mix(vec3(l),c,.95);
@@ -75,7 +84,7 @@ void main(){
 }`
   });composer.addPass(film);
   const fxaa=new ShaderPass(FXAAShader);composer.addPass(fxaa);
-  const resize=(width:number,height:number)=>{composer.setSize(width,height);const ratio=renderer.getPixelRatio();fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
+  const resize=(width:number,height:number)=>{composer.setSize(width,height);const ratio=renderer.getPixelRatio();film.uniforms.resolution.value.set(width*ratio,height*ratio);fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
   resize(size.x,size.y);
   let disposed=false;
   const dispose=()=>{
@@ -97,7 +106,8 @@ void main(){
         distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+580;});
       }
       city.update(focus);atmosphere.update(time,focus,heading);film.uniforms.time.value=time;
-      film.uniforms.speedAmount.value=reducedMotion.matches?0:THREE.MathUtils.smoothstep(Math.abs(speed),12,52)*(lookBack?.35:1);
+      const velocity=Math.abs(speed);
+      film.uniforms.speedAmount.value=reducedMotion.matches?0:(THREE.MathUtils.smoothstep(velocity,.5,4)*.2+THREE.MathUtils.smoothstep(velocity,4,55)*.8)*(lookBack?.25:1);
       film.uniforms.grainStrength.value=reducedMotion.matches?0:.0035;
       renderPass.camera=camera;renderer.info.reset();composer.render();
     }
