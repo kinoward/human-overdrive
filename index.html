@@ -10,6 +10,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%230a1016'/%3E%3Cpath d='M12 43l14-24h12L24 43zm19 0l14-24h7L38 43z' fill='%23dcf45b'/%3E%3C/svg%3E" />
   </head>
   <body>
+    <div id="game-viewport">
     <div id="scene" inert></div>
     <div id="app" inert aria-busy="true"></div>
     <section id="loading-screen" class="loading-screen" aria-labelledby="loading-title">
@@ -23,6 +24,7 @@
         <button id="loading-retry" type="button" hidden>重新载入</button>
       </div>
     </section>
+    </div>
     <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

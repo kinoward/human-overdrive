@@ -134,7 +134,7 @@ export class GameEngine {
     this.mapCanvas.setAttribute('role', 'img');
     this.mapCanvas.setAttribute('aria-label', '车头朝上的附近路网与追捕位置');
     document.querySelector('#scene')!.append(this.mapCanvas);
-    window.addEventListener('resize', this.resize);
+    new ResizeObserver(this.resize).observe(document.querySelector('#scene')!);
     window.addEventListener('keydown', this.keyDown);
     window.addEventListener('keyup', this.keyUp);
     window.addEventListener('blur', this.blur);
@@ -723,10 +723,11 @@ export class GameEngine {
   };
 
   private resize = () => {
+    const { width, height } = this.renderer.domElement.parentElement!.getBoundingClientRect();
     this.needsRender = true;
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.scenery?.resize(window.innerWidth, window.innerHeight);
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.renderer.setSize(width, height);
+    this.scenery?.resize(width, height);
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.drawMap();
   };

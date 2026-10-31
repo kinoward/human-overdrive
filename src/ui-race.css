@@ -1,4 +1,4 @@
-.race-hud-arcade{--race-lime:#e1fb50;--race-cyan:#82efff;--race-red:#ff6d66;--race-edge:clamp(22px,3.1vw,54px);--race-speed:0;position:fixed;inset:0;padding:0;display:block;color:#fff;pointer-events:none;overflow:hidden;text-shadow:0 2px 7px #07121fc9;font-variant-numeric:tabular-nums}
+.race-hud-arcade{--race-lime:#e1fb50;--race-cyan:#82efff;--race-red:#ff6d66;--race-edge:clamp(22px,3.1cqw,54px);--race-speed:0;position:absolute;inset:0;padding:0;display:block;color:#fff;pointer-events:none;overflow:hidden;text-shadow:0 2px 7px #07121fc9;font-variant-numeric:tabular-nums}
 .race-hud-arcade::before{content:"";position:absolute;inset:0;background:linear-gradient(#020a176b,transparent 27%,transparent 78%,#020a174d);pointer-events:none}
 .race-hud-arcade .r-eyebrow{font-size:11px;font-weight:700;letter-spacing:3px;color:#d8e6ee;line-height:1.6}
 .r-distance{position:absolute;top:31px;left:var(--race-edge);padding-left:17px;border-left:3px solid var(--race-lime)}
@@ -8,7 +8,7 @@
 .r-kilometers{font-size:12px;letter-spacing:1px;color:#cad7df}
 .r-kilometers>b{color:white;font-size:16px;font-weight:700}
 .r-city{display:block;font-size:10px;letter-spacing:1.5px;color:#b7c9d6;margin-top:13px}
-.r-timer{position:absolute;left:50%;top:32px;transform:translateX(-50%);width:clamp(190px,25vw,360px);text-align:center}
+.r-timer{position:absolute;left:50%;top:32px;transform:translateX(-50%);width:clamp(190px,25cqw,360px);text-align:center}
 .r-timer>.r-eyebrow{font-size:9px;letter-spacing:3px}
 .r-timer>strong{display:block;font-family:Arial,sans-serif;font-size:30px;font-weight:800;font-style:italic;letter-spacing:1px;line-height:1.45}
 .r-route-track{position:relative;height:6px;background:#06111ea6;transform:skewX(-20deg);margin-top:6px;box-shadow:0 0 0 1px #c1dded38}
@@ -45,7 +45,7 @@
 .r-police-meter>i.is-lit{background:var(--race-red);box-shadow:0 0 8px #ff6d6633}
 .r-air{display:flex;align-items:baseline;gap:7px;font-size:10px;color:#c5d9e7;letter-spacing:1px;margin-top:14px}
 .r-air>strong{font-family:Arial,sans-serif;font-size:16px;color:#e9f7ff;margin-left:auto}
-.r-event{position:absolute;right:var(--race-edge);top:38%;width:270px;max-width:28vw;padding:13px 16px 14px 20px;border-left:3px solid var(--race-cyan);background:linear-gradient(90deg,#061626bf,#06162620);opacity:0;translate:18px 0;transition:opacity 200ms,translate 200ms}
+.r-event{position:absolute;right:var(--race-edge);top:38%;width:270px;max-width:28cqw;padding:13px 16px 14px 20px;border-left:3px solid var(--race-cyan);background:linear-gradient(90deg,#061626bf,#06162620);opacity:0;translate:18px 0;transition:opacity 200ms,translate 200ms}
 .r-event.is-visible{opacity:1;translate:0 0}
 .r-event-kicker{display:block;font-size:10px;font-weight:700;letter-spacing:3px;color:var(--race-cyan);margin-bottom:7px}
 .r-event>strong{font-size:15px;font-weight:800;font-style:italic;line-height:1.7;letter-spacing:.5px}
@@ -83,7 +83,7 @@
 .r-map-frame>span{position:absolute;left:0;top:0;font-size:9px;font-weight:700;letter-spacing:3px;line-height:24px;color:#d5e6ef}
 .r-map-frame small{margin-left:10px;font-size:8px;font-weight:400;letter-spacing:1px;color:#b6d0dc}
 .r-map-frame>i{position:absolute;left:0;top:23px;width:28px;border-top:2px solid var(--race-cyan)}
-#scene .race-map{position:fixed;left:clamp(22px,3.1vw,54px);bottom:39px;width:260px;height:180px;z-index:3;pointer-events:none;overflow:hidden;border:0;border-radius:0;background:none;box-shadow:none}
+#scene .race-map{position:absolute;left:clamp(22px,3.1cqw,54px);bottom:39px;width:260px;height:180px;z-index:3;pointer-events:none;overflow:hidden;border:0;border-radius:0;background:none;box-shadow:none}
 .r-key-hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:19px;font-size:9px;color:#c3d8e7;white-space:nowrap}
 .r-key-hint>span{display:flex;align-items:center;gap:6px}
 .r-key-hint kbd{height:auto;min-width:0;padding:0;color:#f4faff;font-size:9px;background:none;border:0;font-weight:700;letter-spacing:.5px}
@@ -112,7 +112,7 @@
 @keyframes r-speed-left{0%{translate:130px 0;opacity:0}25%{opacity:.9}100%{translate:-180px 0;opacity:0}}
 @keyframes r-speed-right{0%{translate:-130px 0;opacity:0}25%{opacity:.9}100%{translate:180px 0;opacity:0}}
 @keyframes r-danger-pulse{0%,100%{opacity:1}50%{opacity:.45}}
-@media(max-width:1100px){
+@container game-viewport (max-width:1100px){
   .r-timer{width:230px}
   .r-speed{width:204px}
   .r-speed-number>strong{font-size:80px}
@@ -123,7 +123,7 @@
   .r-score-number{font-size:41px}
   .r-capture{bottom:115px;width:305px}
 }
-@media(max-width:760px){
+@container game-viewport (max-width:760px){
   .race-hud-arcade{--race-edge:20px}
   .r-distance{top:24px;padding-left:11px}
   .r-percent strong{font-size:48px;letter-spacing:-3px}
@@ -153,7 +153,7 @@
   .r-wrong-way{top:123px;padding:7px 12px;gap:7px}
   .r-wrong-way>strong{font-size:12px;letter-spacing:1px}
   .r-wrong-way>span:last-child{display:none}
-  .r-event{top:34%;max-width:31vw;width:200px;padding:10px 12px}
+  .r-event{top:34%;max-width:31cqw;width:200px;padding:10px 12px}
   .r-event-kicker{font-size:8px;letter-spacing:2px}
   .r-event>strong{font-size:11px}
   .r-score{bottom:62px;min-width:170px;padding-right:10px}
@@ -172,7 +172,7 @@
   .r-capture-heading>b{font-size:20px}
   .r-capture-heading small{font-size:8px}
 }
-@media(max-width:520px){
+@container game-viewport (max-width:520px){
   .race-hud-arcade{--race-edge:16px}
   .r-distance{top:21px}
   .r-percent strong{font-size:43px}
@@ -190,13 +190,13 @@
   .r-speed{top:73px;width:157px}
   .r-speed-number>strong{font-size:62px}
   .r-speed-status{font-size:8px}
-  .r-event{top:240px;max-width:43vw;width:170px;padding:9px 11px}
+  .r-event{top:240px;max-width:43cqw;width:170px;padding:9px 11px}
   .r-event>strong{font-size:11px;line-height:1.65}
   .r-event-kicker{font-size:8px;letter-spacing:1px}
   .r-wrong-way{top:198px;left:auto;right:16px;transform:none;padding:6px 8px;gap:5px}
   .r-wrong-way>span:first-child{font-size:24px}
   .r-wrong-way>strong{font-size:11px}
-  .r-score{bottom:61px;min-width:145px;max-width:47vw}
+  .r-score{bottom:61px;min-width:145px;max-width:47cqw}
   .r-score>.r-eyebrow{font-size:8px}
   .r-score-number{font-size:31px}
   .r-score-detail{flex-direction:column;gap:4px}
@@ -211,7 +211,7 @@
   .r-key-hint>span:nth-child(3){display:none}
   .r-capture{bottom:202px;width:280px}
 }
-@media(max-height:600px) and (min-width:521px){
+@container game-viewport (max-height:600px) and (min-width:521px){
   .r-distance{top:20px}
   .r-percent strong{font-size:46px}
   .r-city{margin-top:6px}
@@ -238,7 +238,7 @@
   .r-capture{bottom:74px;width:290px}
   .r-key-hint{bottom:12px;font-size:8px}
 }
-@media(max-height:440px) and (min-width:521px){
+@container game-viewport (max-height:440px) and (min-width:521px){
   .r-distance{top:14px}
   .r-distance>.r-eyebrow{font-size:8px}
   .r-percent strong{font-size:37px}
@@ -267,7 +267,7 @@
   .r-capture>span{font-size:8px}
   .r-key-hint{bottom:8px;font-size:7px}
 }
-@media(max-width:760px) and (min-width:521px) and (max-height:440px){
+@container game-viewport (max-width:760px) and (min-width:521px) and (max-height:440px){
   .r-pursuit{top:112px;width:140px}
   .r-map-frame{width:130px;height:107px}
   #scene .race-map{width:130px;height:82px}
@@ -283,7 +283,7 @@
   .r-capture>span{font-size:7px;letter-spacing:0}
   .race-hud-arcade[data-captured=true] .r-event{visibility:hidden}
 }
-@media(max-width:520px) and (max-height:520px){
+@container game-viewport (max-width:520px) and (max-height:520px){
   .r-distance{top:14px}
   .r-percent strong{font-size:36px}
   .r-city{display:none}
@@ -313,7 +313,7 @@
   .r-capture>span{display:none}
   .race-hud-arcade[data-captured=true] .r-event{visibility:hidden}
 }
-@media(max-width:520px) and (max-height:420px){
+@container game-viewport (max-width:520px) and (max-height:420px){
   .r-distance{top:10px}
   .r-percent strong{font-size:30px}
   .r-timer{top:80px}
@@ -330,6 +330,9 @@
   .r-score-detail{font-size:7px;gap:2px}
   .r-event{bottom:122px}
   .r-capture{bottom:111px;padding:6px 12px}
+}
+@container game-viewport (max-width:520px){
+  .race-hud-arcade,#scene .race-map{zoom:calc(100cqw / 760px)}
 }
 @media(prefers-reduced-motion:reduce){
   .race-hud-arcade *,.race-hud-arcade *::before,.race-hud-arcade *::after{animation:none!important;transition:none!important}

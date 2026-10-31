@@ -3,7 +3,7 @@
 :root {
   font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #edf3f5;
-  background: #0a1016;
+  background: #000;
   font-synthesis: none;
   font-size: 14px;
   --ink: #edf3f5;
@@ -16,7 +16,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 360px; }
+body { margin: 0; }
 button, input, select { font: inherit; }
 button { color: inherit; cursor: pointer; border: 0; background: none; }
 button:disabled { cursor: default; }
@@ -27,9 +27,9 @@ a { color: inherit; }
 svg { display: block; }
 button svg { width: 22px; height: 22px; flex-shrink: 0; }
 ::selection { background: var(--accent); color: #0a1016; }
-#scene { position: fixed; inset: 0; z-index: 0; }
+#scene { position: absolute; inset: 0; z-index: 0; }
 #scene canvas { width: 100%; height: 100%; display: block; }
-#app { position: relative; z-index: 1; min-height: 100dvh; pointer-events: none; }
+#app { position: absolute; inset: 0; z-index: 1; overflow: auto; pointer-events: none; }
 .game-ui { background: #0a1016; background-image: linear-gradient(#0a1016f5, #0a1016ed), url('/assets/ui-racing/racing-hero-v1.webp'); background-size: cover; background-position: center; }
 .game-ui > * { pointer-events: auto; }
 .game-ui.panel-race, .game-ui.panel-pause { background: none; pointer-events: none; }
@@ -56,7 +56,7 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .text-button:hover { color: var(--accent); }
 .text-button svg { width: 17px; height: 17px; }
 .key, kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 25px; padding: 0 5px; border: 1px solid #46555f; border-radius: 2px; color: #cad7de; background: #101c24; font-size: 10px; font-family: inherit; }
-.page-main { max-width: 1280px; margin: auto; padding: 26px 4% 50px; min-height: calc(100dvh - 145px); }
+.page-main { max-width: 1280px; margin: auto; padding: 26px 4% 50px; min-height: calc(100cqh - 145px); }
 .page-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 32px; }
 .page-heading h1 { margin: 10px 0 0; font-size: 38px; font-weight: 750; line-height: 1.4; font-style: italic; }
 .page-heading h1 em { font-style: inherit; }
@@ -64,12 +64,12 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .page-note { display: flex; align-items: center; gap: 10px; margin-top: 22px; font-size: 11px; color: var(--muted); }
 .page-note button { margin-left: auto; }
 .road-map { width: 100%; height: auto; }
-.error-banner { position: fixed; z-index: 20; left: 50%; top: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: 90vw; padding: 15px 20px; background: #2d1c19; color: #f2b19b; border: 1px solid #bd705a; font-size: 12px; }
+.error-banner { position: absolute; z-index: 20; left: 50%; top: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: 90cqw; padding: 15px 20px; background: #2d1c19; color: #f2b19b; border: 1px solid #bd705a; font-size: 12px; }
 .error-banner > span { line-height: 1.8; }
 .error-banner > strong, .error-banner > button { white-space: nowrap; }
 .error-banner > button { text-decoration: underline; }
 
-.menu-screen { --u: min(.0714285714vw, .125dvh); position: fixed !important; inset: 0; min-height: 0 !important; overflow: hidden; background: #080d13; }
+.menu-screen { --u: min(.0714285714cqw, .125cqh); position: absolute !important; inset: 0; min-height: 0 !important; overflow: hidden; background: #080d13; }
 .menu-screen::before { content: ''; position: absolute; inset: 0; background: url('/assets/ui-racing/racing-hero-v1.webp') center 56% / cover no-repeat; pointer-events: none; }
 .menu-screen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #050b12e6 0%, #071018bc 44%, #071018b3 100%); pointer-events: none; }
 .panel-home.menu-screen::after { background: linear-gradient(90deg, #03080d63 0%, transparent 65%); }
@@ -169,9 +169,9 @@ button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .map-attribution { margin-top: calc(60 * var(--u)); color: #6e8a9d; font-size: calc(10 * var(--u)); text-decoration: none; }
 
 
-.screen-content { position: relative; min-height: calc(100dvh - 145px); }
+.screen-content { position: relative; min-height: calc(100cqh - 145px); }
 .menu-screen > .screen-content { position: absolute; inset: 0; min-height: 0; }
-.panel-race > .screen-content, .panel-pause > .screen-content { position: fixed; inset: 0; min-height: 100dvh; pointer-events: none; }
+.panel-race > .screen-content, .panel-pause > .screen-content { position: absolute; inset: 0; min-height: 100cqh; pointer-events: none; }
 .city-view-switch { position: absolute; right: calc(45 * var(--u)); top: calc(42 * var(--u)); z-index: 4; display: flex; gap: calc(5 * var(--u)); padding: calc(4 * var(--u)); border: 1px solid #7c9eb438; background: #0a141caa; }
 .city-view-switch button { display: flex; gap: calc(8 * var(--u)); align-items: center; min-height: calc(35 * var(--u)); padding: 0 calc(14 * var(--u)); color: #7f99ab; font-size: calc(11 * var(--u)); }
 .city-view-switch button.selected { color: #101810; background: var(--accent); }

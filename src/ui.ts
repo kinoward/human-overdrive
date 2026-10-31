@@ -165,7 +165,7 @@ export class GameUI {
       if (id !== this.transitionId) return;
       this.panel = panel;
       this.render();
-      window.scrollTo(0, 0);
+      this.root.scrollTo(0, 0);
       onEnter?.();
       if (id !== this.transitionId) return;
       await this.animateScreen(this.root.querySelector<HTMLElement>(panel === 'pause' ? '.pause-panel' : '.screen-content'), true);
