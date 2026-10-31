@@ -18,6 +18,7 @@
 
 - [Three.js](https://github.com/mrdoob/three.js)：MIT。完整声明保存于 `public/licenses/three.txt`，构建时随静态产物分发。
 - [Rapier](https://github.com/dimforge/rapier)：Apache-2.0。完整声明保存于 `public/licenses/rapier.txt`，构建时随静态产物分发。
+- 轻量车损参考 [Randomation Vehicle Physics](https://github.com/JustInvoke/Randomation-Vehicle-Physics/tree/192ba860c3c92a16363ffe87fb943dc282e62398) 的 `VehicleDamage.cs`、`DetachablePart.cs` 与 `ShatterPart.cs`，采用局部距离衰减、破损状态和脱落速度继承思路，以 TypeScript 独立实现；没有复制上游模型、纹理或音效。参考代码为 Justin Couch 的 MIT 许可，完整声明随 `public/licenses/randomation-vehicle-physics.txt` 分发。本项目碎片音效仍由浏览器合成。
 - 车辆悬挂实现参考 [Three.js 官方 Rapier 示例](https://threejs.org/examples/physics_rapier_vehicle_controller.html)与 Rapier 车辆控制器 API；场景计时和渲染使用 Three.js 官方 Timer、WebGLRenderer 和实例化几何能力。依赖与物理 WebAssembly 从本地安装包打包，未保留示例的运行时 CDN 依赖。
 
 ## 已接入的网页美术与字体

@@ -221,6 +221,7 @@ function addMotorcycle(group: THREE.Group, _config: VehicleConfig) {
 
 export function createVehicleModel(config: VehicleConfig, police = false) {
   const group = new THREE.Group();
+  group.userData.damageModel = config.kind === 'motorcycle' && !police ? 'motorcycle' : 'car';
   const details: { wheels: THREE.Group[]; brakeLights: THREE.Mesh[]; policeLights: THREE.Mesh[]; turnSignals: THREE.Mesh[]; dispose?: () => void } = config.kind === 'motorcycle' && !police ? addMotorcycle(group, config) : addCar(group, config, police);
   mergeStatic(group, [...details.brakeLights, ...details.policeLights, ...details.turnSignals]);
   return { group, ...details, wheelRadius: config.kind === 'motorcycle' && !police ? 0.36 : 0.378, dispose: details.dispose ?? createDisposer(group) };

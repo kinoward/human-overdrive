@@ -25,4 +25,21 @@ export class GameAudio {
   }
 
   setMuted(value: boolean) { this.muted = value }
+
+  impact(strength: number) {
+    if (!this.context || this.muted) return;
+    const now = this.context.currentTime;
+    const duration = 0.08 + strength * 0.12;
+    const oscillator = this.context.createOscillator();
+    const gain = this.context.createGain();
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(85 + strength * 45, now);
+    oscillator.frequency.exponentialRampToValueAtTime(28, now + duration);
+    gain.gain.setValueAtTime(0.018 + strength * 0.065, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(gain).connect(this.context.destination);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() };
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+  }
 }
