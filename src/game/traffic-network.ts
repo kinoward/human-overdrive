@@ -28,6 +28,8 @@ export function laneOffset(leg: TrafficLeg, lane: number) {
 export class TrafficNetwork {
   readonly legs: TrafficLeg[] = [];
   private outgoing = new Map<string, TrafficLeg[]>();
+  private incoming = new Map<string, TrafficLeg[]>();
+  private narrowExits = new Map<number, boolean>();
   private cells = new Map<string, { leg: TrafficLeg; along: number }[]>();
 
   constructor(roads: RoadPath[]) {
@@ -45,6 +47,8 @@ export class TrafficNetwork {
           this.legs.push(leg);
           if (!this.outgoing.has(leg.from)) this.outgoing.set(leg.from, []);
           this.outgoing.get(leg.from)!.push(leg);
+          if (!this.incoming.has(leg.to)) this.incoming.set(leg.to, []);
+          this.incoming.get(leg.to)!.push(leg);
           const steps = Math.max(1, Math.ceil(leg.length / 35));
           for (let step = 0; step < steps; step++) {
             const along = leg.length * (step + 0.5) / steps;
@@ -75,12 +79,44 @@ export class TrafficNetwork {
     return lane;
   }
 
+  private connects(from: TrafficLeg, to: TrafficLeg) {
+    if (from.to !== to.from || (from.road === to.road && from.sign !== to.sign)) return false;
+    const incoming = this.sample(from, Math.max(0, from.length - 2), 0).heading;
+    const outgoing = this.sample(to, Math.min(2, to.length), 0).heading;
+    const maximum = from.road.kind === 'main' && to.road.kind === 'main' ? 1.35 : 1.75;
+    return Math.abs(angleDifference(outgoing, incoming)) <= maximum;
+  }
+
+  isMerge(from: TrafficLeg, to: TrafficLeg) {
+    if (from.road === to.road) return false;
+    return (this.incoming.get(to.from) ?? []).some(other => other !== from && this.connects(other, to) && other.road !== from.road);
+  }
+
+  canExitNarrow(leg: TrafficLeg) {
+    if (leg.road.oneWay || leg.road.lanes > 1) return true;
+    const cached = this.narrowExits.get(leg.id);
+    if (cached !== undefined) return cached;
+    const queue = [leg];
+    const visited = new Set<number>();
+    while (queue.length) {
+      const current = queue.pop()!;
+      if (visited.has(current.id)) continue;
+      visited.add(current.id);
+      for (const next of this.outgoing.get(current.to) ?? []) {
+        if (!this.connects(current, next)) continue;
+        if (next.road !== leg.road) { this.narrowExits.set(leg.id, true); return true }
+        queue.push(next);
+      }
+    }
+    this.narrowExits.set(leg.id, false);
+    return false;
+  }
+
   next(leg: TrafficLeg, lane: number, seed: number): TrafficLeg | undefined {
     const heading = this.sample(leg, Math.max(0, leg.length - 2), 0).heading;
     const options = (this.outgoing.get(leg.to) ?? []).filter(next => {
-      if (next.road === leg.road && next.sign !== leg.sign) return false;
+      if (!this.connects(leg, next) || !this.canExitNarrow(next)) return false;
       const turn = angleDifference(this.sample(next, Math.min(2, next.length), 0).heading, heading);
-      if (Math.abs(turn) > 1.35) return false;
       if (next.road.kind === 'ramp' && leg.road.kind !== 'ramp' && laneCount(leg) > 1) return turn < 0 ? lane === 0 : lane === laneCount(leg) - 1;
       return true;
     });

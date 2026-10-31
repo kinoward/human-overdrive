@@ -1,5 +1,6 @@
 import type { Point3, RoadPath } from '../types';
 import { TrafficNetwork, angleDifference, clamp, laneCount, laneOffset, type TrafficLeg } from './traffic-network';
+import { TrafficRightOfWay } from './traffic-right-of-way';
 
 export interface TrafficObstacle {
   position: Point3;
@@ -30,6 +31,8 @@ export interface TrafficAgent {
   targetLane: number;
   changeFrom: number;
   changeTime: number;
+  changePaused: boolean;
+  changeReturning: boolean;
   cooldown: number;
   decisionTime: number;
   desiredSpeed: number;
@@ -40,8 +43,14 @@ export interface TrafficAgent {
   previousOffset: number;
 }
 
+interface TrafficPose {
+  position: Point3;
+  heading: number;
+}
+
 interface SeenVehicle extends TrafficObstacle {
   agent?: TrafficAgent;
+  trajectory: TrafficPose[];
 }
 
 interface LaneView {
@@ -59,9 +68,11 @@ export class TrafficSimulation {
   readonly cars: TrafficAgent[] = [];
   private network: TrafficNetwork;
   private obstacles: TrafficObstacle[] = [];
+  private rightOfWay: TrafficRightOfWay;
 
   constructor(roads: RoadPath[]) {
     this.network = new TrafficNetwork(roads);
+    this.rightOfWay = new TrafficRightOfWay(this.network);
   }
 
   addCar(id: number, length: number, width: number, focus: Point3): TrafficAgent | undefined {
@@ -74,7 +85,7 @@ export class TrafficSimulation {
       id, length, width, road: leg.road, leg, along, lane, targetLane: lane, offset, distance: sample.distance,
       position: sample.point, heading: sample.heading, pitch: sample.pitch, speed: roadSpeed(leg.road, id) * 0.7,
       desiredSpeed: roadSpeed(leg.road, id), acceleration: 0, wheelDistance: 0, braking: false, indicator: 0,
-      relocated: true, changeFrom: offset, changeTime: 3, cooldown: 2 + id % 4, decisionTime: id % 5 * 0.08,
+      relocated: true, changeFrom: offset, changeTime: 3, changePaused: false, changeReturning: false, cooldown: 2 + id % 4, decisionTime: id % 5 * 0.08,
       visits: 0, previousOffset: offset, next: this.network.next(leg, lane, id)
     };
     this.cars.push(agent);
@@ -83,86 +94,211 @@ export class TrafficSimulation {
 
   update(dt: number, focus: Point3, obstacles: TrafficObstacle[]) {
     this.obstacles = obstacles;
+    this.rightOfWay.update(this.cars, obstacles, dt);
     for (const agent of this.cars) {
       agent.relocated = false;
       if (Math.hypot(agent.position.x - focus.x, agent.position.z - focus.z) > 680) this.relocate(agent, focus);
     }
-    const seen: SeenVehicle[] = [
-      ...this.cars.map(agent => ({ agent, position: bodyPosition(agent), velocity: { x: Math.sin(agent.heading) * agent.speed, y: 0, z: Math.cos(agent.heading) * agent.speed }, heading: agent.heading, length: agent.length, width: agent.width })),
-      ...obstacles
-    ];
-    for (const agent of this.cars) {
+    if (this.cars.some(agent => agent.relocated)) this.rightOfWay.update(this.cars, obstacles, 0);
+    const snapshots = this.cars.map(agent => ({ ...agent, position: { ...agent.position } }));
+    const seen = this.observe(snapshots, obstacles);
+    const plans = snapshots.map(agent => ({ ...agent, position: { ...agent.position } }));
+    const proposals: { agent: TrafficAgent; lane: number; gain: number }[] = [];
+    for (const agent of plans) {
       agent.cooldown = Math.max(0, agent.cooldown - dt);
       agent.decisionTime -= dt;
-      const targetOffset = laneOffset(agent.leg, agent.targetLane);
-      let view = this.sense(agent, targetOffset, seen);
-      const remaining = agent.leg.length - agent.along;
-      if (agent.decisionTime <= 0) {
-        agent.decisionTime = 0.25 + agent.id % 3 * 0.04;
-        if (agent.cooldown === 0 && agent.changeTime >= 3 && laneCount(agent.leg) > 1 && agent.along > 15) {
-          const currentAcceleration = this.followAcceleration(agent, view);
-          let bestLane = agent.lane;
-          let bestGain = 0.55;
-          for (const lane of [agent.lane - 1, agent.lane + 1]) {
-            if (lane < 0 || lane >= laneCount(agent.leg) || !this.laneChangeRoom(agent, lane)) continue;
-            const candidate = this.sense(agent, laneOffset(agent.leg, lane), seen);
-            const gain = this.followAcceleration(agent, candidate) - currentAcceleration - 0.3 * candidate.rearBrake;
-            const reservation = this.cars.some(other => other !== agent && other.leg === agent.leg && other.targetLane === lane && Math.abs(other.along - agent.along) < 16 + agent.speed && other.changeTime < 3);
-            if (candidate.safe && !reservation && gain > bestGain) { bestLane = lane; bestGain = gain }
-          }
-          if (bestLane !== agent.lane) {
-            agent.targetLane = bestLane;
-            agent.next = this.network.next(agent.leg, bestLane, agent.id + agent.visits);
-            agent.changeFrom = agent.offset;
-            agent.changeTime = 0;
-            agent.cooldown = 5 + agent.id % 4;
-            agent.indicator = bestLane > agent.lane ? 1 : -1;
-            view = this.sense(agent, laneOffset(agent.leg, bestLane), seen);
-          }
-        }
+      agent.desiredSpeed = this.targetSpeed(agent);
+      if (agent.decisionTime > 0) continue;
+      agent.decisionTime = 0.25 + agent.id % 3 * 0.04;
+      if (agent.cooldown > 0 || agent.changeTime < 3 || laneCount(agent.leg) < 2 || agent.speed < 2) continue;
+      const view = this.sense(agent, agent.offset, seen);
+      const currentAcceleration = this.followAcceleration(agent, view);
+      let bestLane = agent.lane, bestGain = 0.55;
+      for (const lane of [agent.lane - 1, agent.lane + 1]) {
+        if (lane < 0 || lane >= laneCount(agent.leg) || !this.laneChangeRoom(agent, lane)) continue;
+        const candidate = this.sense(agent, laneOffset(agent.leg, lane), seen);
+        const gain = this.followAcceleration(agent, candidate) - currentAcceleration - 0.3 * candidate.rearBrake;
+        if (candidate.safe && gain > bestGain) { bestLane = lane; bestGain = gain }
       }
+      if (bestLane !== agent.lane) proposals.push({ agent, lane: bestLane, gain: bestGain });
+    }
+    const reservations = plans.filter(agent => agent.changeTime < 3);
+    proposals.sort((a, b) => b.gain - a.gain || a.agent.id - b.agent.id);
+    for (const proposal of proposals) {
+      const agent = proposal.agent;
+      const candidate = { ...agent, targetLane: proposal.lane, changeFrom: agent.offset, changeTime: 0, changePaused: false, changeReturning: false };
+      candidate.next = this.network.next(candidate.leg, candidate.targetLane, candidate.id + candidate.visits);
+      if (reservations.some(other => this.reservationConflict(candidate, other))) continue;
+      agent.targetLane = candidate.targetLane; agent.next = candidate.next;
+      agent.changeFrom = agent.offset; agent.changeTime = 0; agent.changePaused = false; agent.changeReturning = false;
+      agent.cooldown = 5 + agent.id % 4; agent.indicator = agent.targetLane > agent.lane ? 1 : -1;
+      reservations.push(agent);
+    }
+    const continuing: TrafficAgent[] = [];
+    const ongoing = plans.filter(agent => agent.changeTime < 3).sort((a, b) => b.changeTime - a.changeTime || a.id - b.id);
+    for (const agent of ongoing) {
+      if (agent.changeReturning) continue;
+      agent.changePaused = false;
+      if (agent.speed < 0.01 || continuing.some(other => this.reservationConflict({ ...agent, changePaused: false }, { ...other, changePaused: false }))) this.returnToLane(agent);
+      else continuing.push(agent);
+    }
+    const waitingForReturn = new Set<number>();
+    for (const agent of ongoing) if (agent.changeReturning) for (const other of continuing) {
+      if (this.reservationConflict({ ...agent, changePaused: false }, { ...other, changePaused: false })) waitingForReturn.add(other.id);
+    }
+    const waitingPlans = plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-3, agent.acceleration) } : agent);
+    const retreatSeen = this.observe(waitingPlans, obstacles);
+    const retreatPauses = plans.filter(agent => agent.changeReturning).map(agent => ({ agent, paused: !this.sweepClear(agent, retreatSeen) }));
+    for (const pause of retreatPauses) pause.agent.changePaused = pause.paused;
+    const motionSeen = this.observe(plans.map(agent => waitingForReturn.has(agent.id) ? { ...agent, changePaused: true, acceleration: Math.min(-3, agent.acceleration) } : agent), obstacles);
+    const motions = plans.map(agent => {
+      const destinationLane = agent.changeReturning ? agent.lane : agent.targetLane;
+      const targetView = this.sense(agent, laneOffset(agent.leg, destinationLane), motionSeen);
+      let view = targetView;
       if (agent.changeTime < 3) {
-        const currentView = this.sense(agent, agent.offset, seen);
+        const currentView = this.sense(agent, agent.offset, motionSeen);
         if (currentView.gap < view.gap) view = currentView;
       }
-      if (!agent.next) {
-        const gap = remaining - agent.length / 2 - 2;
-        if (gap < view.gap) view = { ...view, gap, leaderSpeed: 0 };
-      } else if (this.requiresYield(agent) && remaining < 45 && !this.mergeSafe(agent, seen)) {
-        const gap = remaining - agent.length / 2 - 2;
-        if (gap < view.gap) view = { ...view, gap, leaderSpeed: 0 };
-      }
-      agent.desiredSpeed = this.targetSpeed(agent);
-      agent.acceleration = clamp(this.followAcceleration(agent, view), -8, 2.1);
+      const remaining = agent.leg.length - agent.along;
+      let stop = this.rightOfWay.stopDistance(agent);
+      if (!agent.next || (agent.changeTime < 3 && agent.next.road !== agent.road)) stop = Math.min(stop, remaining - agent.length / 2 - 2);
+      else if (this.network.isMerge(agent.leg, agent.next) && remaining < Math.max(45, agent.speed * 3) && !this.mergeSafe(agent, motionSeen)) stop = Math.min(stop, remaining - agent.length / 2 - 2);
+      if (stop < view.gap) view = { ...view, gap: stop, leaderSpeed: 0 };
+      let acceleration = clamp(this.followAcceleration(agent, view), -8, 2.1);
       const closing = agent.speed - view.leaderSpeed;
-      if (closing > 0 && view.gap / closing < 1.2) agent.acceleration = -8;
-      const nextSpeed = Math.max(0, agent.speed + agent.acceleration * dt);
-      let advance = (agent.speed + nextSpeed) * dt * 0.5;
-      if (view.gap < advance + 0.25 && view.leaderSpeed < agent.speed) advance = Math.max(0, view.gap - 0.2 + Math.max(0, view.leaderSpeed) * dt);
-      agent.braking = agent.acceleration < -0.6 || advance < 0.001;
-      agent.speed = advance < (agent.speed + nextSpeed) * dt * 0.5 - 0.001 ? advance / dt : nextSpeed;
-      agent.changeTime = Math.min(3, agent.changeTime + dt);
+      if (closing > 0 && view.gap / closing < 1.2) acceleration = -8;
+      const shifting = agent.changeTime < 3;
+      const corridorSafe = !shifting || (!waitingForReturn.has(agent.id) && targetView.safe && this.sweepClear(agent, motionSeen));
+      if (!corridorSafe) acceleration = Math.min(acceleration, -3);
+      let motion = this.integrate(agent.speed, acceleration, dt);
+      const available = Math.max(0, view.gap - 0.2 + Math.max(0, view.leaderSpeed) * dt);
+      if (motion.advance > available) motion = { advance: available, speed: Math.min(motion.speed, available / dt) };
+      const shiftSafe = !shifting || (corridorSafe && (agent.changeReturning || motion.advance > 0.000001));
+      const changeAdvance = shiftSafe ? Math.min(dt, agent.changeReturning ? Math.max(dt * 0.35, motion.advance / 4.5) : motion.advance / 4.5) : 0;
+      return { agent, ...motion, acceleration, shiftSafe, changeAdvance };
+    });
+    for (const motion of motions) {
+      const agent = motion.agent;
+      agent.acceleration = motion.acceleration; agent.speed = motion.speed;
+      agent.braking = motion.acceleration < -0.6 || motion.advance < 0.001;
+      agent.changePaused = !motion.shiftSafe;
+      if (motion.shiftSafe) agent.changeTime = clamp(agent.changeTime + (agent.changeReturning ? -motion.changeAdvance : motion.changeAdvance), 0, 3);
       agent.offset = agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(agent.changeTime / 3);
-      if (agent.changeTime >= 3) { agent.lane = agent.targetLane; agent.indicator = 0 }
-      this.advance(agent, advance);
-      agent.wheelDistance += advance;
+      if (agent.changeReturning && agent.changeTime <= 0) this.cancelChange(agent);
+      else if (agent.changeTime >= 3) { agent.lane = agent.targetLane; agent.indicator = 0; agent.changePaused = false; agent.changeReturning = false }
+      this.advance(agent, motion.advance);
+      agent.wheelDistance += motion.advance;
       const sample = this.sample(agent, 0, agent.offset);
       agent.position = sample.point;
       agent.distance = agent.leg.start + agent.leg.sign * agent.along;
-      const lookAhead = Math.max(1.5, Math.min(5, agent.speed * 0.18));
-      const futureOffset = agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(Math.min(1, (agent.changeTime + lookAhead / Math.max(1, agent.speed)) / 3));
-      const ahead = this.sample(agent, lookAhead, futureOffset);
-      const dx = ahead.point.x - sample.point.x, dz = ahead.point.z - sample.point.z;
+      const ahead = this.predict(agent, 0.2);
+      const dx = ahead.position.x - sample.point.x, dz = ahead.position.z - sample.point.z;
       if (Math.hypot(dx, dz) > 0.1) {
-        const heading = Math.atan2(dx, dz);
+        const heading = agent.speed > 1 ? Math.atan2(dx, dz) : this.network.sample(agent.leg, agent.along, agent.offset).heading;
         agent.heading += angleDifference(heading, agent.heading) * Math.min(1, dt * 8);
-        agent.pitch = -Math.atan2(ahead.point.y - sample.point.y, Math.hypot(dx, dz));
+        agent.pitch = -Math.atan2(ahead.position.y - sample.point.y - 0.79, Math.hypot(dx, dz));
       }
     }
+    const byId = new Map(plans.map(agent => [agent.id, agent]));
+    for (const agent of this.cars) Object.assign(agent, byId.get(agent.id)!);
+  }
+
+  private integrate(speed: number, acceleration: number, duration: number) {
+    if (acceleration < 0 && speed + acceleration * duration < 0) return { advance: speed * speed / (-2 * acceleration), speed: 0 };
+    return { advance: Math.max(0, speed * duration + acceleration * duration * duration / 2), speed: Math.max(0, speed + acceleration * duration) };
+  }
+
+  private returnToLane(agent: TrafficAgent) {
+    if (agent.changeTime <= 0) { this.cancelChange(agent); return }
+    agent.changeReturning = true; agent.changePaused = false;
+    agent.indicator = agent.targetLane > agent.lane ? -1 : 1;
+  }
+
+  private cancelChange(agent: TrafficAgent) {
+    agent.targetLane = agent.lane; agent.offset = agent.changeFrom;
+    agent.changeTime = 3; agent.changeReturning = false; agent.changePaused = false; agent.indicator = 0;
+    agent.next = this.network.next(agent.leg, agent.lane, agent.id + agent.visits);
+    agent.cooldown = Math.max(2, agent.cooldown);
+  }
+
+  private changeProgress(agent: TrafficAgent, duration: number) {
+    if (agent.changePaused) return agent.changeTime;
+    const travel = Math.min(this.integrate(agent.speed, agent.acceleration, duration).advance, Math.max(0, this.rightOfWay.stopDistance(agent)));
+    const amount = Math.min(duration, agent.changeReturning ? Math.max(duration * 0.35, travel / 4.5) : travel / 4.5);
+    return clamp(agent.changeTime + (agent.changeReturning ? -amount : amount), 0, 3);
+  }
+
+  private predict(agent: TrafficAgent, time: number, fixedOffset?: number): TrafficPose {
+    if (time === 0 && fixedOffset === undefined) return { position: bodyPosition(agent), heading: agent.heading };
+    const motion = this.integrate(agent.speed, agent.acceleration, time);
+    const stop = Math.max(0, this.rightOfWay.stopDistance(agent));
+    const changeTime = this.changeProgress(agent, time);
+    const offset = fixedOffset ?? agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(changeTime / 3);
+    const sample = this.sample(agent, Math.min(motion.advance, stop), offset);
+    const laterTime = time + 0.08;
+    const laterChange = this.changeProgress(agent, laterTime);
+    const laterOffset = fixedOffset ?? agent.changeFrom + (laneOffset(agent.leg, agent.targetLane) - agent.changeFrom) * smooth(laterChange / 3);
+    const ahead = this.sample(agent, Math.min(this.integrate(agent.speed, agent.acceleration, laterTime).advance, stop), laterOffset);
+    const dx = ahead.point.x - sample.point.x, dz = ahead.point.z - sample.point.z;
+    return { position: { x: sample.point.x, y: sample.point.y + 0.79, z: sample.point.z }, heading: motion.speed > 1 && Math.hypot(dx, dz) > 0.02 ? Math.atan2(dx, dz) : sample.heading };
+  }
+
+  private observe(cars: TrafficAgent[], obstacles: TrafficObstacle[]): SeenVehicle[] {
+    const seen: SeenVehicle[] = cars.map(agent => ({ agent, position: bodyPosition(agent), velocity: { x: Math.sin(agent.heading) * agent.speed, y: 0, z: Math.cos(agent.heading) * agent.speed }, heading: agent.heading, length: agent.length, width: agent.width, trajectory: [] }));
+    seen.push(...obstacles.map(other => ({ ...other, position: { ...other.position }, velocity: { ...other.velocity }, trajectory: [] })));
+    for (const other of seen) for (let step = 0; step <= 7; step++) other.trajectory.push(this.predictOther(other, step * 0.4));
+    return seen;
+  }
+
+  private predictOther(other: SeenVehicle, time: number): TrafficPose {
+    return other.agent ? this.predict(other.agent, time) : { position: { x: other.position.x + other.velocity.x * time, y: other.position.y + other.velocity.y * time, z: other.position.z + other.velocity.z * time }, heading: other.heading };
+  }
+
+  private overlap(a: TrafficPose, aLength: number, aWidth: number, b: TrafficPose, bLength: number, bWidth: number, margin: number) {
+    if (Math.abs(a.position.y - b.position.y) > 2.2) return false;
+    const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
+    for (const heading of [a.heading, a.heading + Math.PI / 2, b.heading, b.heading + Math.PI / 2]) {
+      const extentA = Math.abs(Math.cos(heading - a.heading)) * aLength / 2 + Math.abs(Math.sin(heading - a.heading)) * aWidth / 2;
+      const extentB = Math.abs(Math.cos(heading - b.heading)) * bLength / 2 + Math.abs(Math.sin(heading - b.heading)) * bWidth / 2;
+      if (Math.abs(dx * Math.sin(heading) + dz * Math.cos(heading)) > extentA + extentB + margin) return false;
+    }
+    return true;
+  }
+
+  private sweptConflict(a: TrafficPose, nextA: TrafficPose, aLength: number, aWidth: number, b: TrafficPose, nextB: TrafficPose, bLength: number, bWidth: number, margin: number) {
+    const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
+    const vx = nextB.position.x - b.position.x - nextA.position.x + a.position.x;
+    const vz = nextB.position.z - b.position.z - nextA.position.z + a.position.z;
+    const fraction = clamp(-(dx * vx + dz * vz) / Math.max(0.0001, vx * vx + vz * vz), 0, 1);
+    const interpolate = (from: TrafficPose, to: TrafficPose): TrafficPose => ({ position: { x: from.position.x + (to.position.x - from.position.x) * fraction, y: from.position.y + (to.position.y - from.position.y) * fraction, z: from.position.z + (to.position.z - from.position.z) * fraction }, heading: from.heading + angleDifference(to.heading, from.heading) * fraction });
+    return this.overlap(interpolate(a, nextA), aLength, aWidth, interpolate(b, nextB), bLength, bWidth, margin) ? fraction : undefined;
+  }
+
+  private reservationConflict(agent: TrafficAgent, other: TrafficAgent) {
+    if (agent.id === other.id) return false;
+    if (agent.road === other.road && agent.leg.sign === other.leg.sign && agent.targetLane === other.targetLane) {
+      let gap = Math.abs(agent.distance - other.distance);
+      if (agent.road.closed) gap = Math.min(gap, agent.road.length - gap);
+      if (gap < 12 + Math.max(agent.speed, other.speed) * 1.2) return true;
+    }
+    for (let time = 0.5; time <= 3; time += 0.5) if (this.overlap(this.predict(agent, time), agent.length, agent.width, this.predict(other, time), other.length, other.width, 0.6)) return true;
+    return false;
+  }
+
+  private sweepClear(agent: TrafficAgent, seen: SeenVehicle[]) {
+    const shifting = { ...agent, changePaused: false };
+    const future = Array.from({ length: 4 }, (_, step) => this.predict(shifting, step * 0.4));
+    for (const other of seen) {
+      if (other.agent?.id === agent.id || Math.hypot(other.position.x - agent.position.x, other.position.z - agent.position.z) > 90) continue;
+      if (this.overlap(future[0], agent.length, agent.width, other.trajectory[0], other.length, other.width, 0.35)) return false;
+      for (let step = 1; step < future.length; step++) if (this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, other.trajectory[step - 1], other.trajectory[step], other.length, other.width, 0.35) !== undefined) return false;
+    }
+    return true;
   }
 
   private findSpawn(id: number, length: number, width: number, focus: Point3, exclude?: TrafficAgent) {
     for (const candidate of this.network.spawnCandidates(focus, id)) {
+      if (!this.rightOfWay.allowsSpawn(candidate.leg, this.cars)) continue;
       const count = laneCount(candidate.leg);
       for (let attempt = 0; attempt < count; attempt++) {
         const lane = (id + attempt) % count;
@@ -182,7 +318,7 @@ export class TrafficSimulation {
     agent.leg = candidate.leg; agent.road = candidate.leg.road; agent.along = candidate.along;
     agent.lane = candidate.lane; agent.targetLane = candidate.lane;
     agent.offset = laneOffset(agent.leg, agent.lane); agent.changeFrom = agent.offset;
-    agent.changeTime = 3; agent.cooldown = 3; agent.indicator = 0;
+    agent.changeTime = 3; agent.changePaused = false; agent.changeReturning = false; agent.cooldown = 3; agent.indicator = 0;
     agent.speed = roadSpeed(agent.road, agent.id) * 0.7; agent.desiredSpeed = roadSpeed(agent.road, agent.id);
     agent.next = this.network.next(agent.leg, agent.lane, agent.id + ++agent.visits);
     agent.previous = undefined;
@@ -218,10 +354,11 @@ export class TrafficSimulation {
       const sample = this.sample(agent, along, offset);
       path.push({ point: sample.point, heading: sample.heading, along });
     }
+    const future = Array.from({ length: 8 }, (_, step) => this.predict(agent, step * 0.4, offset));
     let gap = Infinity, leaderSpeed = agent.desiredSpeed, safe = true, rearBrake = 0;
     const origin = this.network.sample(agent.leg, agent.along, offset);
     for (const other of seen) {
-      if (other.agent === agent || Math.hypot(other.position.x - agent.position.x, other.position.z - agent.position.z) > horizon + 45) continue;
+      if (other.agent?.id === agent.id || Math.hypot(other.position.x - agent.position.x, other.position.z - agent.position.z) > horizon + 50) continue;
       const angle = angleDifference(other.heading, origin.heading);
       const halfLength = (Math.abs(Math.cos(angle)) * other.length + Math.abs(Math.sin(angle)) * other.width) / 2;
       const halfWidth = (Math.abs(Math.sin(angle)) * other.length + Math.abs(Math.cos(angle)) * other.width) / 2;
@@ -229,7 +366,7 @@ export class TrafficSimulation {
       const alongNow = dx * Math.sin(origin.heading) + dz * Math.cos(origin.heading);
       const lateralNow = Math.abs(dx * Math.cos(origin.heading) - dz * Math.sin(origin.heading));
       const projectedSpeed = other.velocity.x * Math.sin(origin.heading) + other.velocity.z * Math.cos(origin.heading);
-      if (Math.abs(other.position.y - origin.point.y - 0.79) < 2.2 && lateralNow < (agent.width / 2 + halfWidth + 0.45)) {
+      if (Math.abs(other.position.y - origin.point.y - 0.79) < 2.2 && lateralNow < agent.width / 2 + halfWidth + 0.45) {
         const free = Math.abs(alongNow) - agent.length / 2 - halfLength;
         const closing = alongNow >= 0 ? agent.speed - projectedSpeed : projectedSpeed - agent.speed;
         const required = 4 + (alongNow >= 0 ? agent.speed : Math.max(0, projectedSpeed)) * 0.9 + Math.max(0, closing) * 1.5;
@@ -241,32 +378,37 @@ export class TrafficSimulation {
           if (brake > 4) safe = false;
         }
       }
-      const predictionLimit = other.agent && Math.abs(angle) < 0.35 && other.agent.changeTime >= 3 ? 0 : 2;
-      for (let prediction = 0; prediction <= predictionLimit; prediction += 0.5) {
-        const x = other.position.x + other.velocity.x * prediction;
-        const z = other.position.z + other.velocity.z * prediction;
-        for (let i = 1; i < path.length; i++) {
-          const a = path[i - 1], b = path[i];
-          const vx = b.point.x - a.point.x, vz = b.point.z - a.point.z;
-          const squared = vx * vx + vz * vz;
-          if (squared < 0.01) continue;
-          const t = clamp(((x - a.point.x) * vx + (z - a.point.z) * vz) / squared, 0, 1);
-          const s = a.along + (b.along - a.along) * t;
-          const y = a.point.y + (b.point.y - a.point.y) * t + 0.79;
-          if (Math.abs(other.position.y + other.velocity.y * prediction - y) > 2.2) continue;
-          const lateral = Math.hypot(x - a.point.x - vx * t, z - a.point.z - vz * t);
-          if (lateral > agent.width / 2 + halfWidth + 0.3) continue;
-          if (prediction > 0 && Math.abs(s / Math.max(agent.speed, 4) - prediction) > 0.9) continue;
-          if (s < 0.5 && alongNow < -agent.length / 2) continue;
-          const heading = Math.atan2(vx, vz);
-          const forwardSpeed = other.velocity.x * Math.sin(heading) + other.velocity.z * Math.cos(heading);
-          const free = s - agent.length / 2 - halfLength;
-          if (free < gap) { gap = free; leaderSpeed = prediction > 0 && Math.abs(angle) > 0.6 ? 0 : forwardSpeed }
-        }
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        const vx = b.point.x - a.point.x, vz = b.point.z - a.point.z;
+        const squared = vx * vx + vz * vz;
+        if (squared < 0.01) continue;
+        const t = clamp(((other.position.x - a.point.x) * vx + (other.position.z - a.point.z) * vz) / squared, 0, 1);
+        const along = a.along + (b.along - a.along) * t;
+        if (along < 0.5 && alongNow < -agent.length / 2) continue;
+        const y = a.point.y + (b.point.y - a.point.y) * t + 0.79;
+        if (Math.abs(other.position.y - y) > 2.2) continue;
+        const heading = Math.atan2(vx, vz);
+        const relative = angleDifference(other.heading, heading);
+        const extent = Math.abs(Math.cos(relative)) * other.width / 2 + Math.abs(Math.sin(relative)) * other.length / 2;
+        const lateral = Math.hypot(other.position.x - a.point.x - vx * t, other.position.z - a.point.z - vz * t);
+        if (lateral > agent.width / 2 + extent + 0.3) continue;
+        const front = Math.abs(Math.cos(relative)) * other.length / 2 + Math.abs(Math.sin(relative)) * other.width / 2;
+        const free = along - agent.length / 2 - front;
+        if (free < gap) { gap = free; leaderSpeed = other.velocity.x * Math.sin(heading) + other.velocity.z * Math.cos(heading) }
       }
-      if (other.agent && other.agent.changeTime < 3 && other.agent.leg === agent.leg && other.agent.targetLane !== other.agent.lane) {
-        const reservedOffset = laneOffset(other.agent.leg, other.agent.targetLane);
-        if (Math.abs(reservedOffset - offset) < agent.width + 0.4 && Math.abs(other.agent.along - agent.along) < 10 + agent.speed) safe = false;
+      const stableFront = other.agent && other.agent.road === agent.road && other.agent.leg.sign === agent.leg.sign && other.agent.changeTime >= 3 && agent.changeTime >= 3 && alongNow > 0 && Math.abs(angle) < 0.25;
+      if (stableFront || (other.agent && this.hasMergePriority(agent, other.agent))) continue;
+      const followingBehind = alongNow < -(agent.length / 2 + halfLength) && Math.abs(angle) < 0.25 && lateralNow < agent.width / 2 + halfWidth + 0.3;
+      if (followingBehind && agent.changeTime >= 3 && Math.abs(offset - agent.offset) < 0.1) continue;
+      for (let step = 1; step < future.length; step++) {
+        const fraction = this.sweptConflict(future[step - 1], future[step], agent.length, agent.width, other.trajectory[step - 1], other.trajectory[step], other.length, other.width, 0.35);
+        if (fraction === undefined) continue;
+        safe = false;
+        const distance = this.integrate(agent.speed, agent.acceleration, (step - 1 + fraction) * 0.4).advance;
+        const free = Math.max(0, distance - agent.length / 2 - halfLength);
+        if (free < gap) { gap = free; leaderSpeed = 0 }
+        break;
       }
     }
     return { gap, leaderSpeed, safe, rearBrake };
@@ -286,33 +428,47 @@ export class TrafficSimulation {
     return false;
   }
 
-  private requiresYield(agent: TrafficAgent) {
-    if (!agent.next || agent.next.road === agent.road) return false;
-    const next = agent.next;
-    const incoming = this.network.sample(agent.leg, Math.max(0, agent.leg.length - 2), 0).heading;
-    const outgoing = this.network.sample(next, Math.min(2, next.length), 0).heading;
-    if (agent.road.kind === 'main') return false;
-    return next.road.kind === 'main' || (agent.road.kind === 'ramp' && next.road.kind === 'service') || Math.abs(angleDifference(outgoing, incoming)) > 0.4;
+  private sourceFollower(agent: TrafficAgent, other: TrafficAgent) {
+    if (other.road !== agent.road || other.leg.sign !== agent.leg.sign || other.targetLane !== agent.targetLane) return false;
+    let behind = (agent.distance - other.distance) * agent.leg.sign;
+    if (agent.road.closed) behind = (behind + agent.road.length) % agent.road.length;
+    return behind > 0 && behind < 160;
+  }
+
+  private hasMergePriority(agent: TrafficAgent, other: TrafficAgent) {
+    if (!agent.next || !other.next || agent.leg.to !== other.leg.to || agent.next !== other.next || agent.road === other.road || other.road === agent.next.road) return false;
+    const lane = this.network.mappedLane(agent.leg, agent.next, agent.offset);
+    if (lane !== this.network.mappedLane(other.leg, other.next, other.offset)) return false;
+    if (other.speed > 3 || other.leg.length - other.along < other.length / 2 + 1.5) return false;
+    const arrival = Math.max(0, agent.leg.length - agent.along - agent.length / 2 - 2) / Math.max(2, agent.speed);
+    const otherArrival = Math.max(0, other.leg.length - other.along - other.length / 2 - 2) / Math.max(2, other.speed);
+    return arrival < otherArrival - 0.5 || (Math.abs(arrival - otherArrival) <= 0.5 && agent.id < other.id);
   }
 
   private mergeSafe(agent: TrafficAgent, seen: SeenVehicle[]) {
     const next = agent.next!;
     const lane = this.network.mappedLane(agent.leg, next, agent.offset);
     const sample = this.network.sample(next, Math.min(next.length, agent.length / 2 + 1), laneOffset(next, lane));
+    const arrival = clamp((agent.leg.length - agent.along - agent.length / 2) / Math.max(agent.speed, 2), 0, 3);
     for (const other of seen) {
-      if (other.agent === agent || Math.abs(other.position.y - sample.point.y - 0.79) > 2.2) continue;
-      if (other.agent && other.agent.leg === agent.leg && other.agent.along < agent.along) continue;
-      const sourceX = other.position.x - agent.position.x, sourceZ = other.position.z - agent.position.z;
-      const sourceAlong = sourceX * Math.sin(agent.heading) + sourceZ * Math.cos(agent.heading);
-      const sourceSide = Math.abs(sourceX * Math.cos(agent.heading) - sourceZ * Math.sin(agent.heading));
-      if (sourceAlong < 0 && sourceSide < (agent.width + other.width) / 2 + 0.4 && Math.abs(angleDifference(other.heading, agent.heading)) < 0.3) continue;
-      const dx = other.position.x - sample.point.x, dz = other.position.z - sample.point.z;
-      const along = dx * Math.sin(sample.heading) + dz * Math.cos(sample.heading);
-      const side = Math.abs(dx * Math.cos(sample.heading) - dz * Math.sin(sample.heading));
-      if (side > (agent.width + other.width) / 2 + 0.5) continue;
-      const speed = Math.max(0, other.velocity.x * Math.sin(sample.heading) + other.velocity.z * Math.cos(sample.heading));
-      const gap = Math.abs(along) - (agent.length + other.length) / 2;
-      if (gap < 4 + (along >= 0 ? agent.speed : speed) * 1.1) return false;
+      if (other.agent?.id === agent.id) continue;
+      if (other.agent && (this.sourceFollower(agent, other.agent) || this.hasMergePriority(agent, other.agent))) continue;
+      for (const time of [0, Math.max(0, arrival - 0.4), arrival, arrival + 0.4]) {
+        const pose = this.predictOther(other, time);
+        if (Math.abs(pose.position.y - sample.point.y - 0.79) > 2.2) continue;
+        const dx = pose.position.x - sample.point.x, dz = pose.position.z - sample.point.z;
+        const along = dx * Math.sin(sample.heading) + dz * Math.cos(sample.heading);
+        const side = Math.abs(dx * Math.cos(sample.heading) - dz * Math.sin(sample.heading));
+        const relative = angleDifference(pose.heading, sample.heading);
+        const halfWidth = Math.abs(Math.cos(relative)) * other.width / 2 + Math.abs(Math.sin(relative)) * other.length / 2;
+        if (side > agent.width / 2 + halfWidth + 0.4) continue;
+        const speed = Math.max(0, other.agent ? other.agent.speed * Math.cos(relative) : other.velocity.x * Math.sin(sample.heading) + other.velocity.z * Math.cos(sample.heading));
+        const halfLength = Math.abs(Math.cos(relative)) * other.length / 2 + Math.abs(Math.sin(relative)) * other.width / 2;
+        const gap = Math.abs(along) - agent.length / 2 - halfLength;
+        const closing = along < 0 ? Math.max(0, speed - agent.speed) : Math.max(0, agent.speed - speed);
+        const required = 4 + (along >= 0 ? agent.speed : speed) * 1.1 + closing * closing / 8;
+        if (gap < required) return false;
+      }
     }
     return true;
   }
@@ -327,7 +483,7 @@ export class TrafficSimulation {
       if (next.road !== agent.road) {
         agent.lane = this.network.mappedLane(agent.leg, next, agent.offset);
         agent.targetLane = agent.lane; agent.offset = laneOffset(next, agent.lane); agent.changeFrom = agent.offset;
-        agent.changeTime = 3; agent.indicator = 0;
+        agent.changeTime = 3; agent.changePaused = false; agent.changeReturning = false; agent.indicator = 0;
       }
       agent.leg = next; agent.road = next.road;
       agent.next = this.network.next(next, agent.targetLane, agent.id + ++agent.visits);
