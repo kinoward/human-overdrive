@@ -51,7 +51,7 @@ export class RoadIndex {
     return { road, distance: road.cumulative[index - 1] + length * t, offset: Math.hypot(x - point.x, z - point.z) * (side < 0 ? -1 : 1), point, direction };
   }
 
-  nearest(x: number, z: number, y?: number): RoadPosition | null {
+  nearest(x: number, z: number, y?: number, roadMargin?: number): RoadPosition | null {
     const cx = Math.floor(x / 128), cz = Math.floor(z / 128);
     const candidates = new Set<Segment>();
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const segment of this.cells.get(`${cx + dx},${cz + dz}`) ?? []) candidates.add(segment);
@@ -59,6 +59,7 @@ export class RoadIndex {
     let score = Infinity;
     for (const segment of candidates.size ? candidates : this.segments) {
       const projected = this.project(segment, x, z);
+      if (roadMargin !== undefined && (Math.abs(projected.offset) > segment.road.width / 2 + roadMargin || y === undefined || Math.abs(y - projected.point.y) >= 0.8)) continue;
       const value = projected.offset ** 2 + (y === undefined ? 0 : ((y - projected.point.y) * 5) ** 2);
       if (value < score) { best = projected; score = value }
     }
@@ -78,8 +79,16 @@ export class RoadIndex {
 
 const indexes = new WeakMap<RoadPath[], RoadIndex>();
 
-export function nearestRoad(roads: RoadPath[], x: number, z: number, y?: number): RoadPosition | null {
+function roadIndex(roads: RoadPath[]) {
   let index = indexes.get(roads);
   if (!index) { index = new RoadIndex(roads); indexes.set(roads, index) }
-  return index.nearest(x, z, y);
+  return index;
+}
+
+export function nearestRoad(roads: RoadPath[], x: number, z: number, y?: number): RoadPosition | null {
+  return roadIndex(roads).nearest(x, z, y);
+}
+
+export function roadAt(roads: RoadPath[], point: Point3, margin = 0): RoadPosition | null {
+  return roadIndex(roads).nearest(point.x, point.z, point.y, margin);
 }

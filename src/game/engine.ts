@@ -18,6 +18,8 @@ import { TrafficSimulation, type TrafficAgent, type TrafficObstacle } from './tr
 import { TRAFFIC_COUNT, trafficVehicleForSlot } from './traffic-vehicles';
 import { createTrafficVehicleModel, loadTrafficModels } from './traffic-models';
 import { ArcadeCameraMotion } from './camera-motion';
+import type { Controls } from './arcade-driving';
+import { roadAt } from './road-network';
 import { RenderPose } from './render-pose';
 import { loadGeneratedAssets } from './generated-assets';
 import { VehicleDamage } from './vehicle-damage';
@@ -345,11 +347,8 @@ export class GameEngine {
     this.simulationTime += dt;
     const position = this.player.body.translation();
     this.updateRoadColliders(position);
-    const near = nearestRoad(this.track.roads, position.x, position.z, position.y - 0.85);
-    const onRoad = !!near && Math.abs(near.offset) <= near.road.width / 2 + 1;
-    const throttle = (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0);
-    const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
-    this.player.drive({ throttle, steer, brake: this.keys.has('Space') }, dt, onRoad);
+    const onRoad = !!roadAt(this.track.roads, { x: position.x, y: position.y - 0.85, z: position.z }, 1);
+    this.player.drive(this.readControls(), dt, onRoad);
     this.lookBack = this.keys.has('KeyC');
     const trafficAt = performance.now();
     this.updateTraffic(dt);
@@ -372,8 +371,10 @@ export class GameEngine {
     const contactBodies = this.processCollisions(dt);
     this.sectionCost.contacts += performance.now() - contactsAt;
     const next = this.player.body.translation();
-    const nextRoad = nearestRoad(this.track.roads, next.x, next.z, next.y - 0.85);
-    const roadValid = !!nextRoad && Math.abs(nextRoad.offset) < nextRoad.road.width / 2 + 0.7;
+    const roadPoint = { x: next.x, y: next.y - 0.85, z: next.z };
+    const coveredRoad = roadAt(this.track.roads, roadPoint, 0.7);
+    const nextRoad = coveredRoad ?? nearestRoad(this.track.roads, next.x, next.z, roadPoint.y);
+    const roadValid = !!coveredRoad;
     const moved = new THREE.Vector3(next.x - this.lastPosition.x, next.y - this.lastPosition.y, next.z - this.lastPosition.z);
     let distance = 0;
     const grounded = this.player.model.wheels.some((_, index) => this.player!.controller.wheelIsInContact(index));
@@ -568,7 +569,7 @@ export class GameEngine {
     if (!this.metrics) return;
     const score = calculateScore(this.metrics);
     this.renderer.domElement.dataset.scoring = JSON.stringify({ ...score, cleanDistance: this.metrics.cleanDistance, pressureDistance: this.metrics.pressureDistance, nearMisses: this.metrics.nearMisses, evadedAttacks: this.metrics.evadedAttacks, maxPressureTime: this.metrics.maxPressureTime, maxPressureDistance: this.metrics.maxPressureDistance });
-    if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
+    if (this.player) this.renderer.domElement.dataset.drive = JSON.stringify({ position: this.player.body.translation(), heading: this.player.heading, steering: this.player.steering, leanAngle: this.player.leanAngle, rotation: this.player.body.rotation(), upright: this.player.upY, speed: this.player.speed, controls: this.readControls(), damage: this.player.damage.summary, damageWork: this.player.damage.performance, wheels: this.player.model.wheels.map((_, index) => this.player!.controller.wheelIsInContact(index)) });
     this.renderer.domElement.dataset.pursuit = JSON.stringify({ police: this.police.map(actor => ({ id: actor.id, role: actor.role, state: actor.state, active: actor.activePursuit, operational: actor.operational, damage: actor.damage, upright: actor.vehicle.upY, disabledAt: actor.disabledAt, position: actor.vehicle.body.translation(), speed: actor.vehicle.speed })), helicopters: this.helicopters.map(actor => ({ position: actor.body.translation(), speed: actor.body.linvel(), observed: this.helicopterSight.get(actor) })), contacts: this.collisionSystem.contactCount, peakContacts: this.collisionSystem.peakContacts, capture: this.capture, collisions: this.metrics.collisions });
     if (this.player) {
       const position = this.player.body.translation(), heading = this.player.heading;
@@ -678,7 +679,7 @@ export class GameEngine {
     }
     if (this.ready) {
       this.updateCamera(dt);
-      const steer = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
+      const { steer } = this.readControls();
       this.cameraMotion.update(this.camera, this.player?.speed ?? 0, steer, this.player?.config.kind === 'motorcycle', dt, this.status === 'running', this.lookBack);
     }
     this.audio.update(this.player?.speed ?? 0, (this.pursuit?.activeCars.length ?? 0) > 0, this.status === 'running');
@@ -704,6 +705,17 @@ export class GameEngine {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
   };
+
+  private readControls(): Controls {
+    let throttle = 0, steer = 0;
+    for (const code of this.keys) {
+      if (code === 'KeyW' || code === 'ArrowUp') throttle = 1;
+      else if (code === 'KeyS' || code === 'ArrowDown') throttle = -1;
+      else if (code === 'KeyD' || code === 'ArrowRight') steer = 1;
+      else if (code === 'KeyA' || code === 'ArrowLeft') steer = -1;
+    }
+    return { throttle, steer, brake: this.keys.has('Space') };
+  }
 
   private keyDown = (event: KeyboardEvent) => {
     if ((event.target as HTMLElement)?.matches('input,textarea,select')) return;
