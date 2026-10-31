@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import type { Point3, VehicleConfig } from '../types';
 import { createVehicleModel } from './models';
 import { RenderPose } from './render-pose';
+import { VehicleStability } from './vehicle-stability';
+import { VehicleDamage } from './vehicle-damage';
+import { GROUND_BODY, GROUND_BODY_GROUPS, ROAD, packCollisionGroups } from './collision-groups';
 
 export interface Controls { throttle: number; steer: number; brake: boolean }
 
@@ -11,6 +14,7 @@ export class PhysicsVehicle {
   readonly collider: RAPIER.Collider;
   readonly model: ReturnType<typeof createVehicleModel>;
   readonly controller: RAPIER.DynamicRayCastVehicleController;
+  readonly damage: VehicleDamage;
   steering = 0;
   balanceDisabled = 0;
   private braking = false;
@@ -20,16 +24,23 @@ export class PhysicsVehicle {
   private pose: RenderPose;
   private previousWheels: THREE.Vector3[] = [];
   private currentWheels: THREE.Vector3[] = [];
+  private stability = new VehicleStability();
 
   constructor(readonly world: RAPIER.World, readonly config: VehicleConfig, position: Point3, heading: number, police = false) {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y + 0.85, position.z).setRotation(q).setLinearDamping(0.08).setAngularDamping(1.8).setCcdEnabled(true));
     const motorcycle = config.kind === 'motorcycle';
     const shape = RAPIER.ColliderDesc.cuboid(motorcycle ? 0.24 : config.width * 0.45, motorcycle ? 0.45 : 0.32, config.length * 0.43)
-      .setTranslation(0, motorcycle ? 0.12 : 0.05, 0).setMass(config.mass * 0.4).setFriction(0.35).setRestitution(0.08).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
+      .setTranslation(0, motorcycle ? 0.12 : 0.05, 0).setMass(config.mass * 0.4).setFriction(0.35).setRestitution(0.08)
+      .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4);
     this.collider = world.createCollider(shape, this.body);
-    world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25), this.body);
+    if (!motorcycle) world.createCollider(RAPIER.ColliderDesc.cuboid(config.width * 0.35, 0.3, config.length * 0.23)
+      .setTranslation(0, 0.55, -config.length * 0.04).setDensity(0).setFriction(0.35).setRestitution(0.04)
+      .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
+    world.createCollider(RAPIER.ColliderDesc.ball(0.18).setTranslation(0, -0.19, 0).setMass(config.mass * 0.6).setFriction(0.25)
+      .setCollisionGroups(GROUND_BODY_GROUPS).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS | RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(config.mass * 0.4), this.body);
     this.model = createVehicleModel(config, police);
+    this.damage = new VehicleDamage(this.model.group, config, this.body, world);
     this.pose = new RenderPose(this.model.group);
     this.controller = world.createVehicleController(this.body);
     this.controller.indexUpAxis = 1;
@@ -90,19 +101,18 @@ export class PhysicsVehicle {
       this.controller.setWheelEngineForce(i, i >= wheels - driven ? force : 0);
       this.controller.setWheelBrake(i, input.brake || reversingBrake ? this.config.mass * 0.022 : input.throttle === 0 ? this.config.mass * 0.00035 : 0);
     }
-    this.controller.updateVehicle(dt, undefined, undefined, collider => collider.parent()?.handle !== this.body.handle);
+    this.controller.updateVehicle(dt, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, packCollisionGroups(GROUND_BODY, ROAD), collider => collider.parent()?.handle !== this.body.handle);
     if (!onRoad) this.body.applyImpulse({ x: -velocity.x * this.config.mass * dt * 0.55, y: 0, z: -velocity.z * this.config.mass * dt * 0.55 }, true);
-    if (motorcycle) {
-      this.balanceDisabled = Math.max(0, this.balanceDisabled - dt);
-      if (this.balanceDisabled === 0 && this.upY > 0.45) {
-        this.up.set(0, 1, 0).applyQuaternion(q);
-        const angular = this.body.angvel();
-        this.body.applyTorqueImpulse({ x: (-this.up.z * 7 - angular.x * 2.2) * this.config.mass * dt, y: 0, z: (this.up.x * 7 - angular.z * 2.2) * this.config.mass * dt }, true);
-      }
-    }
+    this.balanceDisabled = Math.max(0, this.balanceDisabled - dt);
+    this.stability.update(this.body, this.controller, motorcycle, this.balanceDisabled, dt);
+  }
+
+  applyImpact(point: Point3, direction: Point3, strength: number) {
+    this.damage.impact(new THREE.Vector3(point.x, point.y, point.z), new THREE.Vector3(direction.x, direction.y, direction.z), strength);
   }
 
   sync(time: number) {
+    this.damage.update(1 / 60);
     this.pose.capture(this.body.translation(), this.body.rotation());
     for (let i = 0; i < this.model.wheels.length; i++) {
       this.previousWheels[i].copy(this.currentWheels[i]);
@@ -125,6 +135,7 @@ export class PhysicsVehicle {
   }
 
   dispose() {
+    this.damage.dispose();
     this.model.group.removeFromParent();
     this.model.dispose();
     this.world.removeVehicleController(this.controller);
