@@ -80,7 +80,7 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 
 ## NPC 混合车队生成资产
 
-2026 年 10 月 31 日通过主办方提供的 Tripo Studio H3.1，继续真实生成配送厢式货车、大型刚性厢式货车和公交，并分别生成 2K 底色纹理。三个运行文件位于 `public/assets/generated/traffic/`，合计 858992 字节；源任务链接、提示词、实测包围盒及处理边界见该目录 `SOURCES.json` 和各车型 JSON。沿用 [Tripo 条款](https://www.tripo3d.ai/terms)，不标为 CC0、现实品牌型号或道路法规仿真。
+2026 年 10 月 31 日通过主办方提供的 Tripo Studio H3.1，继续真实生成配送厢式货车、大型刚性厢式货车和公交，并分别生成 2K 底色纹理。三个运行文件位于 `public/assets/generated/traffic/`，定稿合计 1,003,188 字节；源任务链接、提示词、实测包围盒、逐轮轮心与半径及处理边界见该目录 `SOURCES.json` 和各车型 JSON。沿用 [Tripo 条款](https://www.tripo3d.ai/terms)，不标为 CC0、现实品牌型号或道路法规仿真。
 
 | 运行文件 | 实际用途 | 长 × 宽 × 高 |
 | --- | --- | --- |
@@ -88,7 +88,10 @@ Meshoptimizer 的 MIT 许可保存在 `public/licenses/meshoptimizer.txt`，随�
 | `box-truck.glb` | 大型刚性厢式货车 NPC | 9.2 × 2.5 × 3.5 米 |
 | `city-bus.glb` | 公交 NPC | 10.5 × 2.5 × 3.2 米 |
 
-整理命令为 `node scripts/prepare-traffic-models.mjs <原始车辆目录> <独立工具目录> [车型名]`，复用架构地图列出的模型工具依赖；脚本为 `scripts/prepare-traffic-models.mjs`，统一 Y 向上、+Z 车头、地面为 0 和长向居中，采用 Meshopt 与 WebP。三款当前均为单车体网格、单材质和单纹理，车轮仍包含于车体，未宣称独立轮轴；已有 SUV 和摩托继续复用原生成模型及其轮轴。运行时共享几何与纹理，每辆车克隆自己的渐显材质，不因单车回收或销毁释放其他车辆资源。
+整理命令为 `node scripts/prepare-traffic-models.mjs <原始车辆目录> <独立工具目录> [车型名]`，复用架构地图列出的模型工具依赖；主脚本调用 `scripts/split-traffic-wheels.mjs`，从原始真实网格按完整连通组件与局部空间裁出轮胎、轮毂，并从 `body` 移除原轮胎，不在静止轮外叠加假轮。货车六轮、配送车四轮、公交四轮，共 14 个独立车轮旋转轴心；每个 `wheel_*` 轴心组保留自身轮心与半径，网格位于 `mesh_*` 子节点，按实际行程绕局部 X 轴转动。切分边界补面封口，修正独立长宽高归一造成的轮胎椭圆，保留 Y 向上、+Z 车头、长向居中和接近 0 的底面；圆度处理后的落地余量为毫米级。
+
+三款仍各共享单材质与单张 2K WebP 纹理，采用 Meshopt 压缩；已有 SUV 和摩托继续复用原生成模型及其轮轴。生成网格接触处可能保留非流形结构，不承诺可作为封闭物理碰撞网格，实际接触继续使用独立碰撞体。运行时共享几何与纹理，每辆车克隆自己的渐显材质，不因单车回收或销毁释放其他车辆资源。
+
 
 ## 城市选择地球影像
 

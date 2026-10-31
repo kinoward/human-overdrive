@@ -6,8 +6,11 @@
   "attribution": "本项目通过主办方提供的Tripo资源生成，保留平台来源，不宣称CC0或真实品牌的精确车型。",
   "preparation": [
     "官方文字生成几何，并独立生成2K材质。",
-    "GLB实际正反方向检视确认车头为+Z，Y向上，地面minY=0，长向居中；按游戏车型目标长宽高归一。",
-    "每车1个body网格、1材质、1张2K WebP纹理，使用Meshopt压缩；车轮仍包含于body，不宣称已有独立转动轮轴。"
+    "GLB实际正反方向检视确认车头为+Z，Y向上，长向居中；按游戏车型目标长宽高归一。",
+    "车轮从原始真实网格按完整连通组件及局部空间切分，源轮胎从body移除；裁切边界封口，保留车体、纹理与轮胎法线。",
+    "保留轮心；轮胎Z向按Y半径修正原独立尺度归一造成的椭圆拉伸，并作单调径向圆度修正，地面保留毫米级余量。",
+    "wheel_*为独立旋转轴心组，网格位于mesh_*子节点；轮轴extras包含每轮wheelRadius、wheelAxis=[1,0,0]、wheelDirection=1。",
+    "每车共享1材质、1张2K WebP纹理，使用Meshopt压缩；大型货车六轮，配送车与公交各四轮。"
   ],
   "sourcePrompts": {
     "box-truck": "现代中国城市物流大型刚性厢式货车，平头驾驶室，封闭货厢，三轴六轮，完整单车，简化写实，独立清楚的轮胎，无拖挂、人物、地面、文字和商标。",
@@ -17,8 +20,8 @@
   "assets": [
     {
       "file": "box-truck.glb",
-      "bytes": 323404,
-      "triangles": 15931,
+      "bytes": 406332,
+      "triangles": 21763,
       "materials": 1,
       "textures": 1,
       "dimensions": {
@@ -27,27 +30,96 @@
         "height": 3.5
       },
       "front": "+Z",
-      "ground": "minY=0",
-      "source": "https://studio.tripo3d.ai/zh/workspace/generate/fc1abe30-9d77-419d-b75c-06439b8b3abb",
-      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "ground": "minY约0，轮胎圆度处理保留毫米级余量",
       "bounds": {
         "min": [
-          -1.250129677747521,
-          0.00009922143482876677,
+          -1.2499892926068419,
+          0.005080930797940031,
           -4.599999904632568
         ],
         "max": [
-          1.250129677747521,
-          3.4999007785651712,
+          1.2499892926068419,
+          3.5000025652276006,
           4.599999904632568
         ]
       },
-      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+      "wheelCorrection": "保留轮心，按Y半径校正Z向椭圆拉伸，外胎单调径向归圆，切面封口，轮轴局部X向旋转",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/fc1abe30-9d77-419d-b75c-06439b8b3abb",
+      "structure": "body车体与独立wheel_*轮轴，轮胎及轮毂从原始真实网格裁出，切面补齐，局部X轴旋转",
+      "wheels": [
+        {
+          "name": "wheel_fl",
+          "center": [
+            -0.8398190045248868,
+            0.5081027592768792,
+            2.8863428091042125
+          ],
+          "radius": 0.5081027592768792,
+          "triangles": 1060,
+          "capTriangles": 81
+        },
+        {
+          "name": "wheel_fr",
+          "center": [
+            0.8398190045248868,
+            0.5081027592768792,
+            2.8863428091042125
+          ],
+          "radius": 0.5081027592768792,
+          "triangles": 1266,
+          "capTriangles": 77
+        },
+        {
+          "name": "wheel_rl",
+          "center": [
+            -0.8398190045248868,
+            0.512194862036156,
+            -1.4811866513061618
+          ],
+          "radius": 0.512194862036156,
+          "triangles": 660,
+          "capTriangles": 98
+        },
+        {
+          "name": "wheel_rr",
+          "center": [
+            0.8398190045248868,
+            0.512194862036156,
+            -1.4811866513061618
+          ],
+          "radius": 0.512194862036156,
+          "triangles": 1076,
+          "capTriangles": 93
+        },
+        {
+          "name": "wheel_rl2",
+          "center": [
+            -0.8398190045248868,
+            0.5128768791627022,
+            -2.7896620581000717
+          ],
+          "radius": 0.5128768791627022,
+          "triangles": 1150,
+          "capTriangles": 187
+        },
+        {
+          "name": "wheel_rr2",
+          "center": [
+            0.8398190045248868,
+            0.5128768791627022,
+            -2.7896620581000717
+          ],
+          "radius": 0.5128768791627022,
+          "triangles": 1375,
+          "capTriangles": 173
+        }
+      ],
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染正反方向，确认驾驶室位于+Z侧；另观察轮轴0度与90度，车体保持静止。"
     },
     {
       "file": "delivery-van.glb",
-      "bytes": 275696,
-      "triangles": 15048,
+      "bytes": 307240,
+      "triangles": 16797,
       "materials": 1,
       "textures": 1,
       "dimensions": {
@@ -56,27 +128,74 @@
         "height": 2.5
       },
       "front": "+Z",
-      "ground": "minY=0",
-      "source": "https://studio.tripo3d.ai/zh/workspace/generate/6302f7b8-0382-4895-95e3-5e5b7fb7788a",
-      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "ground": "minY约0，轮胎圆度处理保留毫米级余量",
       "bounds": {
         "min": [
           -1.0249870296334727,
-          0.00009155552842798897,
+          0.0026426668519313745,
           -2.75
         ],
         "max": [
           1.0249870296334727,
-          2.499908444471572,
+          2.4999943884551685,
           2.75
         ]
       },
-      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+      "wheelCorrection": "保留轮心，按Y半径校正Z向椭圆拉伸，外胎单调径向归圆，切面封口，轮轴局部X向旋转",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/6302f7b8-0382-4895-95e3-5e5b7fb7788a",
+      "structure": "body车体与独立wheel_*轮轴，轮胎及轮毂从原始真实网格裁出，切面补齐，局部X轴旋转",
+      "wheels": [
+        {
+          "name": "wheel_fl",
+          "center": [
+            -0.7422188818454742,
+            0.3564098074566573,
+            1.8520777225494385
+          ],
+          "radius": 0.3564098074566573,
+          "triangles": 564,
+          "capTriangles": 0
+        },
+        {
+          "name": "wheel_fr",
+          "center": [
+            0.752291738986969,
+            0.35525232343934476,
+            1.8501057624816895
+          ],
+          "radius": 0.35525232343934476,
+          "triangles": 438,
+          "capTriangles": 0
+        },
+        {
+          "name": "wheel_rl",
+          "center": [
+            -0.7473645626041939,
+            0.35496662822797637,
+            -1.6392682023627694
+          ],
+          "radius": 0.35496662822797637,
+          "triangles": 856,
+          "capTriangles": 95
+        },
+        {
+          "name": "wheel_rr",
+          "center": [
+            0.7473645626041939,
+            0.35496662822797637,
+            -1.6392682023627694
+          ],
+          "radius": 0.35496662822797637,
+          "triangles": 858,
+          "capTriangles": 94
+        }
+      ],
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染正反方向，确认驾驶室位于+Z侧；另观察轮轴0度与90度，车体保持静止。"
     },
     {
       "file": "city-bus.glb",
-      "bytes": 259892,
-      "triangles": 14696,
+      "bytes": 289616,
+      "triangles": 16253,
       "materials": 1,
       "textures": 1,
       "dimensions": {
@@ -85,22 +204,69 @@
         "height": 3.2
       },
       "front": "+Z",
-      "ground": "minY=0",
-      "source": "https://studio.tripo3d.ai/zh/workspace/generate/2768afbc-b88f-4789-86b9-1a4d44903af0",
-      "structure": "整车网格，节点名 body，车轮仍包含于车体网格",
+      "ground": "minY约0，轮胎圆度处理保留毫米级余量",
       "bounds": {
         "min": [
-          -1.249732963042085,
-          0.00018160897324004388,
+          -1.250053407391583,
+          0.005475715268403292,
           -5.25
         ],
         "max": [
-          1.249732963042085,
-          3.1998184387104756,
+          1.250053407391583,
+          3.199975318215108,
           5.25
         ]
       },
-      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染+Z/-Z及两侧三分之四视图，确认挡风玻璃和驾驶室位于+Z侧。"
+      "wheelCorrection": "保留轮心，按Y半径校正Z向椭圆拉伸，外胎单调径向归圆，切面封口，轮轴局部X向旋转",
+      "source": "https://studio.tripo3d.ai/zh/workspace/generate/2768afbc-b88f-4789-86b9-1a4d44903af0",
+      "structure": "body车体与独立wheel_*轮轴，轮胎及轮毂从原始真实网格裁出，切面补齐，局部X轴旋转",
+      "wheels": [
+        {
+          "name": "wheel_fl",
+          "center": [
+            -0.929875522851944,
+            0.49566397862508893,
+            2.7720197439193726
+          ],
+          "radius": 0.49566397862508893,
+          "triangles": 320,
+          "capTriangles": 0
+        },
+        {
+          "name": "wheel_fr",
+          "center": [
+            0.9592110514640808,
+            0.49082352267578244,
+            2.768433451652527
+          ],
+          "radius": 0.49082352267578244,
+          "triangles": 382,
+          "capTriangles": 0
+        },
+        {
+          "name": "wheel_rl",
+          "center": [
+            -0.9497560131510643,
+            0.4991003509338066,
+            -2.4034275069854085
+          ],
+          "radius": 0.4991003509338066,
+          "triangles": 1024,
+          "capTriangles": 96
+        },
+        {
+          "name": "wheel_rr",
+          "center": [
+            0.9497560131510643,
+            0.4991003509338066,
+            -2.4034275069854085
+          ],
+          "radius": 0.4991003509338066,
+          "triangles": 948,
+          "capTriangles": 103
+        }
+      ],
+      "orientationVerification": "读取真实GLB几何与纹理，离线分别渲染正反方向，确认驾驶室位于+Z侧；另观察轮轴0度与90度，车体保持静止。"
     }
   ]
 }

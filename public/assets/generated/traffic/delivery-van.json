@@ -1,7 +1,7 @@
 {
   "file": "delivery-van.glb",
-  "bytes": 275696,
-  "triangles": 15048,
+  "bytes": 307240,
+  "triangles": 16797,
   "materials": 1,
   "textures": 1,
   "dimensions": {
@@ -10,7 +10,66 @@
     "height": 2.5
   },
   "front": "+Z",
-  "ground": "minY=0",
+  "ground": "minY约0，轮胎圆度处理保留毫米级余量",
+  "bounds": {
+    "min": [
+      -1.0249870296334727,
+      0.0026426668519313745,
+      -2.75
+    ],
+    "max": [
+      1.0249870296334727,
+      2.4999943884551685,
+      2.75
+    ]
+  },
+  "wheelCorrection": "保留轮心，按Y半径校正Z向椭圆拉伸，外胎单调径向归圆，切面封口，轮轴局部X向旋转",
   "source": "https://studio.tripo3d.ai/zh/workspace/generate/6302f7b8-0382-4895-95e3-5e5b7fb7788a",
-  "structure": "整车网格，节点名 body，车轮仍包含于车体网格"
+  "structure": "body车体与独立wheel_*轮轴，轮胎及轮毂从原始真实网格裁出，切面补齐，局部X轴旋转",
+  "wheels": [
+    {
+      "name": "wheel_fl",
+      "center": [
+        -0.7422188818454742,
+        0.3564098074566573,
+        1.8520777225494385
+      ],
+      "radius": 0.3564098074566573,
+      "triangles": 564,
+      "capTriangles": 0
+    },
+    {
+      "name": "wheel_fr",
+      "center": [
+        0.752291738986969,
+        0.35525232343934476,
+        1.8501057624816895
+      ],
+      "radius": 0.35525232343934476,
+      "triangles": 438,
+      "capTriangles": 0
+    },
+    {
+      "name": "wheel_rl",
+      "center": [
+        -0.7473645626041939,
+        0.35496662822797637,
+        -1.6392682023627694
+      ],
+      "radius": 0.35496662822797637,
+      "triangles": 856,
+      "capTriangles": 95
+    },
+    {
+      "name": "wheel_rr",
+      "center": [
+        0.7473645626041939,
+        0.35496662822797637,
+        -1.6392682023627694
+      ],
+      "radius": 0.35496662822797637,
+      "triangles": 858,
+      "capTriangles": 94
+    }
+  ]
 }

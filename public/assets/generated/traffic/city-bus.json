@@ -1,7 +1,7 @@
 {
   "file": "city-bus.glb",
-  "bytes": 259892,
-  "triangles": 14696,
+  "bytes": 289616,
+  "triangles": 16253,
   "materials": 1,
   "textures": 1,
   "dimensions": {
@@ -10,7 +10,66 @@
     "height": 3.2
   },
   "front": "+Z",
-  "ground": "minY=0",
+  "ground": "minY约0，轮胎圆度处理保留毫米级余量",
+  "bounds": {
+    "min": [
+      -1.250053407391583,
+      0.005475715268403292,
+      -5.25
+    ],
+    "max": [
+      1.250053407391583,
+      3.199975318215108,
+      5.25
+    ]
+  },
+  "wheelCorrection": "保留轮心，按Y半径校正Z向椭圆拉伸，外胎单调径向归圆，切面封口，轮轴局部X向旋转",
   "source": "https://studio.tripo3d.ai/zh/workspace/generate/2768afbc-b88f-4789-86b9-1a4d44903af0",
-  "structure": "整车网格，节点名 body，车轮仍包含于车体网格"
+  "structure": "body车体与独立wheel_*轮轴，轮胎及轮毂从原始真实网格裁出，切面补齐，局部X轴旋转",
+  "wheels": [
+    {
+      "name": "wheel_fl",
+      "center": [
+        -0.929875522851944,
+        0.49566397862508893,
+        2.7720197439193726
+      ],
+      "radius": 0.49566397862508893,
+      "triangles": 320,
+      "capTriangles": 0
+    },
+    {
+      "name": "wheel_fr",
+      "center": [
+        0.9592110514640808,
+        0.49082352267578244,
+        2.768433451652527
+      ],
+      "radius": 0.49082352267578244,
+      "triangles": 382,
+      "capTriangles": 0
+    },
+    {
+      "name": "wheel_rl",
+      "center": [
+        -0.9497560131510643,
+        0.4991003509338066,
+        -2.4034275069854085
+      ],
+      "radius": 0.4991003509338066,
+      "triangles": 1024,
+      "capTriangles": 96
+    },
+    {
+      "name": "wheel_rr",
+      "center": [
+        0.9497560131510643,
+        0.4991003509338066,
+        -2.4034275069854085
+      ],
+      "radius": 0.4991003509338066,
+      "triangles": 948,
+      "capTriangles": 103
+    }
+  ]
 }
