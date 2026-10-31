@@ -66,6 +66,7 @@ export async function addRoadScenery(group: THREE.Group, roads: RoadPath[], mate
   const glowTexture = new THREE.CanvasTexture(glowCanvas); glowTexture.colorSpace = THREE.SRGBColorSpace;
   const glow = new THREE.MeshBasicMaterial({ map: glowTexture, color: '#ffdfae', transparent: true, opacity: 0.65, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
   const glowGeometry = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const haloGeometry = new THREE.PlaneGeometry(1, 1);
   const reflector = new THREE.MeshBasicMaterial({ color: '#f3e7b8' });
   const post = new THREE.CylinderGeometry(0.1, 0.15, 1, 6);
   const p = new THREE.Vector3(), size = new THREE.Vector3();
@@ -180,6 +181,8 @@ export async function addRoadScenery(group: THREE.Group, roads: RoadPath[], mate
       box(black, head, 1.1, 0.12, 0.45, s.heading, 8.85);
       box(lamp, head, 0.85, 0.035, 0.32, s.heading, 8.77);
       batch.instance(glow, p.set(head.x, head.y + 8.735, head.z), size.set(3.2, 1, 1.8), s.heading, glowGeometry);
+      batch.instance(glow, p.set(head.x, head.y + 8.77, head.z), size.set(2.8, 1.4, 1), s.heading, haloGeometry);
+      batch.instance(glow, p.set(head.x, head.y + 8.77, head.z), size.set(2.8, 1.4, 1), s.heading + Math.PI / 2, haloGeometry);
       if (s.point.y > 3) box(bridgeConcrete, s.point, 0.9, s.point.y, 1.5, s.heading, -s.point.y / 2);
     }
     if (road.kind !== 'main') continue;

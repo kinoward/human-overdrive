@@ -67,6 +67,7 @@ totalEmissiveRadiance+=cyberLight*cyberWindow*.72;`);
       };
       material.customProgramCacheKey=()=>`${cacheKey}:赛博夜窗1`;
     }
+    if(source.userData.roadSurface){replacements.set(source,material);return material;}
     const light=new THREE.MeshLambertMaterial({
       color:material.color,map:material.map,normalMap:material.normalMap,normalScale:material.normalScale,
       emissive:material.emissive,emissiveMap:material.emissiveMap,emissiveIntensity:material.emissiveIntensity,

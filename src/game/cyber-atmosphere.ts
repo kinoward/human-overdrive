@@ -63,7 +63,7 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     if(!lampCells.has(key))lampCells.set(key,[]);
     lampCells.get(key)!.push(site);
   }
-  const lights=Array.from({length:2},()=>{const light=new THREE.PointLight('#ffdfb5',0,56,2);group.add(light);return {light,site:null as LampSite|null};});
+  const lights=Array.from({length:4},()=>{const light=new THREE.PointLight('#ffdfb5',0,56,2);group.add(light);return {light,site:null as LampSite|null};});
   let lastTime:number|null=null;
   const updateLights=(time:number,focus:THREE.Vector3,nearest:RoadPosition|null)=>{
     const delta=lastTime===null?1/60:THREE.MathUtils.clamp(time-lastTime,0,.1),blend=1-Math.exp(-delta*9);

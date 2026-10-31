@@ -20,6 +20,15 @@ export function createCyberCity(roads: RoadPath[], focus: THREE.Vector3, occupie
     group.add(light);
     return light;
   });
+  let neonSites: { color: string; position: THREE.Vector3 }[] = [];
+  const updateNeonLights = (center: THREE.Vector3) => {
+    neonSites.sort((a, b) => a.position.distanceToSquared(center) - b.position.distanceToSquared(center));
+    neonLights.forEach((light, index) => {
+      const site = neonSites[index];
+      light.intensity = site ? 220 : 0;
+      if (site) { light.color.set(site.color);light.position.copy(site.position) }
+    });
+  };
   const signage = createCyberSignage();
   const buckets = new Map<THREE.Material, THREE.BufferGeometry[]>();
   const textures: THREE.Texture[] = [];
@@ -507,11 +516,8 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
     buildGroup.traverse(object => { object.userData.cyberVisual = true; });
     clearGeometry(content);content.removeFromParent();
     content = buildGroup;group.add(content);
-    neonLights.forEach((light, index) => {
-      const site = lightSites[index];
-      light.intensity = site ? 220 : 0;
-      if (site) { light.color.set(site.color);light.position.copy(site.position) }
-    });
+    neonSites = lightSites;
+    updateNeonLights(center);
     group.userData.detailedBuildings = detailedBuildings;
     group.userData.distantBuildings = distantBuildings;
     group.userData.focusRoadId = near.road.id;
@@ -520,6 +526,7 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
   }
   let pending: Generator<void> | undefined;
   const update = (center: THREE.Vector3) => {
+    updateNeonLights(center);
     if (!pending && Math.hypot(center.x - lastFocus.x, center.z - lastFocus.z) >= 280) pending = rebuild(center.clone());
     if (!pending) return false;
     const deadline = performance.now() + 1.5;
