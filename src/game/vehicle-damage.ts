@@ -64,6 +64,10 @@ interface DamageTopology {
 
 const topologyCache = new WeakMap<THREE.BufferGeometry, DamageTopology>();
 
+export function prepareDamageTopology(group: THREE.Group, kind: VehicleConfig['kind']) {
+  damageTopology((group.getObjectByName('body') as THREE.Mesh).geometry, kind);
+}
+
 function cellKey(x: number, y: number, z: number) { return `${Math.floor(x / 0.35)}:${Math.floor(y / 0.35)}:${Math.floor(z / 0.35)}` }
 
 function damageTopology(source: THREE.BufferGeometry, kind: VehicleConfig['kind']) {

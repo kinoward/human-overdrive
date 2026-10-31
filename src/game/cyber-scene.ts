@@ -12,11 +12,12 @@ import { styleCyberMaterials } from './cyber-materials';
 import { createVehicleLighting } from './vehicle-lighting';
 
 export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,roads:RoadPath[],spawn:Point3,sun:THREE.DirectionalLight){
-  const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone()};
+  const previousSun={color:sun.color.clone(),intensity:sun.intensity,mapSize:sun.shadow.mapSize.clone(),castShadow:sun.castShadow};
   const previousAutoReset=renderer.info.autoReset;
   renderer.info.autoReset=false;
   sun.color.set('#c0cbd4');sun.intensity=.72;
-  sun.shadow.mapSize.set(2048,2048);
+  sun.shadow.mapSize.set(1024,1024);
+  sun.castShadow=false;
   const originalFill:{light:THREE.HemisphereLight;color:THREE.Color;ground:THREE.Color;intensity:number}[]=[];
   scene.traverse(object=>{
     if(!(object instanceof THREE.HemisphereLight))return;
@@ -25,9 +26,12 @@ export function createCyberScene(renderer:THREE.WebGLRenderer,scene:THREE.Scene,
   });
   const materials=styleCyberMaterials(scene);
   const distant:{object:THREE.Object3D;visible:boolean;sphere:THREE.Sphere}[]=[];
+  const staticMeshes:{mesh:THREE.Mesh;local:boolean;world:boolean}[]=[];
   const seen=new Set<THREE.Object3D>();
   scene.traverse(object=>{
     if(!(object instanceof THREE.Mesh))return;
+    staticMeshes.push({mesh:object,local:object.matrixAutoUpdate,world:object.matrixWorldAutoUpdate});
+    object.matrixAutoUpdate=false;object.matrixWorldAutoUpdate=false;
     const target=object.parent instanceof THREE.LOD?object.parent:object;
     if(seen.has(target))return;seen.add(target);
     if(object instanceof THREE.InstancedMesh){if(!object.boundingSphere)object.computeBoundingSphere();}
@@ -86,13 +90,14 @@ void main(){
 }`
   });composer.addPass(film);
   const fxaa=new ShaderPass(FXAAShader);composer.addPass(fxaa);
-  const resize=(width:number,height:number)=>{composer.setSize(width,height);const ratio=renderer.getPixelRatio();film.uniforms.resolution.value.set(width*ratio,height*ratio);fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
+  const resize=(width:number,height:number,level=0)=>{composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height);bloom.enabled=level===0;const ratio=renderer.getPixelRatio();film.uniforms.resolution.value.set(width*ratio,height*ratio);fxaa.uniforms.resolution.value.set(1/(width*ratio),1/(height*ratio));};
   resize(size.x,size.y);
   let disposed=false;
   const dispose=()=>{
     if(disposed)return;disposed=true;
     window.removeEventListener('pagehide',pagehide);
-    vehicleLighting.dispose();atmosphere.dispose();city.dispose();materials.dispose();sun.color.copy(previousSun.color);sun.intensity=previousSun.intensity;sun.shadow.mapSize.copy(previousSun.mapSize);
+    vehicleLighting.dispose();atmosphere.dispose();city.dispose();materials.dispose();sun.color.copy(previousSun.color);sun.intensity=previousSun.intensity;sun.shadow.mapSize.copy(previousSun.mapSize);sun.castShadow=previousSun.castShadow;
+    staticMeshes.forEach(({mesh,local,world})=>{mesh.matrixAutoUpdate=local;mesh.matrixWorldAutoUpdate=world;});
     distant.forEach(({object,visible})=>{object.visible=visible;});
     originalFill.forEach(({light,color,ground,intensity})=>{light.color.copy(color);light.groundColor.copy(ground);light.intensity=intensity;});
     composer.dispose();bloom.dispose();renderPass.dispose();film.dispose();fxaa.dispose();renderer.info.autoReset=previousAutoReset;
@@ -103,7 +108,7 @@ void main(){
       focus.set(position.x,position.y,position.z);
       if(focus.distanceToSquared(cullingFocus)>32*32){
         cullingFocus.copy(focus);
-        distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+580;});
+        distant.forEach(({object,visible,sphere})=>{object.visible=visible&&sphere.center.distanceTo(focus)<sphere.radius+420;});
       }
       city.update(focus);atmosphere.update(time,focus,heading);vehicleLighting.update(time,camera,focus);film.uniforms.time.value=time;
       const velocity=Math.abs(speed);

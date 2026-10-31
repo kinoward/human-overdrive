@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { assetUrl } from '../asset-url';
 import { preparePlayerVehicle } from './player-vehicle-detail';
+import { prepareDamageTopology } from './vehicle-damage';
 
 export type GeneratedAsset = 'electric-suv' | 'adventure-motorcycle' | 'residential-block' | 'roadside-tree' | 'brick-apartment' | 'office-block' | 'slender-tree' | 'lush-shrub' | 'bus-shelter';
 interface AssetMesh { geometry: THREE.BufferGeometry; material: THREE.Material }
@@ -29,7 +30,7 @@ export async function loadGeneratedAssets(onProgress?: (loaded: number, total: n
   let loaded = 0;
   await Promise.all(names.map(async name => {
     const asset = await loader.loadAsync(assetUrl(`assets/generated/${name}.glb`));
-    asset.scene.traverse(object => {
+    const prepare = (root: THREE.Group) => root.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true; object.receiveShadow = true;
       if (name === 'electric-suv' || name === 'adventure-motorcycle') {
@@ -48,8 +49,17 @@ export async function loadGeneratedAssets(onProgress?: (loaded: number, total: n
         }
       }
     });
-    models.set(name, asset.scene);
-    if (name === 'electric-suv' || name === 'adventure-motorcycle') playerModels.set(name, await preparePlayerVehicle(name, asset.scene));
+    prepare(asset.scene);
+    if (name === 'electric-suv' || name === 'adventure-motorcycle') {
+      const player = await preparePlayerVehicle(name, asset.scene);
+      const kind = name === 'electric-suv' ? 'car' : 'motorcycle';
+      prepareDamageTopology(player, kind);
+      playerModels.set(name, player);
+      const light = await loader.loadAsync(assetUrl(`assets/generated/traffic/${name}-lite.glb`));
+      prepare(light.scene);
+      prepareDamageTopology(light.scene, kind);
+      models.set(name, light.scene);
+    } else models.set(name, asset.scene);
     await onProgress?.(++loaded, names.length);
   }));
 }

@@ -24,9 +24,9 @@ export function styleCyberMaterials(scene:THREE.Scene) {
     if(!(source instanceof THREE.MeshStandardMaterial)){return source;}
     let material:THREE.MeshStandardMaterial;
     if(source.userData.roadSurface){
-      material=new THREE.MeshPhysicalMaterial({
+      material=new THREE.MeshStandardMaterial({
         color:source.color.clone().multiply(new THREE.Color('#aab0b4')),map:source.map,normalMap:source.normalMap,normalScale:source.normalScale.clone().multiplyScalar(1.6),
-        roughnessMap:source.roughnessMap,roughness:.96,metalness:0,clearcoat:.035,clearcoatRoughness:.85,envMapIntensity:.4,specularIntensity:.38,
+        roughnessMap:source.roughnessMap,roughness:.96,metalness:0,envMapIntensity:.4,
         polygonOffset:source.polygonOffset,polygonOffsetFactor:source.polygonOffsetFactor,polygonOffsetUnits:source.polygonOffsetUnits
       });
       material.userData={...source.userData};
@@ -67,8 +67,16 @@ totalEmissiveRadiance+=cyberLight*cyberWindow*.72;`);
       };
       material.customProgramCacheKey=()=>`${cacheKey}:赛博夜窗1`;
     }
-    replacements.set(source,material);
-    return material;
+    const light=new THREE.MeshLambertMaterial({
+      color:material.color,map:material.map,normalMap:material.normalMap,normalScale:material.normalScale,
+      emissive:material.emissive,emissiveMap:material.emissiveMap,emissiveIntensity:material.emissiveIntensity,
+      vertexColors:material.vertexColors,side:material.side,transparent:material.transparent,opacity:material.opacity,
+      alphaMap:material.alphaMap,alphaTest:material.alphaTest,depthWrite:material.depthWrite,
+      polygonOffset:material.polygonOffset,polygonOffsetFactor:material.polygonOffsetFactor,polygonOffsetUnits:material.polygonOffsetUnits
+    });
+    light.onBeforeCompile=material.onBeforeCompile;light.customProgramCacheKey=material.customProgramCacheKey;light.userData=material.userData;
+    material.dispose();replacements.set(source,light);
+    return light;
   };
   scene.traverse(object=>{
     if(!(object instanceof THREE.Mesh))return;

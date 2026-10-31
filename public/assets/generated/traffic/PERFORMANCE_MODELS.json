@@ -1,0 +1,37 @@
+{
+  "preparation": "从仓库已有授权模型派生轻量车流与警车，保留纹理、轮轴名称和尺寸；玩家保留原模型。",
+  "ratio": 0.22,
+  "error": 0.008,
+  "assets": [
+    {
+      "source": "electric-suv.glb",
+      "file": "electric-suv-lite.glb",
+      "before": 28007,
+      "triangles": 12501
+    },
+    {
+      "source": "adventure-motorcycle.glb",
+      "file": "adventure-motorcycle-lite.glb",
+      "before": 17298,
+      "triangles": 14581
+    },
+    {
+      "source": "traffic/delivery-van.glb",
+      "file": "delivery-van-lite.glb",
+      "before": 16797,
+      "triangles": 5895
+    },
+    {
+      "source": "traffic/box-truck.glb",
+      "file": "box-truck-lite.glb",
+      "before": 21763,
+      "triangles": 8061
+    },
+    {
+      "source": "traffic/city-bus.glb",
+      "file": "city-bus-lite.glb",
+      "before": 16253,
+      "triangles": 6595
+    }
+  ]
+}

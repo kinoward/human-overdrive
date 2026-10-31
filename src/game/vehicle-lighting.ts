@@ -24,7 +24,7 @@ export function createVehicleLighting(scene: THREE.Scene) {
   group.name = '车辆道路照明';
   scene.add(group);
   const beamTexture = lowBeamTexture();
-  const slots = Array.from({ length: 8 }, () => {
+  const slots = Array.from({ length: 2 }, () => {
     const light = new THREE.SpotLight('#fff2dc', 0, 65, 0.38, 0.65, 2);
     light.castShadow = false;
     light.map = beamTexture;

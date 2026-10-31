@@ -63,7 +63,7 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
     if(!lampCells.has(key))lampCells.set(key,[]);
     lampCells.get(key)!.push(site);
   }
-  const lights=Array.from({length:4},()=>{const light=new THREE.PointLight('#ffdfb5',0,56,2);group.add(light);return {light,site:null as LampSite|null};});
+  const lights=Array.from({length:2},()=>{const light=new THREE.PointLight('#ffdfb5',0,56,2);group.add(light);return {light,site:null as LampSite|null};});
   let lastTime:number|null=null;
   const updateLights=(time:number,focus:THREE.Vector3,nearest:RoadPosition|null)=>{
     const delta=lastTime===null?1/60:THREE.MathUtils.clamp(time-lastTime,0,.1),blend=1-Math.exp(-delta*9);
@@ -73,7 +73,7 @@ export function createCyberAtmosphere(renderer:THREE.WebGLRenderer,scene:THREE.S
       if((site.road===nearest?.road||Math.abs(site.position.y-8.77-(nearest?.point.y??focus.y))<3)&&site.position.distanceToSquared(focus)<10000)sites.push(site);
     }
     sites.sort((a,b)=>a.position.distanceToSquared(focus)-b.position.distanceToSquared(focus));
-    const desired=sites.slice(0,4);
+    const desired=sites.slice(0,lights.length);
     for(const slot of lights){
       const intensity=slot.site&&desired.includes(slot.site)?400*(1-THREE.MathUtils.smoothstep(slot.site.position.distanceTo(focus),55,100)):0;
       slot.light.intensity=THREE.MathUtils.lerp(slot.light.intensity,intensity,blend);

@@ -29,6 +29,7 @@ import { DamageDebris } from './damage-debris';
 import { RaceMinimap } from './minimap';
 import { createCyberScene } from './cyber-scene';
 import { RaceCinematic } from './race-cinematic';
+import { RenderQuality } from './render-quality';
 import { RaceReplay } from './race-replay';
 import { vehicleReplaySource, trafficReplaySource, helicopterReplaySource, debrisReplaySource } from './replay-sources';
 import type { ReplaySource } from './replay-visuals';
@@ -47,6 +48,7 @@ interface TrafficCar {
 export class GameEngine {
   readonly scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
+  private quality: RenderQuality;
   private camera = new THREE.PerspectiveCamera(38, 1, 0.5, 1400);
   private timer = new THREE.Timer();
   private physics!: RAPIER.World;
@@ -121,8 +123,8 @@ export class GameEngine {
   private get police() { return this.pursuit?.cars ?? [] }
 
   constructor(private onSnapshot: (snapshot: GameSnapshot) => void, private onFinish: (result: RaceResult) => void, private onResultReady: (result: RaceResult) => void) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    this.quality = new RenderQuality(this.renderer, (width, height, level) => { this.scenery?.resize(width, height, level) });
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -808,6 +810,7 @@ export class GameEngine {
   }
 
   private resetFrameStats() {
+    this.quality.reset();
     this.sectionCost = { traffic: 0, police: 0, world: 0, contacts: 0 };
     this.frameCount = 0; this.longestFrame = 0; this.physicsCost = 0; this.renderCost = 0; this.frameWindow = performance.now();
   }
@@ -869,9 +872,13 @@ export class GameEngine {
     const alpha = Math.min(1, this.accumulator * 60);
     this.player?.render(alpha);
     this.pursuit?.render(alpha);
+    const vehicleFocus = this.player?.model.group.position ?? this.camera.position;
+    const liveVehicles = this.status === 'running' || this.status === 'intro' || this.status === 'outro';
+    if (liveVehicles) for (const actor of this.police) this.quality.updateVehicle(actor.vehicle.model.group, vehicleFocus);
     for (const helicopter of this.helicopters) helicopter.render(alpha);
     for (const actor of this.traffic) {
       actor.pose.render(alpha);
+      if (liveVehicles) this.quality.updateVehicle(actor.model.group, vehicleFocus);
       animateTrafficWheels(actor.model, actor.driver.wheelDistance - (1 - alpha) / 60 * actor.driver.speed);
     }
     if (this.status === 'replay') {
@@ -898,9 +905,12 @@ export class GameEngine {
       this.emit(); this.drawMap();
     }
     const renderStarted = performance.now();
+    this.quality.beginRender();
     const focus = this.replay.active ? this.replay.focus : this.player?.model.group.position ?? this.track.spawn.position;
     this.scenery!.render(this.camera, this.replay.active ? this.replay.sceneTime : this.simulationTime + this.presentationTime, focus, this.replay.active ? this.replay.heading : this.player?.heading ?? this.track.spawn.heading, this.status === 'running' ? this.player!.speed : 0, this.lookBack);
     this.renderCost += performance.now() - renderStarted;
+    this.quality.endRender();
+    this.quality.observe(delta, performance.now() - physicsStarted);
     this.needsRender = false;
     const duration = (performance.now() - this.frameWindow) / 1000;
     if (duration >= 1) {
@@ -913,8 +923,7 @@ export class GameEngine {
   private resize = () => {
     const { width, height } = this.renderer.domElement.parentElement!.getBoundingClientRect();
     this.needsRender = true;
-    this.renderer.setSize(width, height);
-    this.scenery?.resize(width, height);
+    this.quality.resize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.drawMap();

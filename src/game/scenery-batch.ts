@@ -45,7 +45,7 @@ export class SceneryBatch {
         const center = mesh.boundingSphere!.center.clone();
         const levels = new THREE.LOD(); levels.position.copy(center);
         mesh.position.copy(center).negate(); far.position.copy(center).negate();
-        levels.addLevel(mesh, 0); levels.addLevel(far, 100, 0.15); this.group.add(levels);
+        levels.addLevel(mesh, 0); levels.addLevel(far, 30, 0.15); this.group.add(levels);
       } else this.group.add(mesh);
     }
     const collisionSurfaces: { vertices: Float32Array; indices: Uint32Array }[] = [];

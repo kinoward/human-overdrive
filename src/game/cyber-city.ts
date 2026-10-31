@@ -12,6 +12,14 @@ export function createCyberCity(roads: RoadPath[], focus: THREE.Vector3, occupie
   const group = new THREE.Group();
   group.name = '赛博朋克视觉街区';
   group.userData.cyberVisual = true;
+  let content = new THREE.Group();
+  let buildGroup = content;
+  group.add(content);
+  const neonLights = Array.from({ length: 2 }, () => {
+    const light = new THREE.PointLight('#ffad66', 0, 43, 2);
+    group.add(light);
+    return light;
+  });
   const signage = createCyberSignage();
   const buckets = new Map<THREE.Material, THREE.BufferGeometry[]>();
   const textures: THREE.Texture[] = [];
@@ -130,7 +138,7 @@ export function createCyberCity(roads: RoadPath[], focus: THREE.Vector3, occupie
       textures.push(texture); return texture;
     });
     state = savedState;
-    return new THREE.MeshPhysicalMaterial({ map: maps[0], emissiveMap: maps[1], emissive: '#ffffff', emissiveIntensity: closed ? 0 : 0.83, roughnessMap: maps[2], roughness: 0.72, metalness: closed ? 0.55 : 0.2, clearcoat: closed ? 0.1 : 0.7, clearcoatRoughness: 0.18 });
+    return new THREE.MeshStandardMaterial({ map: maps[0], emissiveMap: maps[1], emissive: '#ffffff', emissiveIntensity: closed ? 0 : 0.83, roughnessMap: maps[2], roughness: 0.72, metalness: closed ? 0.55 : 0.2 });
   };
   const interiors = [makeInterior(0), makeInterior(1), makeInterior(2)];
   const weathered = (material: THREE.MeshStandardMaterial, panel: boolean) => {
@@ -224,7 +232,7 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
     const mesh = signage.sign(text, caption, color, width, height, vertical);
     mesh.position.set(x, y, z); mesh.rotation.y = angle;
     mesh.applyMatrix4(frame);
-    group.add(mesh);
+    buildGroup.add(mesh);
     box(darkMetal, x, y, z - 0.15, width + 0.32, height + 0.32, 0.26, angle);
     return mesh;
   };
@@ -377,18 +385,20 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
   };
   const lastFocus = new THREE.Vector3(Infinity, Infinity, Infinity);
   const materials = new Set<THREE.Material>([concrete, darkConcrete, metal, darkMetal, trim, rust, cyan, amber, red, ...interiors, ...facades]);
-  const clearGeometry = () => {
-    group.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
-    group.clear(); buckets.clear(); footprints.length = 0; animatedSigns.length = 0;
+  const clearGeometry = (target: THREE.Group) => {
+    target.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
+    target.clear();
   };
-  const update = (center: THREE.Vector3) => {
-    if (Math.hypot(center.x - lastFocus.x, center.z - lastFocus.z) < 280) return false;
+  function* rebuild(center: THREE.Vector3): Generator<void> {
     const near = nearestRoad(roads, center.x, center.z, center.y);
-    if (!near) return false;
-    clearGeometry();
+    if (!near) return;
+    buildGroup = new THREE.Group();
+    const lightSites: { color: string; position: THREE.Vector3 }[] = [];
+    footprints.length = 0; animatedSigns.length = 0;
     const connected = new Set(near.road.junctions.map(junction => junction.roadId));
     const windows: { road: RoadPath; start: number; end: number; priority: number; distance: number }[] = [];
     for (const road of roads) {
+      yield;
       let start = Infinity, end = -Infinity, best = Infinity;
       for (let i = 0; i < road.points.length; i++) {
         const point = road.points[i];
@@ -405,11 +415,12 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
     let detailedBuildings = 0, distantBuildings = 0, foregroundBuildings = 0, backgroundTowers = 0;
     const roadHash = (road: RoadPath) => { let hash = seed; for (const letter of road.id) hash = Math.imul(hash ^ letter.charCodeAt(0), 16777619); return hash; };
     for (const window of windows) {
-      if (foregroundBuildings >= 112) break;
+      if (foregroundBuildings >= 80) break;
       const hash = roadHash(window.road);
       for (const side of [-1, 1]) {
         for (let slot = Math.ceil(window.start / 38); slot * 38 <= window.end; slot++) {
-          if (foregroundBuildings >= 112) break;
+          yield;
+          if (foregroundBuildings >= 80) break;
           state = (hash ^ Math.imul(slot, 73856093) ^ Math.imul(side, 19349663)) | 0;
           const distance = slot * 38;
           const sample = sampleRoad(window.road, distance);
@@ -421,7 +432,7 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
           const { edge } = placement;
           const x = side * (edge + width / 2);
           const index = Math.abs(slot + hash + (side < 0 ? 0 : 2));
-          if (radial < 470 && detailedBuildings < 60) {
+          if (radial < 300 && detailedBuildings < 24) {
             building(side, edge, width, depth, height, index); detailedBuildings++;
           } else {
             box(facades[index % 3], x, height / 2, 0, width, height, depth, 0, true);
@@ -448,11 +459,10 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
             for (const y of [signY - 4.5, signY + 4.5]) box(darkMetal, side * (edge + 0.1), y, depth / 2 + 0.05, 2.8, 0.17, 0.22);
             if (firstSign) {
               sign(viewSide < 0 ? '南站茶室' : '义体修复', viewSide < 0 ? '夜雨 · 茶 · 旧唱片' : '精密维护 / 夜间营业', viewSide < 0 ? '#efc395' : '#87cbd2', side * (edge - 0.32), 6.2, 0, 8, 2.4, false, side < 0 ? Math.PI / 2 : -Math.PI / 2);
-              const light = new THREE.PointLight(viewSide < 0 ? '#ffad66' : '#50b7ce', 220, 43, 2);
-              light.position.set(side * (edge - 1.5), 9.5, depth / 2 + 1).applyMatrix4(frame); group.add(light);
+              lightSites.push({ color: viewSide < 0 ? '#ffad66' : '#50b7ce', position: new THREE.Vector3(side * (edge - 1.5), 9.5, depth / 2 + 1).applyMatrix4(frame) });
               if (viewSide > 0) {
                 const poster = signage.poster(8.8, 15.5);
-                poster.position.set(x, Math.min(height - 10, signY + 11), depth / 2 + 0.42); poster.applyMatrix4(frame); group.add(poster);
+                poster.position.set(x, Math.min(height - 10, signY + 11), depth / 2 + 0.42); poster.applyMatrix4(frame); buildGroup.add(poster);
                 box(darkMetal, x, Math.min(height - 10, signY + 11), depth / 2 + 0.15, 9.3, 16, 0.35);
                 box(amber, x, Math.min(height - 10, signY + 11) + 8.1, depth / 2 + 0.5, 8.5, 0.055, 0.07);
               }
@@ -463,12 +473,13 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
       }
     }
     for (const window of windows) {
-      if (backgroundTowers >= 34) break;
+      if (backgroundTowers >= 20) break;
       if (window.road.kind === 'ramp') continue;
       const hash = roadHash(window.road);
       for (const side of [-1, 1]) {
         for (let slot = Math.ceil(window.start / 83); slot * 83 <= window.end; slot++) {
-          if (backgroundTowers >= 34) break;
+          yield;
+          if (backgroundTowers >= 20) break;
           state = (hash ^ Math.imul(slot, 83492791) ^ Math.imul(side, 2971215073)) | 0;
           const width = range(20, 32), depth = range(22, 35), height = range(95, 181);
           const placement = place(window.road, slot * 83, side, width, depth, range(75, 110));
@@ -484,27 +495,49 @@ ${panel ? 'float citySeamX = min(mod(cityAxis+1000.,3.6),3.6-mod(cityAxis+1000.,
     }
     frame.identity();
     for (const [material, geometries] of buckets) {
+      yield;
       const merged = mergeGeometries(geometries, false)!;
       const mesh = new THREE.Mesh(merged, material);
       mesh.castShadow = material !== cyan && material !== amber && material !== red;
-      mesh.receiveShadow = true; group.add(mesh);
+      mesh.receiveShadow = true; buildGroup.add(mesh);
       geometries.forEach(geometry => geometry.dispose());
+      buckets.delete(material);
     }
     buckets.clear();
-    group.traverse(object => { object.userData.cyberVisual = true; });
+    buildGroup.traverse(object => { object.userData.cyberVisual = true; });
+    clearGeometry(content);content.removeFromParent();
+    content = buildGroup;group.add(content);
+    neonLights.forEach((light, index) => {
+      const site = lightSites[index];
+      light.intensity = site ? 220 : 0;
+      if (site) { light.color.set(site.color);light.position.copy(site.position) }
+    });
     group.userData.detailedBuildings = detailedBuildings;
     group.userData.distantBuildings = distantBuildings;
     group.userData.focusRoadId = near.road.id;
     group.userData.backgroundTowers = backgroundTowers;
     lastFocus.copy(center);
-    return true;
+  }
+  let pending: Generator<void> | undefined;
+  const update = (center: THREE.Vector3) => {
+    if (!pending && Math.hypot(center.x - lastFocus.x, center.z - lastFocus.z) >= 280) pending = rebuild(center.clone());
+    if (!pending) return false;
+    const deadline = performance.now() + 1.5;
+    do {
+      if (pending.next().done) { pending = undefined; return true }
+    } while (performance.now() < deadline);
+    return false;
   };
   const dispose = () => {
-    clearGeometry();
+    pending?.return(undefined);pending = undefined;
+    clearGeometry(content);
+    if (buildGroup !== content) clearGeometry(buildGroup);
+    for (const geometries of buckets.values()) geometries.forEach(geometry => geometry.dispose());
+    buckets.clear();
     materials.forEach(material => material.dispose());
     new Set(textures).forEach(texture => texture.dispose());
     signage.dispose(); group.removeFromParent();
   };
-  update(focus);
+  for (const _ of rebuild(focus)) {}
   return { group, update, dispose };
 }
